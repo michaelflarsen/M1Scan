@@ -1,0 +1,365 @@
+<Window x:Class="MMPing.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="MMPing - Network Utility" Height="600" Width="900"
+        Icon="/app.ico"
+        Background="{StaticResource DarkBackgroundBrush}">
+    <DockPanel LastChildFill="True">
+        <!-- Header -->
+        <DockPanel DockPanel.Dock="Top" Background="{StaticResource AccentBrush}" LastChildFill="True">
+            <!-- N-Tech logo til højre -->
+            <Image DockPanel.Dock="Right"
+                   Source="/Resources/ntech-logo.png"
+                   Height="50" Margin="10,5,12,5"
+                   VerticalAlignment="Center"
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
+            <!-- Venstre: netværks-ikon + titel -->
+            <StackPanel Orientation="Horizontal" Margin="12,8,0,8" VerticalAlignment="Center">
+                <Viewbox Width="36" Height="36" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <Canvas Width="64" Height="64">
+                        <Line X1="32" Y1="32" X2="32" Y2="6"  Stroke="White" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Line X1="32" Y1="32" X2="8"  Y2="56" Stroke="White" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Line X1="32" Y1="32" X2="56" Y2="56" Stroke="White" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Line X1="32" Y1="6"  X2="8"  Y2="56" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.5"/>
+                        <Line X1="32" Y1="6"  X2="56" Y2="56" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.5"/>
+                        <Line X1="8"  Y1="56" X2="56" Y2="56" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.5"/>
+                        <Ellipse Canvas.Left="20" Canvas.Top="0"  Width="24" Height="24" Fill="White"/>
+                        <Ellipse Canvas.Left="26" Canvas.Top="6"  Width="12" Height="12" Fill="{StaticResource AccentBrush}"/>
+                        <Ellipse Canvas.Left="0"  Canvas.Top="44" Width="24" Height="24" Fill="White"/>
+                        <Ellipse Canvas.Left="6"  Canvas.Top="50" Width="12" Height="12" Fill="{StaticResource AccentBrush}"/>
+                        <Ellipse Canvas.Left="40" Canvas.Top="44" Width="24" Height="24" Fill="White"/>
+                        <Ellipse Canvas.Left="46" Canvas.Top="50" Width="12" Height="12" Fill="{StaticResource AccentBrush}"/>
+                        <Ellipse Canvas.Left="22" Canvas.Top="22" Width="20" Height="20" Fill="White"/>
+                        <Ellipse Canvas.Left="27" Canvas.Top="27" Width="10" Height="10" Fill="{StaticResource AccentBrush}"/>
+                    </Canvas>
+                </Viewbox>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="MMPing - Advanced Network Utility"
+                               FontSize="18" FontWeight="Bold"
+                               Foreground="{StaticResource DarkForegroundBrush}"/>
+                    <TextBlock Text="{Binding StatusMessage}"
+                               FontSize="11" Margin="0,2,0,0"
+                               Foreground="{StaticResource DarkForegroundBrush}"/>
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Tab Control -->
+        <TabControl Background="{StaticResource DarkBackgroundBrush}"
+                    Foreground="{StaticResource DarkForegroundBrush}">
+
+            <!-- ===== NETWORK ADAPTERS TAB ===== -->
+            <TabItem Header="Network Adapters">
+                <Border Background="{StaticResource DarkBackgroundBrush}" Padding="15">
+                    <StackPanel>
+                        <Button Content="Refresh Adapters"
+                                Style="{StaticResource DarkButtonStyle}"
+                                Margin="0,0,0,10" Width="150" HorizontalAlignment="Left"
+                                Command="{Binding RefreshAdaptersCommand}"/>
+
+                        <DataGrid ItemsSource="{Binding NetworkAdapters}"
+                                  SelectedItem="{Binding SelectedAdapter}"
+                                  AutoGenerateColumns="False"
+                                  Height="400" Margin="0,0,0,10">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                                <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddresses[0]}" Width="150"/>
+                                <DataGridTextColumn Header="MAC Address" Binding="{Binding MacAddress}" Width="150"/>
+                                <DataGridTextColumn Header="IP-tilstand" Binding="{Binding DhcpText}" Width="90"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Content="Reset Adapter"
+                                    Style="{StaticResource DarkButtonStyle}"
+                                    Margin="0,0,10,0"
+                                    Command="{Binding ResetAdapterCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </TabItem>
+
+            <!-- ===== NETWORK SCAN TAB ===== -->
+            <TabItem Header="Network Scan">
+                <Border Background="{StaticResource DarkBackgroundBrush}" Padding="15"
+                        DataContext="{Binding NetworkScanVm}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Ping Single Host -->
+                        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                            <TextBlock Text="Ping Single Host" FontWeight="Bold"
+                                       Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox Width="200"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Text="{Binding IpAddressInput, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,10,0"/>
+                                <Button Content="Ping"
+                                        Style="{StaticResource DarkButtonStyle}"
+                                        Width="80" Margin="0,0,10,0"
+                                        Command="{Binding PingSingleCommand}"/>
+                                <Button Content="Clear"
+                                        Style="{StaticResource DarkButtonStyle}"
+                                        Width="80"
+                                        Command="{Binding ClearResultsCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Separator Grid.Row="1" Height="1" Background="{StaticResource ControlBorderBrush}" Margin="0,0,0,10"/>
+
+                        <!-- Network Scan -->
+                        <Grid Grid.Row="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Network Scan" FontWeight="Bold"
+                                       Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,8"/>
+
+                            <Grid Grid.Row="1" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Label Grid.Column="0" Content="Subnet:"
+                                       Foreground="{StaticResource DarkForegroundBrush}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Text="{Binding SubnetInput, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <Label Grid.Column="2" Content="From:"
+                                       Foreground="{StaticResource DarkForegroundBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                <TextBox Grid.Column="3"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Text="{Binding StartIp, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <Label Grid.Column="4" Content="To:"
+                                       Foreground="{StaticResource DarkForegroundBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                <TextBox Grid.Column="5"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Text="{Binding EndIp, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <Button Grid.Column="6" Content="Auto-detect"
+                                        Style="{StaticResource DarkButtonStyle}"
+                                        Width="100" HorizontalAlignment="Right" Margin="10,0,0,0"
+                                        Command="{Binding AutoDetectSubnetCommand}"/>
+                                <Button Grid.Column="7" Content="Scan Network"
+                                        Style="{StaticResource DarkButtonStyle}"
+                                        Width="120" Margin="10,0,0,0"
+                                        Command="{Binding ScanNetworkCommand}"/>
+                            </Grid>
+
+                            <!-- Auto-refresh + Status + Progress -->
+                            <StackPanel Grid.Row="2" Margin="0,0,0,8">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <Button Content="{Binding AutoRefreshButtonLabel}"
+                                            Style="{StaticResource DarkButtonStyle}"
+                                            Width="100" Margin="0,0,10,0"
+                                            Command="{Binding ToggleAutoRefreshCommand}"/>
+                                    <Label Content="Interval (sek):" VerticalAlignment="Center"
+                                           Foreground="{StaticResource DarkForegroundBrush}"/>
+                                    <TextBox Width="60" Style="{StaticResource DarkTextBoxStyle}"
+                                             Text="{Binding AutoRefreshInterval, UpdateSourceTrigger=PropertyChanged}"
+                                             Margin="5,0,0,0"/>
+                                    <TextBlock Text="{Binding StatusMessage}"
+                                               Foreground="{StaticResource DarkForegroundBrush}"
+                                               VerticalAlignment="Center" Margin="15,0,0,0"/>
+                                </StackPanel>
+                                <Grid Height="14" Margin="0,2,0,0">
+                                    <!-- Indeterminate: vises når scanning starter (ScanProgress = 0) -->
+                                    <ProgressBar IsIndeterminate="True" Height="14"
+                                                 Background="{StaticResource ControlBackgroundBrush}"
+                                                 Foreground="{StaticResource AccentDarkBrush}"
+                                                 Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <!-- Determinate: fylder op i takt med scanning -->
+                                    <ProgressBar Value="{Binding ScanProgress}" Maximum="100" Height="14"
+                                                 Background="Transparent"
+                                                 Foreground="{StaticResource AccentBrush}"
+                                                 Opacity="0.85"/>
+                                    <TextBlock Text="{Binding ScanProgress, StringFormat={}{0}%}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               FontSize="9" FontWeight="Bold"
+                                               Foreground="{StaticResource DarkForegroundBrush}"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Results -->
+                            <DataGrid Grid.Row="3"
+                                      ItemsSource="{Binding DiscoveredHosts}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      Background="{StaticResource ControlBackgroundBrush}">
+                                <DataGrid.Resources>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0D47A1"/>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#1A237E"/>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="White"/>
+                                </DataGrid.Resources>
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="IP" SortMemberPath="IpSortValue" Width="115">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock ToolTip="Klik for at kopiere">
+                                                    <Hyperlink Command="{Binding DataContext.CopyIpCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                               CommandParameter="{Binding IpAddress}"
+                                                               Foreground="{StaticResource DarkForegroundBrush}"
+                                                               TextDecorations="None">
+                                                        <Run Text="{Binding IpAddress, Mode=OneWay}"/>
+                                                    </Hyperlink>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="HTTP" Width="50">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock>
+                                                    <Hyperlink Command="{Binding DataContext.OpenInBrowserCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                               CommandParameter="{Binding IpAddress}"
+                                                               Foreground="{StaticResource DarkForegroundBrush}"
+                                                               TextDecorations="None"
+                                                               IsEnabled="{Binding IsPort80Open}">
+                                                        <Run Text="{Binding Port80Text, Mode=OneWay}"/>
+                                                    </Hyperlink>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Host Name" Binding="{Binding HostName}" Width="*"/>
+                                    <DataGridTextColumn Header="NetBIOS" Binding="{Binding NetBiosName}" Width="120"/>
+                                    <DataGridTextColumn Header="MAC" Binding="{Binding MacAddress}" Width="135"/>
+                                    <DataGridTextColumn Header="Producent" Binding="{Binding Vendor}" Width="100"/>
+                                    <DataGridTextColumn Header="OS" Binding="{Binding OsGuess}" Width="100"/>
+                                    <DataGridTextColumn Header="ms" Binding="{Binding ResponseTime}" Width="45"/>
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="75"/>
+                                    <DataGridTextColumn Header="Sidst set" Binding="{Binding LastSeenFormatted}" Width="75"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ===== IP CONFIGURATION TAB ===== -->
+            <TabItem Header="IP Configuration">
+                <Border Background="{StaticResource DarkBackgroundBrush}" Padding="15"
+                        DataContext="{Binding IpConfigVm}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                            <TextBlock Text="Select Network Adapter:" FontWeight="Bold"
+                                       Foreground="{StaticResource DarkForegroundBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <ComboBox Style="{StaticResource DarkComboBoxStyle}"
+                                      Width="300" Height="30"
+                                      ItemsSource="{Binding NetworkAdapters}"
+                                      SelectedItem="{Binding SelectedAdapter}"
+                                      DisplayMemberPath="Description"/>
+                            <Button Content="Refresh" Style="{StaticResource DarkButtonStyle}"
+                                    Margin="10,0,0,0" Width="80"
+                                    Command="{Binding RefreshAdaptersCommand}"/>
+                        </StackPanel>
+
+                        <TextBlock Text="IP Configuration" FontWeight="Bold"
+                                   Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
+
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <RadioButton Grid.Column="0" Grid.Row="0" Content="DHCP"
+                                         Foreground="{StaticResource DarkForegroundBrush}"
+                                         IsChecked="{Binding IsDhcp}"
+                                         Margin="0,0,20,8"/>
+                            <RadioButton Grid.Column="0" Grid.Row="1" Content="Static IP"
+                                         Foreground="{StaticResource DarkForegroundBrush}"
+                                         IsChecked="{Binding IsDhcp, Converter={StaticResource InverseBoolConverter}}"
+                                         Margin="0,0,20,0"/>
+
+                            <StackPanel Grid.Column="1" Grid.Row="0" Grid.RowSpan="4" Margin="10,0,0,0">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Label Content="IP Address:" Foreground="{StaticResource DarkForegroundBrush}" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" Style="{StaticResource DarkTextBoxStyle}"
+                                             Text="{Binding IpAddress, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding IsDhcp, Converter={StaticResource InverseBoolConverter}}"
+                                             Margin="0,0,0,0"/>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Label Content="Subnet Mask:" Foreground="{StaticResource DarkForegroundBrush}" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" Style="{StaticResource DarkTextBoxStyle}"
+                                             Text="{Binding SubnetMask, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding IsDhcp, Converter={StaticResource InverseBoolConverter}}"
+                                             Margin="0,0,0,0"/>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Label Content="Gateway:" Foreground="{StaticResource DarkForegroundBrush}" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" Style="{StaticResource DarkTextBoxStyle}"
+                                             Text="{Binding Gateway, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding IsDhcp, Converter={StaticResource InverseBoolConverter}}"
+                                             Margin="0,0,0,0"/>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Status -->
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Apply DHCP" Style="{StaticResource DarkButtonStyle}"
+                                    Width="120" Margin="0,0,10,0"
+                                    Command="{Binding ApplyDhcpCommand}"/>
+                            <Button Content="Apply Static IP" Style="{StaticResource DarkButtonStyle}"
+                                    Width="120" Margin="0,0,10,0"
+                                    Command="{Binding ApplyStaticIpCommand}"/>
+                            <Button Content="Flush DNS" Style="{StaticResource DarkButtonStyle}"
+                                    Width="120"
+                                    Command="{Binding FlushDnsCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

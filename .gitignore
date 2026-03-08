@@ -1,0 +1,46 @@
+## Build results
+bin/
+obj/
+*.dbmdl
+*.mdf
+*.ldf
+*.log
+
+## Visual Studio cache/options
+.vs/
+.vscode/
+
+## User-specific files
+*.user
+*.rsuser
+*.suo
+*.uo
+
+## Rider
+.idea/
+
+## WPF
+*.baml
+
+## NuGet
+packages/
+.nupkg
+
+## Compiled project files
+*.exe
+*.dll
+*.pdb
+
+## IDE
+.vscode/
+.idea/
+*.sln.iml
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Project specific
+temp/
+debug/
+*/obj/
