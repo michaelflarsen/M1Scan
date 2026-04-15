@@ -6,9 +6,11 @@ A professional Windows desktop application built with C# WPF for network managem
 
 ### Network Management
 - **Network Adapter Monitoring** - View all network adapters with detailed information
-- **Network Scanning** - Ping/ARP scan to discover devices on your network
+- **Advanced Network Scanning** - Real-time ping/ARP scan discovering devices instantly as found
+- **Comprehensive Device Discovery** - Finds devices that don't respond to ping via ARP table
 - **Device Information** - Get IP addresses, MAC addresses, DNS servers, gateway info
 - **Connection Status** - Monitor adapter status and connectivity
+- **Port Scanning** - Check for open HTTP, HTTPS, SSH, SMB and other services
 
 ### IP Configuration
 - **Static IP Assignment** - Configure static IP addresses with custom subnet and gateway

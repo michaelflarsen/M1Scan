@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Threading;
 using MMPing.Models;
 using MMPing.Services;
@@ -315,47 +318,121 @@ namespace MMPing.ViewModels
             if (IsScanning) return;
             IsScanning = true;
             ScanProgress = 0;
+            DiscoveredHosts.Clear();
             StatusMessage = SelectedAdapter != null
-                ? $"Scanner {SubnetInput}.x på {SelectedAdapter.Description}..."
-                : $"Scanner {SubnetInput}.x...";
+                ? $"Starter ping-scanning af {SubnetInput}.x på {SelectedAdapter.Description}..."
+                : $"Starter ping-scanning af {SubnetInput}.x...";
 
             try
             {
-                var hosts = await _networkService.ScanNetworkAsync(SubnetInput, StartIp, EndIp, SelectedAdapter?.Name ?? string.Empty);
-
-                foreach (var host in hosts)
+                // Start all ping tasks
+                var pingTasks = new List<Task<HostInfo>>();
+                for (int i = StartIp; i <= EndIp; i++)
                 {
-                    var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
-                    if (existing != null)
+                    var ip = $"{SubnetInput}.{i}";
+                    pingTasks.Add(_networkService.PingHostAsync(ip, SelectedAdapter?.Name ?? string.Empty));
+                }
+
+                var totalTasks = pingTasks.Count;
+                var completedTasks = 0;
+                var onlineCount = 0;
+
+                // Process results as they complete
+                while (pingTasks.Count > 0)
+                {
+                    var completedTask = await Task.WhenAny(pingTasks);
+                    pingTasks.Remove(completedTask);
+
+                    var host = await completedTask;
+                    completedTasks++;
+
+                    if (host.IsReachable)
                     {
-                        existing.HostName = host.HostName;
-                        existing.ResponseTime = host.ResponseTime;
-                        existing.Status = host.Status;
-                        existing.LastSeen = host.LastSeen;
-                        existing.IsReachable = host.IsReachable;
-                        existing.OsGuess = host.OsGuess;
-                        existing.IsPort80Open = host.IsPort80Open;
-                        if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
-                        if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
-                        if (!string.IsNullOrEmpty(host.NetBiosName)) existing.NetBiosName = host.NetBiosName;
+                        host.Status = "Online";
+                        onlineCount++;
+                        await UpdateHostInUI(host);
                     }
-                    else
+
+                    ScanProgress = 10 + (int)(40.0 * completedTasks / totalTasks);
+                    StatusMessage = $"Ping-scanning: {completedTasks}/{totalTasks} IP'er behandlet, {onlineCount} online";
+                }
+
+                StatusMessage = $"Ping-fase færdig — {onlineCount} online fundet. Indlæser ARP-tabel...";
+                ScanProgress = 55;
+
+                var arpTable = await _networkService.GetArpTableAsync();
+                var knownIps = new HashSet<string>(DiscoveredHosts.Select(h => h.IpAddress));
+                var arpHostsAdded = 0;
+
+                foreach (var arpEntry in arpTable)
+                {
+                    if (!knownIps.Contains(arpEntry.Key) && arpEntry.Key.StartsWith(SubnetInput + "."))
                     {
-                        DiscoveredHosts.Add(host);
+                        var arpHost = new HostInfo
+                        {
+                            IpAddress = arpEntry.Key,
+                            HostName = arpEntry.Key,
+                            MacAddress = arpEntry.Value,
+                            Vendor = OuiLookup.Lookup(arpEntry.Value),
+                            IsReachable = false,
+                            Status = "ARP-only",
+                            LastSeen = DateTime.Now
+                        };
+
+                        try
+                        {
+                            var hostEntry = await Dns.GetHostEntryAsync(arpEntry.Key);
+                            arpHost.HostName = hostEntry.HostName;
+                        }
+                        catch { }
+
+                        arpHostsAdded++;
+                        await UpdateHostInUI(arpHost);
                     }
                 }
 
-                foreach (var h in DiscoveredHosts.Where(h => !hosts.Any(r => r.IpAddress == h.IpAddress)).ToList())
+                StatusMessage = $"ARP-data indlæst. {arpHostsAdded} ARP-enheder tilføjet. Tjekker port 80 på online enheder...";
+                ScanProgress = 70;
+
+                var onlineHosts = DiscoveredHosts.Where(h => h.IsReachable).ToList();
+                var portTasks = onlineHosts.Select(async host =>
                 {
-                    h.Status = "Offline";
-                    h.IsReachable = false;
-                }
+                    host.IsPort80Open = await _networkService.CheckPortAsync(host.IpAddress, 80);
+                    await UpdateHostInUI(host);
+                });
+                await Task.WhenAll(portTasks);
+
+                StatusMessage = $"Port 80-scanning færdig. Tjekker ekstra services på ARP-only enheder...";
+                ScanProgress = 80;
+
+                var arpOnlyHosts = DiscoveredHosts.Where(h => !h.IsReachable && h.Status == "ARP-only").ToList();
+                var arpPortTasks = arpOnlyHosts.Select(async host =>
+                {
+                    var commonPorts = new[] { 22, 80, 443, 445, 548, 631, 8080 };
+                    var results = await Task.WhenAll(commonPorts.Select(port => _networkService.CheckPortAsync(host.IpAddress, port)));
+                    host.IsPort80Open = results[1];
+                    await UpdateHostInUI(host);
+                });
+                await Task.WhenAll(arpPortTasks);
+
+                StatusMessage = $"NetBIOS-opslag igangsat...";
+                ScanProgress = 90;
+
+                var netbiosTasks = DiscoveredHosts.Select(async host =>
+                {
+                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress);
+                    await UpdateHostInUI(host);
+                });
+                await Task.WhenAll(netbiosTasks);
 
                 SortHostsByIp();
                 ScanProgress = 100;
 
-                var onlineCount = DiscoveredHosts.Count(h => h.IsReachable);
-                StatusMessage = $"Færdig — {onlineCount} online, {DiscoveredHosts.Count - onlineCount} offline";
+                onlineCount = DiscoveredHosts.Count(h => h.IsReachable);
+                var arpOnlyCount = DiscoveredHosts.Count(h => !h.IsReachable && h.Status == "ARP-only");
+                var totalFound = DiscoveredHosts.Count;
+
+                StatusMessage = $"Færdig — {onlineCount} online, {arpOnlyCount} via ARP, {totalFound} enheder fundet.";
             }
             catch (Exception ex)
             {
@@ -365,6 +442,29 @@ namespace MMPing.ViewModels
             {
                 IsScanning = false;
             }
+        }
+
+        private async Task UpdateHostInUI(HostInfo host)
+        {
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
+                if (existing != null)
+                {
+                    existing.HostName = host.HostName;
+                    existing.ResponseTime = host.ResponseTime;
+                    existing.Status = host.Status;
+                    existing.LastSeen = host.LastSeen;
+                    existing.IsReachable = host.IsReachable;
+                    existing.OsGuess = host.OsGuess;
+                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
+                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
+                }
+                else
+                {
+                    DiscoveredHosts.Add(host);
+                }
+            });
         }
     }
 }

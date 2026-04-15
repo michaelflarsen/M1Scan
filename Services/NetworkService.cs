@@ -20,6 +20,7 @@ namespace MMPing.Services
         Task<string> GetArpInfoAsync(string ipAddress);
         Task<Dictionary<string, string>> GetArpTableAsync();
         Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000);
+        Task<string> GetNetBiosNameAsync(string ipAddress);
     }
 
     public class NetworkService : INetworkService
@@ -154,6 +155,40 @@ namespace MMPing.Services
                 {
                     host.MacAddress = mac;
                     host.Vendor = OuiLookup.Lookup(mac);
+                }
+            }
+
+            // Tilføj enheder fra ARP-tabellen der ikke svarede på ping
+            var scannedIps = new HashSet<string>(hostInfos.Select(h => h.IpAddress));
+            foreach (var arpEntry in arpTable)
+            {
+                if (!scannedIps.Contains(arpEntry.Key))
+                {
+                    // Tjek om IP'en er i det scannede subnet
+                    if (IPAddress.TryParse(arpEntry.Key, out var ip) &&
+                        arpEntry.Key.StartsWith(subnet + "."))
+                    {
+                        var arpHost = new HostInfo
+                        {
+                            IpAddress = arpEntry.Key,
+                            HostName = arpEntry.Key, // Forsøg at resolve hostname
+                            MacAddress = arpEntry.Value,
+                            Vendor = OuiLookup.Lookup(arpEntry.Value),
+                            IsReachable = false,
+                            Status = "ARP-only",
+                            LastSeen = DateTime.Now
+                        };
+
+                        // Prøv at få hostname
+                        try
+                        {
+                            var hostEntry = await Dns.GetHostEntryAsync(arpEntry.Key);
+                            arpHost.HostName = hostEntry.HostName;
+                        }
+                        catch { }
+
+                        results.Add(arpHost);
+                    }
                 }
             }
 
