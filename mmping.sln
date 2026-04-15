@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MMPing", "MMPing.csproj", "{ECEC5AC0-32D4-F77C-0014-DD9BE17B8A23}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ECEC5AC0-32D4-F77C-0014-DD9BE17B8A23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ECEC5AC0-32D4-F77C-0014-DD9BE17B8A23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ECEC5AC0-32D4-F77C-0014-DD9BE17B8A23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ECEC5AC0-32D4-F77C-0014-DD9BE17B8A23}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9BEC2000-EC55-4C07-94F5-9308E830A9ED}
+	EndGlobalSection
+EndGlobal

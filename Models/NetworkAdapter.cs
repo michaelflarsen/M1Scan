@@ -16,5 +16,7 @@ namespace MMPing.Models
         public bool IsConnected { get; set; }
         public string Status { get; set; } = "Unknown";
         public int Index { get; set; }
+
+        public override string ToString() => string.IsNullOrEmpty(Description) ? Name : Description;
     }
 }

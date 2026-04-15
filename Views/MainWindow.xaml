@@ -123,6 +123,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
@@ -130,6 +131,28 @@
                                        Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,8"/>
 
                             <Grid Grid.Row="1" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Label Grid.Column="0" Content="Adapter:"
+                                       Foreground="{StaticResource DarkForegroundBrush}" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="1"
+                                          Style="{StaticResource DarkComboBoxStyle}"
+                                          ItemsSource="{Binding AvailableAdapters}"
+                                          SelectedItem="{Binding SelectedAdapter}"
+                                          DisplayMemberPath="Description"
+                                          TextSearch.TextPath="Description"
+                                          Margin="8,0,8,0"/>
+                                <Button Grid.Column="2" Content="Refresh adapters"
+                                        Style="{StaticResource DarkButtonStyle}"
+                                        Width="140"
+                                        Command="{Binding RefreshAdaptersCommand}"/>
+                            </Grid>
+
+                            <Grid Grid.Row="2" Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="150"/>
@@ -170,7 +193,7 @@
                             </Grid>
 
                             <!-- Auto-refresh + Status + Progress -->
-                            <StackPanel Grid.Row="2" Margin="0,0,0,8">
+                            <StackPanel Grid.Row="3" Margin="0,0,0,8">
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                     <Button Content="{Binding AutoRefreshButtonLabel}"
                                             Style="{StaticResource DarkButtonStyle}"
@@ -204,7 +227,7 @@
                             </StackPanel>
 
                             <!-- Results -->
-                            <DataGrid Grid.Row="3"
+                            <DataGrid Grid.Row="4"
                                       ItemsSource="{Binding DiscoveredHosts}"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="True"

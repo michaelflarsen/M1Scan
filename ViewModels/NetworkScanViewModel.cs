@@ -25,6 +25,31 @@ namespace MMPing.ViewModels
         private bool _isAutoRefreshEnabled;
         private int _autoRefreshInterval = 30;
 
+        private ObservableCollection<NetworkAdapter> _availableAdapters = new();
+        private NetworkAdapter? _selectedAdapter;
+
+        public ObservableCollection<NetworkAdapter> AvailableAdapters
+        {
+            get => _availableAdapters;
+            set => SetProperty(ref _availableAdapters, value);
+        }
+
+        public NetworkAdapter? SelectedAdapter
+        {
+            get => _selectedAdapter;
+            set
+            {
+                if (SetProperty(ref _selectedAdapter, value) && value != null)
+                {
+                    if (value.IpAddresses.Length > 0)
+                    {
+                        UpdateSubnetFromAdapter(value);
+                        StatusMessage = $"Valgt adapter: {value.Description}";
+                    }
+                }
+            }
+        }
+
         public ObservableCollection<HostInfo> DiscoveredHosts
         {
             get => _discoveredHosts;
@@ -109,6 +134,7 @@ namespace MMPing.ViewModels
         public RelayCommand PingSingleCommand { get; }
         public RelayCommand ScanNetworkCommand { get; }
         public RelayCommand ClearResultsCommand { get; }
+        public RelayCommand RefreshAdaptersCommand { get; }
         public RelayCommand AutoDetectSubnetCommand { get; }
         public RelayCommand ToggleAutoRefreshCommand { get; }
         public RelayCommand OpenInBrowserCommand { get; }
@@ -124,6 +150,7 @@ namespace MMPing.ViewModels
             PingSingleCommand = new RelayCommand(async _ => await PingSingleAsync(), _ => !IsScanning && !string.IsNullOrEmpty(IpAddressInput));
             ScanNetworkCommand = new RelayCommand(async _ => await ScanNetworkAsync(), _ => !IsScanning);
             ClearResultsCommand = new RelayCommand(_ => DiscoveredHosts.Clear());
+            RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
             AutoDetectSubnetCommand = new RelayCommand(async _ => await AutoDetectSubnetAsync(), _ => !IsScanning);
             ToggleAutoRefreshCommand = new RelayCommand(_ => IsAutoRefreshEnabled = !IsAutoRefreshEnabled);
             OpenInBrowserCommand = new RelayCommand(param =>
@@ -136,12 +163,50 @@ namespace MMPing.ViewModels
                 if (param is string ip && !string.IsNullOrEmpty(ip))
                     System.Windows.Clipboard.SetText(ip);
             });
+
+            _ = RefreshAdaptersAsync();
+        }
+
+        private async Task RefreshAdaptersAsync()
+        {
+            try
+            {
+                var adapters = await _networkService.GetNetworkAdaptersAsync();
+                AvailableAdapters = new ObservableCollection<NetworkAdapter>(adapters);
+                SelectedAdapter = AvailableAdapters.FirstOrDefault(a => a.IsConnected) ?? AvailableAdapters.FirstOrDefault();
+                StatusMessage = $"Loaded {AvailableAdapters.Count} adapters";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Fejl ved læsning af adaptere: {ex.Message}";
+            }
+        }
+
+        private void UpdateSubnetFromAdapter(NetworkAdapter adapter)
+        {
+            if (adapter.IpAddresses.Length == 0)
+                return;
+
+            var parts = adapter.IpAddresses[0].Split('.');
+            if (parts.Length == 4)
+            {
+                SubnetInput = $"{parts[0]}.{parts[1]}.{parts[2]}";
+                StartIp = 1;
+                EndIp = 254;
+            }
         }
 
         private async Task AutoDetectSubnetAsync()
         {
             try
             {
+                if (SelectedAdapter != null && SelectedAdapter.IpAddresses.Length > 0)
+                {
+                    UpdateSubnetFromAdapter(SelectedAdapter);
+                    StatusMessage = $"Subnet sat fra valgt adapter: {SelectedAdapter.Description} - {SubnetInput}.1-254";
+                    return;
+                }
+
                 var adapters = await _networkService.GetNetworkAdaptersAsync();
                 var active = adapters.FirstOrDefault(a =>
                     a.IsConnected &&
@@ -200,18 +265,30 @@ namespace MMPing.ViewModels
 
             try
             {
-                var host = await _networkService.PingHostAsync(IpAddressInput);
+                var host = await _networkService.PingHostAsync(IpAddressInput, SelectedAdapter?.Name ?? string.Empty);
                 if (host.IsReachable)
+                {
                     host.IsPort80Open = await _networkService.CheckPortAsync(host.IpAddress, 80);
+
+                    var arpTable = await _networkService.GetArpTableAsync();
+                    if (arpTable.TryGetValue(host.IpAddress, out var mac))
+                    {
+                        host.MacAddress = mac;
+                        host.Vendor = OuiLookup.Lookup(mac);
+                    }
+                }
 
                 var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
                 if (existing != null)
                 {
+                    existing.HostName = host.HostName;
                     existing.ResponseTime = host.ResponseTime;
                     existing.Status = host.Status;
                     existing.LastSeen = host.LastSeen;
                     existing.IsReachable = host.IsReachable;
                     existing.IsPort80Open = host.IsPort80Open;
+                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
+                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
                 }
                 else
                 {
@@ -238,37 +315,14 @@ namespace MMPing.ViewModels
             if (IsScanning) return;
             IsScanning = true;
             ScanProgress = 0;
-            int total = EndIp - StartIp + 1;
-            int completed = 0;
-            int found = 0;
-            StatusMessage = $"Scanner {total} IP-adresser...";
+            StatusMessage = SelectedAdapter != null
+                ? $"Scanner {SubnetInput}.x på {SelectedAdapter.Description}..."
+                : $"Scanner {SubnetInput}.x...";
 
             try
             {
-                var pingTasks = Enumerable.Range(StartIp, total).Select(async i =>
-                {
-                    var ip = $"{SubnetInput}.{i}";
-                    var result = await _networkService.PingHostAsync(ip);
-                    int count = System.Threading.Interlocked.Increment(ref completed);
-                    if (result.IsReachable) System.Threading.Interlocked.Increment(ref found);
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        ScanProgress = (int)((count / (double)total) * 100);
-                        StatusMessage = $"Scanner {SubnetInput}.x  —  {count}/{total} tjekket  —  {found} fundet";
-                    });
-                    return result;
-                }).ToList();
+                var hosts = await _networkService.ScanNetworkAsync(SubnetInput, StartIp, EndIp, SelectedAdapter?.Name ?? string.Empty);
 
-                var hostInfos = await Task.WhenAll(pingTasks);
-                var hosts = hostInfos.Where(h => h.IsReachable).ToList();
-
-                // Port 80-check parallelt på alle online hosts
-                await Task.WhenAll(hosts.Select(async host =>
-                {
-                    host.IsPort80Open = await _networkService.CheckPortAsync(host.IpAddress, 80);
-                }));
-
-                // Merge
                 foreach (var host in hosts)
                 {
                     var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
@@ -278,7 +332,7 @@ namespace MMPing.ViewModels
                         existing.ResponseTime = host.ResponseTime;
                         existing.Status = host.Status;
                         existing.LastSeen = host.LastSeen;
-                        existing.IsReachable = true;
+                        existing.IsReachable = host.IsReachable;
                         existing.OsGuess = host.OsGuess;
                         existing.IsPort80Open = host.IsPort80Open;
                         if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
@@ -298,6 +352,7 @@ namespace MMPing.ViewModels
                 }
 
                 SortHostsByIp();
+                ScanProgress = 100;
 
                 var onlineCount = DiscoveredHosts.Count(h => h.IsReachable);
                 StatusMessage = $"Færdig — {onlineCount} online, {DiscoveredHosts.Count - onlineCount} offline";
