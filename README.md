@@ -1,3 +1,5 @@
+![M1Scan Logo](Resources/m1scan-logo.jpg)
+
 # M1Scan - Network Utility
 
 Windows desktop applikation til netværksscanning og IP-konfiguration.

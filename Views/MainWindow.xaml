@@ -9,41 +9,14 @@
         Background="{StaticResource DarkBackgroundBrush}">
     <DockPanel LastChildFill="True">
         <!-- Header -->
-        <DockPanel DockPanel.Dock="Top" Background="{StaticResource AccentBrush}" LastChildFill="True">
-            <!-- N-Tech logo til højre -->
-            <Image DockPanel.Dock="Right"
-                   Source="/Resources/ntech-logo.png"
-                   Height="50" Margin="10,5,12,5"
-                   VerticalAlignment="Center"
-                   RenderOptions.BitmapScalingMode="HighQuality"/>
-            <!-- Venstre: netværks-ikon + titel -->
-            <StackPanel Orientation="Horizontal" Margin="12,8,0,8" VerticalAlignment="Center">
-                <Viewbox Width="36" Height="36" Margin="0,0,12,0" VerticalAlignment="Center">
-                    <Canvas Width="64" Height="64">
-                        <Line X1="32" Y1="32" X2="32" Y2="6"  Stroke="White" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                        <Line X1="32" Y1="32" X2="8"  Y2="56" Stroke="White" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                        <Line X1="32" Y1="32" X2="56" Y2="56" Stroke="White" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                        <Line X1="32" Y1="6"  X2="8"  Y2="56" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.5"/>
-                        <Line X1="32" Y1="6"  X2="56" Y2="56" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.5"/>
-                        <Line X1="8"  Y1="56" X2="56" Y2="56" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.5"/>
-                        <Ellipse Canvas.Left="20" Canvas.Top="0"  Width="24" Height="24" Fill="White"/>
-                        <Ellipse Canvas.Left="26" Canvas.Top="6"  Width="12" Height="12" Fill="{StaticResource AccentBrush}"/>
-                        <Ellipse Canvas.Left="0"  Canvas.Top="44" Width="24" Height="24" Fill="White"/>
-                        <Ellipse Canvas.Left="6"  Canvas.Top="50" Width="12" Height="12" Fill="{StaticResource AccentBrush}"/>
-                        <Ellipse Canvas.Left="40" Canvas.Top="44" Width="24" Height="24" Fill="White"/>
-                        <Ellipse Canvas.Left="46" Canvas.Top="50" Width="12" Height="12" Fill="{StaticResource AccentBrush}"/>
-                        <Ellipse Canvas.Left="22" Canvas.Top="22" Width="20" Height="20" Fill="White"/>
-                        <Ellipse Canvas.Left="27" Canvas.Top="27" Width="10" Height="10" Fill="{StaticResource AccentBrush}"/>
-                    </Canvas>
-                </Viewbox>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="M1Scan - Advanced Network Utility"
-                               FontSize="18" FontWeight="Bold"
-                               Foreground="{StaticResource DarkForegroundBrush}"/>
-                    <TextBlock Text="{Binding StatusMessage}"
-                               FontSize="11" Margin="0,2,0,0"
-                               Foreground="{StaticResource DarkForegroundBrush}"/>
-                </StackPanel>
+        <DockPanel DockPanel.Dock="Top" Background="{StaticResource AccentBrush}" LastChildFill="True" Height="66">
+            <StackPanel DockPanel.Dock="Left" Margin="12,8,0,8" VerticalAlignment="Center">
+                <Image Source="/Resources/m1scan-logo-small.jpg"
+                       Height="40" HorizontalAlignment="Left"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontSize="11" Margin="2,3,0,0"
+                           Foreground="{StaticResource DarkForegroundBrush}"/>
             </StackPanel>
         </DockPanel>
 
