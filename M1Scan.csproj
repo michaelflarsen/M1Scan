@@ -23,6 +23,8 @@
     <Folder Include="Resources\Themes\" />
     <Resource Include="app.ico"/>
     <Resource Include="Resources\ntech-logo.png"/>
+    <Resource Include="Resources\m1scan-logo.jpg"/>
+    <Resource Include="Resources\m1scan-logo-small.jpg"/>
   </ItemGroup>
 
 </Project>
