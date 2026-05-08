@@ -5,7 +5,8 @@
       "Bash(start \"\" \"bin/Debug/net8.0-windows/M1Scan.exe\")",
       "Bash(dotnet build *)",
       "Bash(Get-ChildItem -Path \"C:\\\\VS_Code_projekt\\\\M1Scan\" -Recurse -File -Filter \"*.csproj\" -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(rtk git *)"
     ]
   }
 }
