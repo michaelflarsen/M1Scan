@@ -6,7 +6,13 @@
       "Bash(dotnet build *)",
       "Bash(Get-ChildItem -Path \"C:\\\\VS_Code_projekt\\\\M1Scan\" -Recurse -File -Filter \"*.csproj\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(rtk git *)"
+      "Bash(rtk git *)",
+      "Bash(rtk dotnet *)",
+      "Bash(rtk ls *)",
+      "Bash(rtk read *)",
+      "Read(//tmp/ipscan/**)",
+      "Bash(xargs cat)",
+      "PowerShell(cd \"c:\\\\VS_Code_projekt\\\\M1Scan\"; dotnet build 2>&1 | Select-String \"error|Error\" | Where-Object { $_ -notmatch \"MSB3026|MSB3027|MSB3021\" })"
     ]
   }
 }
