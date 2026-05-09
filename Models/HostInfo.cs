@@ -44,16 +44,43 @@ namespace M1Scan.Models
         private string _vendor = string.Empty;
         private string _netBiosName = string.Empty;
         private bool _isPort80Open;
+        private bool _isPort443Open;
+        private bool _isPort8080Open;
+        private bool _isPort502Open;
 
         public string OsGuess { get => _osGuess; set => SetProperty(ref _osGuess, value); }
         public string Vendor { get => _vendor; set => SetProperty(ref _vendor, value); }
         public string NetBiosName { get => _netBiosName; set => SetProperty(ref _netBiosName, value); }
+
         public bool IsPort80Open
         {
             get => _isPort80Open;
-            set { if (SetProperty(ref _isPort80Open, value)) OnPropertyChanged(nameof(Port80Text)); }
+            set { if (SetProperty(ref _isPort80Open, value)) { OnPropertyChanged(nameof(Port80Text)); OnPropertyChanged(nameof(Url80)); } }
         }
-        public string Port80Text => _isPort80Open ? "Åben" : string.Empty;
+        public bool IsPort443Open
+        {
+            get => _isPort443Open;
+            set { if (SetProperty(ref _isPort443Open, value)) { OnPropertyChanged(nameof(Port443Text)); OnPropertyChanged(nameof(Url443)); } }
+        }
+        public bool IsPort8080Open
+        {
+            get => _isPort8080Open;
+            set { if (SetProperty(ref _isPort8080Open, value)) { OnPropertyChanged(nameof(Port8080Text)); OnPropertyChanged(nameof(Url8080)); } }
+        }
+        public bool IsPort502Open
+        {
+            get => _isPort502Open;
+            set { if (SetProperty(ref _isPort502Open, value)) OnPropertyChanged(nameof(Port502Text)); }
+        }
+
+        public string Port80Text   => _isPort80Open   ? "80"   : string.Empty;
+        public string Port443Text  => _isPort443Open  ? "443"  : string.Empty;
+        public string Port8080Text => _isPort8080Open ? "8080" : string.Empty;
+        public string Port502Text  => _isPort502Open  ? "502"  : string.Empty;
+
+        public string Url80   => _isPort80Open   ? $"http://{IpAddress}"      : string.Empty;
+        public string Url443  => _isPort443Open  ? $"https://{IpAddress}"     : string.Empty;
+        public string Url8080 => _isPort8080Open ? $"http://{IpAddress}:8080" : string.Empty;
 
         public string LastSeenFormatted => _lastSeen == default ? "-" : _lastSeen.ToString("HH:mm:ss");
     }

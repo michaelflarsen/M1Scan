@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using M1Scan.Models;
@@ -21,10 +22,31 @@ namespace M1Scan.Services
         Task<Dictionary<string, string>> GetArpTableAsync();
         Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000);
         Task<string> GetNetBiosNameAsync(string ipAddress);
+        Task<string> GetMacAddressAsync(string ipAddress);
     }
 
     public class NetworkService : INetworkService
     {
+        [DllImport("iphlpapi.dll", ExactSpelling = true)]
+        private static extern int SendARP(int destIp, int srcIp, byte[] macAddr, ref uint macAddrLen);
+
+        public async Task<string> GetMacAddressAsync(string ipAddress)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var bytes = IPAddress.Parse(ipAddress).GetAddressBytes();
+                    int destIp = BitConverter.ToInt32(bytes, 0);
+                    byte[] macAddr = new byte[6];
+                    uint macAddrLen = (uint)macAddr.Length;
+                    if (SendARP(destIp, 0, macAddr, ref macAddrLen) == 0)
+                        return string.Join(":", macAddr.Take((int)macAddrLen).Select(b => b.ToString("X2")));
+                }
+                catch { }
+                return string.Empty;
+            });
+        }
         public async Task<List<NetworkAdapter>> GetNetworkAdaptersAsync()
         {
             return await Task.Run(() =>
@@ -87,9 +109,15 @@ namespace M1Scan.Services
             {
                 using (var ping = new Ping())
                 {
-                    var reply = await ping.SendPingAsync(hostOrIp, 2000);
-                    
-                    if (reply.Status == IPStatus.Success)
+                    // 2 forsøg — reducerer false negatives ved pakketab
+                    PingReply? reply = null;
+                    for (int attempt = 0; attempt < 2; attempt++)
+                    {
+                        reply = await ping.SendPingAsync(hostOrIp, 800);
+                        if (reply.Status == IPStatus.Success) break;
+                    }
+
+                    if (reply!.Status == IPStatus.Success)
                     {
                         hostInfo.IsReachable = true;
                         hostInfo.ResponseTime = (int)reply.RoundtripTime;
@@ -106,7 +134,7 @@ namespace M1Scan.Services
                             _               => string.Empty
                         };
 
-                        // Try to get hostname if IP was provided
+                        // Hostname-opslag
                         if (IPAddress.TryParse(hostOrIp, out _))
                         {
                             try
@@ -128,6 +156,29 @@ namespace M1Scan.Services
             {
                 hostInfo.IsReachable = false;
                 hostInfo.Status = $"Error: {ex.Message}";
+            }
+
+            // TCP fallback — opdager hosts der blokerer ICMP (routere, firewalls, IoT)
+            if (!hostInfo.IsReachable)
+            {
+                var tcpPorts = new[] { 80, 443, 22, 445 };
+                var tcpResults = await Task.WhenAll(tcpPorts.Select(p => CheckPortAsync(hostOrIp, p, 400)));
+                var firstOpen = tcpPorts.Zip(tcpResults).FirstOrDefault(x => x.Second);
+                if (firstOpen.Second)
+                {
+                    hostInfo.IsReachable = true;
+                    hostInfo.IpAddress = hostOrIp;
+                    hostInfo.Status = $"Online (TCP:{firstOpen.First})";
+                    if (IPAddress.TryParse(hostOrIp, out _))
+                    {
+                        try
+                        {
+                            var e = await Dns.GetHostEntryAsync(hostOrIp);
+                            hostInfo.HostName = e.HostName;
+                        }
+                        catch { hostInfo.HostName = hostOrIp; }
+                    }
+                }
             }
 
             hostInfo.LastSeen = DateTime.Now;

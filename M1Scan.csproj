@@ -7,7 +7,7 @@
     <UseWindowsForms>false</UseWindowsForms>
     <RootNamespace>M1Scan</RootNamespace>
     <AssemblyName>M1Scan</AssemblyName>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Authors>Michael Larsen</Authors>
     <Description>Advanced Windows Network Utility - Network Scanning, IP Management, ARP/Ping</Description>
     <LangVersion>latest</LangVersion>
@@ -25,6 +25,7 @@
     <Resource Include="Resources\ntech-logo.png"/>
     <Resource Include="Resources\m1scan-logo.jpg"/>
     <Resource Include="Resources\m1scan-logo-small.jpg"/>
+    <Resource Include="Resources\logo.png"/>
   </ItemGroup>
 
 </Project>

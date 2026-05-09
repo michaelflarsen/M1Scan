@@ -4,21 +4,20 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="M1Scan - Network Utility" Height="600" Width="900"
+        Title="M1Scan - Network Discovery Utility" Height="600" Width="900"
         Icon="/app.ico"
         Background="{StaticResource DarkBackgroundBrush}">
     <DockPanel LastChildFill="True">
-        <!-- Header -->
-        <DockPanel DockPanel.Dock="Top" Background="{StaticResource AccentBrush}" LastChildFill="True" Height="66">
-            <StackPanel DockPanel.Dock="Left" Margin="12,8,0,8" VerticalAlignment="Center">
-                <Image Source="/Resources/m1scan-logo-small.jpg"
-                       Height="40" HorizontalAlignment="Left"
-                       RenderOptions.BitmapScalingMode="HighQuality"/>
-                <TextBlock Text="{Binding StatusMessage}"
-                           FontSize="11" Margin="2,3,0,0"
-                           Foreground="{StaticResource DarkForegroundBrush}"/>
-            </StackPanel>
-        </DockPanel>
+        <!-- Status bar -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource ControlBackgroundBrush}"
+                BorderBrush="{StaticResource ControlBorderBrush}"
+                BorderThickness="0,1,0,0"
+                Height="24" Padding="12,0">
+            <TextBlock Text="{Binding StatusMessage}"
+                       FontSize="11" Foreground="#888888"
+                       VerticalAlignment="Center"/>
+        </Border>
 
         <!-- Tab Control -->
         <TabControl Background="{StaticResource DarkBackgroundBrush}"
@@ -37,6 +36,18 @@
                                   SelectedItem="{Binding SelectedAdapter}"
                                   AutoGenerateColumns="False"
                                   Height="400" Margin="0,0,0,10">
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                            <Setter Property="Background" Value="#1A3320"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                                            <Setter Property="Background" Value="#3A1A1A"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
                                 <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
@@ -226,17 +237,35 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="HTTP" Width="50">
+                                    <DataGridTemplateColumn Header="Ports" Width="90">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock>
                                                     <Hyperlink Command="{Binding DataContext.OpenInBrowserCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                               CommandParameter="{Binding IpAddress}"
-                                                               Foreground="{StaticResource DarkForegroundBrush}"
+                                                               CommandParameter="{Binding Url80}"
+                                                               Foreground="#4FC3F7"
                                                                TextDecorations="None"
                                                                IsEnabled="{Binding IsPort80Open}">
                                                         <Run Text="{Binding Port80Text, Mode=OneWay}"/>
                                                     </Hyperlink>
+                                                    <Run Text=" "/>
+                                                    <Hyperlink Command="{Binding DataContext.OpenInBrowserCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                               CommandParameter="{Binding Url443}"
+                                                               Foreground="#81C784"
+                                                               TextDecorations="None"
+                                                               IsEnabled="{Binding IsPort443Open}">
+                                                        <Run Text="{Binding Port443Text, Mode=OneWay}"/>
+                                                    </Hyperlink>
+                                                    <Run Text=" "/>
+                                                    <Hyperlink Command="{Binding DataContext.OpenInBrowserCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                               CommandParameter="{Binding Url8080}"
+                                                               Foreground="#FFB74D"
+                                                               TextDecorations="None"
+                                                               IsEnabled="{Binding IsPort8080Open}">
+                                                        <Run Text="{Binding Port8080Text, Mode=OneWay}"/>
+                                                    </Hyperlink>
+                                                    <Run Text=" "/>
+                                                    <Run Text="{Binding Port502Text, Mode=OneWay}" Foreground="#CE93D8"/>
                                                 </TextBlock>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
