@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using M1Scan.Models;
 using M1Scan.Services;
@@ -13,6 +14,8 @@ namespace M1Scan.ViewModels
         private readonly IIpConfigService _ipConfigService;
 
         private ObservableCollection<NetworkAdapter> _networkAdapters = new();
+        private ObservableCollection<NetworkAdapter> _activeAdapters = new();
+        private ObservableCollection<NetworkAdapter> _inactiveAdapters = new();
         private NetworkAdapter? _selectedAdapter;
         private bool _isLoading;
         private string _statusMessage = "Ready";
@@ -21,6 +24,18 @@ namespace M1Scan.ViewModels
         {
             get => _networkAdapters;
             set => SetProperty(ref _networkAdapters, value);
+        }
+
+        public ObservableCollection<NetworkAdapter> ActiveAdapters
+        {
+            get => _activeAdapters;
+            set => SetProperty(ref _activeAdapters, value);
+        }
+
+        public ObservableCollection<NetworkAdapter> InactiveAdapters
+        {
+            get => _inactiveAdapters;
+            set => SetProperty(ref _inactiveAdapters, value);
         }
 
         public NetworkAdapter? SelectedAdapter
@@ -70,7 +85,9 @@ namespace M1Scan.ViewModels
             try
             {
                 var adapters = await _networkService.GetNetworkAdaptersAsync();
-                NetworkAdapters = new ObservableCollection<NetworkAdapter>(adapters);
+                NetworkAdapters   = new ObservableCollection<NetworkAdapter>(adapters);
+                ActiveAdapters    = new ObservableCollection<NetworkAdapter>(adapters.Where(a => a.IsConnected));
+                InactiveAdapters  = new ObservableCollection<NetworkAdapter>(adapters.Where(a => !a.IsConnected));
                 StatusMessage = $"Loaded {adapters.Count} network adapters";
             }
             catch (Exception ex)

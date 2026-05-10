@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using M1Scan.Models;
 using M1Scan.Utils;
@@ -16,13 +17,15 @@ namespace M1Scan.Services
     public interface INetworkService
     {
         Task<List<NetworkAdapter>> GetNetworkAdaptersAsync();
-        Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "");
-        Task<List<HostInfo>> ScanNetworkAsync(string subnet, int startIp, int endIp, string adapterName = "");
+        Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "", CancellationToken ct = default);
+        Task<List<HostInfo>> ScanNetworkAsync(string subnet, int startIp, int endIp, string adapterName = "", CancellationToken ct = default);
         Task<string> GetArpInfoAsync(string ipAddress);
         Task<Dictionary<string, string>> GetArpTableAsync();
-        Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000);
-        Task<string> GetNetBiosNameAsync(string ipAddress);
-        Task<string> GetMacAddressAsync(string ipAddress);
+        Dictionary<string, string> GetArpTableNative();
+        Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000, CancellationToken ct = default);
+        Task<string> GetNetBiosNameAsync(string ipAddress, CancellationToken ct = default);
+        Task<string> GetMacAddressAsync(string ipAddress, CancellationToken ct = default);
+        Task FloodArpAsync(string subnet, int startIp, int endIp, CancellationToken ct = default);
     }
 
     public class NetworkService : INetworkService
@@ -30,23 +33,116 @@ namespace M1Scan.Services
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
         private static extern int SendARP(int destIp, int srcIp, byte[] macAddr, ref uint macAddrLen);
 
-        public async Task<string> GetMacAddressAsync(string ipAddress)
+        [DllImport("iphlpapi.dll", ExactSpelling = true)]
+        private static extern uint GetIpNetTable2(ushort Family, out IntPtr Table);
+
+        [DllImport("iphlpapi.dll", ExactSpelling = true)]
+        private static extern void FreeMibTable(IntPtr Memory);
+
+        // MIB_IPNET_TABLE2: [NumEntries(4)][pad(4)][MIB_IPNET_ROW2 × NumEntries]
+        // MIB_IPNET_ROW2 offsets (total 88 bytes):
+        //   [0]  SOCKADDR_INET Address (28 bytes): [0-1]=si_family, [4-7]=IPv4 addr
+        //   [28] ULONG InterfaceIndex
+        //   [32] ULONGLONG InterfaceLuid
+        //   [40] UCHAR PhysicalAddress[32]
+        //   [72] ULONG PhysicalAddressLength
+        //   [76] DWORD State  (6 = NlnsPermanent = self/broadcast, skip)
+        private const int RowSize = 88;
+        private const int TableHeaderSize = 8;
+
+        // Reads the Windows ARP cache via native GetIpNetTable2 — instant, no subprocess.
+        private static Dictionary<string, string> ReadArpCacheNative()
         {
-            return await Task.Run(() =>
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (GetIpNetTable2(2 /* AF_INET */, out IntPtr ptr) != 0 || ptr == IntPtr.Zero)
+                return result;
+            try
             {
-                try
+                int count = Marshal.ReadInt32(ptr, 0);
+                for (int i = 0; i < count; i++)
                 {
-                    var bytes = IPAddress.Parse(ipAddress).GetAddressBytes();
-                    int destIp = BitConverter.ToInt32(bytes, 0);
-                    byte[] macAddr = new byte[6];
-                    uint macAddrLen = (uint)macAddr.Length;
-                    if (SendARP(destIp, 0, macAddr, ref macAddrLen) == 0)
-                        return string.Join(":", macAddr.Take((int)macAddrLen).Select(b => b.ToString("X2")));
+                    IntPtr row = ptr + TableHeaderSize + i * RowSize;
+                    ushort family = (ushort)Marshal.ReadInt16(row, 0);
+                    if (family != 2) continue;
+
+                    byte[] addrBytes = {
+                        Marshal.ReadByte(row, 4), Marshal.ReadByte(row, 5),
+                        Marshal.ReadByte(row, 6), Marshal.ReadByte(row, 7)
+                    };
+                    string ip = new IPAddress(addrBytes).ToString();
+
+                    uint macLen = (uint)Marshal.ReadInt32(row, 72);
+                    if (macLen == 0 || macLen > 6) continue;
+
+                    uint state = (uint)Marshal.ReadInt32(row, 76);
+                    if (state == 6) continue; // NlnsPermanent = self/broadcast
+
+                    var macBytes = new byte[macLen];
+                    for (int b = 0; b < (int)macLen; b++)
+                        macBytes[b] = Marshal.ReadByte(row, 40 + b);
+
+                    result[ip] = string.Join(":", macBytes.Select(b => b.ToString("X2")));
                 }
-                catch { }
-                return string.Empty;
-            });
+            }
+            finally { FreeMibTable(ptr); }
+            return result;
         }
+
+        public Dictionary<string, string> GetArpTableNative() => ReadArpCacheNative();
+
+        // Sends ARP requests to all IPs in range to seed the OS ARP cache.
+        // Runs concurrently with the ping sweep; capped at 1500ms total.
+        public async Task FloodArpAsync(string subnet, int startIp, int endIp,
+                                         CancellationToken ct = default)
+        {
+            using var sem = new SemaphoreSlim(64);
+            var tasks = Enumerable.Range(startIp, endIp - startIp + 1).Select(i =>
+                Task.Run(async () =>
+                {
+                    if (ct.IsCancellationRequested) return;
+                    await sem.WaitAsync(ct).ConfigureAwait(false);
+                    try
+                    {
+                        var bytes = IPAddress.Parse($"{subnet}.{i}").GetAddressBytes();
+                        int dest = BitConverter.ToInt32(bytes, 0);
+                        byte[] mac = new byte[6]; uint len = 6;
+                        SendARP(dest, 0, mac, ref len);
+                    }
+                    catch { }
+                    finally { sem.Release(); }
+                }, ct)).ToList();
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(1500);
+            try { await Task.WhenAll(tasks).WaitAsync(timeoutCts.Token); }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
+        }
+
+        public async Task<string> GetMacAddressAsync(string ipAddress,
+                                                      CancellationToken ct = default)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(1500);
+            try
+            {
+                return await Task.Run(() =>
+                {
+                    try
+                    {
+                        var bytes = IPAddress.Parse(ipAddress).GetAddressBytes();
+                        int destIp = BitConverter.ToInt32(bytes, 0);
+                        byte[] macAddr = new byte[6];
+                        uint macAddrLen = (uint)macAddr.Length;
+                        if (SendARP(destIp, 0, macAddr, ref macAddrLen) == 0)
+                            return string.Join(":", macAddr.Take((int)macAddrLen).Select(b => b.ToString("X2")));
+                    }
+                    catch { }
+                    return string.Empty;
+                }, cts.Token);
+            }
+            catch (OperationCanceledException) { return string.Empty; }
+        }
+
         public async Task<List<NetworkAdapter>> GetNetworkAdaptersAsync()
         {
             return await Task.Run(() =>
@@ -97,59 +193,57 @@ namespace M1Scan.Services
             catch { return false; }
         }
 
-        public async Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "")
+        private static async Task<string> GetHostNameWithTimeoutAsync(string ip,
+            int timeoutMs = 2000, CancellationToken ct = default)
         {
-            var hostInfo = new HostInfo 
-            { 
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeoutMs);
+            try
+            {
+                var entry = await Dns.GetHostEntryAsync(ip, AddressFamily.Unspecified, cts.Token);
+                return entry.HostName;
+            }
+            catch { return ip; }
+        }
+
+        public async Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "",
+                                                   CancellationToken ct = default)
+        {
+            var hostInfo = new HostInfo
+            {
                 HostName = hostOrIp,
                 AdapterName = adapterName
             };
 
             try
             {
-                using (var ping = new Ping())
+                using var ping = new Ping();
+                // Single attempt 600ms — generous for LAN; TCP fallback covers filtered hosts
+                var reply = await ping.SendPingAsync(hostOrIp, 600);
+
+                if (reply.Status == IPStatus.Success)
                 {
-                    // 2 forsøg — reducerer false negatives ved pakketab
-                    PingReply? reply = null;
-                    for (int attempt = 0; attempt < 2; attempt++)
-                    {
-                        reply = await ping.SendPingAsync(hostOrIp, 800);
-                        if (reply.Status == IPStatus.Success) break;
-                    }
+                    hostInfo.IsReachable = true;
+                    hostInfo.ResponseTime = (int)reply.RoundtripTime;
+                    hostInfo.Status = "Online";
+                    hostInfo.IpAddress = reply.Address.ToString();
 
-                    if (reply!.Status == IPStatus.Success)
+                    int ttl = reply.Options?.Ttl ?? 0;
+                    hostInfo.OsGuess = ttl switch
                     {
-                        hostInfo.IsReachable = true;
-                        hostInfo.ResponseTime = (int)reply.RoundtripTime;
-                        hostInfo.Status = "Online";
-                        hostInfo.IpAddress = reply.Address.ToString();
+                        > 0 and <= 64  => "Linux / Mac",
+                        > 64 and <= 128 => "Windows",
+                        > 128           => "Netværksenhed",
+                        _               => string.Empty
+                    };
 
-                        // OS-gæt fra TTL
-                        int ttl = reply.Options?.Ttl ?? 0;
-                        hostInfo.OsGuess = ttl switch
-                        {
-                            > 0 and <= 64  => "Linux / Mac",
-                            > 64 and <= 128 => "Windows",
-                            > 128           => "Netværksenhed",
-                            _               => string.Empty
-                        };
-
-                        // Hostname-opslag
-                        if (IPAddress.TryParse(hostOrIp, out _))
-                        {
-                            try
-                            {
-                                var hostEntry = await Dns.GetHostEntryAsync(hostOrIp);
-                                hostInfo.HostName = hostEntry.HostName;
-                            }
-                            catch { }
-                        }
-                    }
-                    else
-                    {
-                        hostInfo.IsReachable = false;
-                        hostInfo.Status = reply.Status.ToString();
-                    }
+                    if (IPAddress.TryParse(hostOrIp, out _))
+                        hostInfo.HostName = await GetHostNameWithTimeoutAsync(hostOrIp, 2000, ct);
+                }
+                else
+                {
+                    hostInfo.IsReachable = false;
+                    hostInfo.Status = reply.Status.ToString();
                 }
             }
             catch (Exception ex)
@@ -161,8 +255,9 @@ namespace M1Scan.Services
             // TCP fallback — opdager hosts der blokerer ICMP (routere, firewalls, IoT)
             if (!hostInfo.IsReachable)
             {
+                if (ct.IsCancellationRequested) { hostInfo.LastSeen = DateTime.Now; return hostInfo; }
                 var tcpPorts = new[] { 80, 443, 22, 445 };
-                var tcpResults = await Task.WhenAll(tcpPorts.Select(p => CheckPortAsync(hostOrIp, p, 400)));
+                var tcpResults = await Task.WhenAll(tcpPorts.Select(p => CheckPortAsync(hostOrIp, p, 300, ct)));
                 var firstOpen = tcpPorts.Zip(tcpResults).FirstOrDefault(x => x.Second);
                 if (firstOpen.Second)
                 {
@@ -170,14 +265,7 @@ namespace M1Scan.Services
                     hostInfo.IpAddress = hostOrIp;
                     hostInfo.Status = $"Online (TCP:{firstOpen.First})";
                     if (IPAddress.TryParse(hostOrIp, out _))
-                    {
-                        try
-                        {
-                            var e = await Dns.GetHostEntryAsync(hostOrIp);
-                            hostInfo.HostName = e.HostName;
-                        }
-                        catch { hostInfo.HostName = hostOrIp; }
-                    }
+                        hostInfo.HostName = await GetHostNameWithTimeoutAsync(hostOrIp, 2000, ct);
                 }
             }
 
@@ -185,21 +273,27 @@ namespace M1Scan.Services
             return hostInfo;
         }
 
-        public async Task<List<HostInfo>> ScanNetworkAsync(string subnet, int startIp, int endIp, string adapterName = "")
+        public async Task<List<HostInfo>> ScanNetworkAsync(string subnet, int startIp, int endIp,
+                                                            string adapterName = "",
+                                                            CancellationToken ct = default)
         {
-            var tasks = new List<Task<HostInfo>>();
+            // Start ARP flood concurrently with ping sweep
+            var floodTask = FloodArpAsync(subnet, startIp, endIp, ct);
 
+            var tasks = new List<Task<HostInfo>>();
             for (int i = startIp; i <= endIp; i++)
             {
                 var ip = $"{subnet}.{i}";
-                tasks.Add(PingHostAsync(ip, adapterName));
+                tasks.Add(PingHostAsync(ip, adapterName, ct));
             }
 
             var hostInfos = await Task.WhenAll(tasks);
+            await floodTask;
+
             var results = hostInfos.Where(h => h.IsReachable).ToList();
 
-            // Hent MAC-adresser fra ARP-cache og sæt vendor
-            var arpTable = await GetArpTableAsync();
+            // Instant native ARP table read — no subprocess
+            var arpTable = ReadArpCacheNative();
             foreach (var host in results)
             {
                 if (arpTable.TryGetValue(host.IpAddress, out var mac))
@@ -209,57 +303,43 @@ namespace M1Scan.Services
                 }
             }
 
-            // Tilføj enheder fra ARP-tabellen der ikke svarede på ping
             var scannedIps = new HashSet<string>(hostInfos.Select(h => h.IpAddress));
             foreach (var arpEntry in arpTable)
             {
-                if (!scannedIps.Contains(arpEntry.Key))
+                if (!scannedIps.Contains(arpEntry.Key) && arpEntry.Key.StartsWith(subnet + "."))
                 {
-                    // Tjek om IP'en er i det scannede subnet
-                    if (IPAddress.TryParse(arpEntry.Key, out var ip) &&
-                        arpEntry.Key.StartsWith(subnet + "."))
+                    var arpHost = new HostInfo
                     {
-                        var arpHost = new HostInfo
-                        {
-                            IpAddress = arpEntry.Key,
-                            HostName = arpEntry.Key, // Forsøg at resolve hostname
-                            MacAddress = arpEntry.Value,
-                            Vendor = OuiLookup.Lookup(arpEntry.Value),
-                            IsReachable = false,
-                            Status = "ARP-only",
-                            LastSeen = DateTime.Now
-                        };
-
-                        // Prøv at få hostname
-                        try
-                        {
-                            var hostEntry = await Dns.GetHostEntryAsync(arpEntry.Key);
-                            arpHost.HostName = hostEntry.HostName;
-                        }
-                        catch { }
-
-                        results.Add(arpHost);
-                    }
+                        IpAddress = arpEntry.Key,
+                        HostName = arpEntry.Key,
+                        MacAddress = arpEntry.Value,
+                        Vendor = OuiLookup.Lookup(arpEntry.Value),
+                        IsReachable = false,
+                        Status = "ARP-only",
+                        LastSeen = DateTime.Now
+                    };
+                    arpHost.HostName = await GetHostNameWithTimeoutAsync(arpEntry.Key, 2000, ct);
+                    results.Add(arpHost);
                 }
             }
 
-            // NetBIOS-navne parallelt (kort timeout — fejler stille for ikke-Windows)
             var netbiosTasks = results.Select(async host =>
             {
-                host.NetBiosName = await GetNetBiosNameAsync(host.IpAddress);
+                host.NetBiosName = await GetNetBiosNameAsync(host.IpAddress, ct);
             });
             await Task.WhenAll(netbiosTasks);
 
             return results;
         }
 
-        public async Task<string> GetNetBiosNameAsync(string ipAddress)
+        public async Task<string> GetNetBiosNameAsync(string ipAddress,
+                                                       CancellationToken ct = default)
         {
             return await Task.Run(() =>
             {
+                if (ct.IsCancellationRequested) return string.Empty;
                 try
                 {
-                    // NetBIOS Name Status Request (UDP port 137)
                     byte[] request = {
                         0x00, 0x00, 0x00, 0x10, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                         0x20, 0x43, 0x4b, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
@@ -275,7 +355,6 @@ namespace M1Scan.Services
                     var ep = new IPEndPoint(IPAddress.Any, 0);
                     var response = udp.Receive(ref ep);
 
-                    // Parse: antal navne er på offset 56, hvert navn er 18 bytes
                     if (response.Length > 57)
                     {
                         int nameCount = response[56];
@@ -284,7 +363,6 @@ namespace M1Scan.Services
                             int offset = 57 + i * 18;
                             byte suffix = response[offset + 15];
                             byte flags = response[offset + 16];
-                            // Workstation name (suffix 0x00, ikke group)
                             if (suffix == 0x00 && (flags & 0x80) == 0)
                             {
                                 var name = Encoding.ASCII.GetString(response, offset, 15).TrimEnd();
@@ -296,45 +374,12 @@ namespace M1Scan.Services
                 }
                 catch { }
                 return string.Empty;
-            });
+            }, ct);
         }
 
         public async Task<Dictionary<string, string>> GetArpTableAsync()
         {
-            return await Task.Run(() =>
-            {
-                var table = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                try
-                {
-                    var process = new Process
-                    {
-                        StartInfo = new ProcessStartInfo
-                        {
-                            FileName = "arp",
-                            Arguments = "-a",
-                            UseShellExecute = false,
-                            RedirectStandardOutput = true,
-                            CreateNoWindow = true
-                        }
-                    };
-                    process.Start();
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-
-                    foreach (var line in output.Split('\n'))
-                    {
-                        var parts = line.Trim().Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (parts.Length >= 2 && IPAddress.TryParse(parts[0], out _))
-                        {
-                            var mac = parts[1].Replace('-', ':').ToUpper();
-                            if (mac.Length == 17)
-                                table[parts[0]] = mac;
-                        }
-                    }
-                }
-                catch { }
-                return table;
-            });
+            return await Task.Run(ReadArpCacheNative);
         }
 
         public async Task<string> GetArpInfoAsync(string ipAddress)
@@ -354,11 +399,9 @@ namespace M1Scan.Services
                             CreateNoWindow = true
                         }
                     };
-
                     process.Start();
                     string output = process.StandardOutput.ReadToEnd();
                     process.WaitForExit();
-
                     return output;
                 }
                 catch (Exception ex)
@@ -368,14 +411,17 @@ namespace M1Scan.Services
             });
         }
 
-        public async Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000)
+        public async Task<bool> CheckPortAsync(string ip, int port,
+                                                int timeoutMs = 1000,
+                                                CancellationToken ct = default)
         {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeoutMs);
+            using var client = new TcpClient();
             try
             {
-                using var client = new TcpClient();
-                var connectTask = client.ConnectAsync(ip, port);
-                var completed = await Task.WhenAny(connectTask, Task.Delay(timeoutMs));
-                return completed == connectTask && client.Connected;
+                await client.ConnectAsync(ip, port, cts.Token);
+                return client.Connected;
             }
             catch { return false; }
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -31,6 +32,10 @@ namespace M1Scan.ViewModels
 
         private ObservableCollection<NetworkAdapter> _availableAdapters = new();
         private NetworkAdapter? _selectedAdapter;
+
+        // Batch UI updates during scan — filled from background threads, flushed on UI thread
+        private readonly ConcurrentQueue<HostInfo> _uiQueue = new();
+        private CancellationTokenSource? _scanCts;
 
         public ObservableCollection<NetworkAdapter> AvailableAdapters
         {
@@ -137,22 +142,25 @@ namespace M1Scan.ViewModels
 
         public RelayCommand PingSingleCommand { get; }
         public RelayCommand ScanNetworkCommand { get; }
+        public RelayCommand CancelScanCommand { get; }
         public RelayCommand ClearResultsCommand { get; }
         public RelayCommand RefreshAdaptersCommand { get; }
         public RelayCommand AutoDetectSubnetCommand { get; }
         public RelayCommand ToggleAutoRefreshCommand { get; }
         public RelayCommand OpenInBrowserCommand { get; }
         public RelayCommand CopyIpCommand { get; }
+        public RelayCommand PingHostCommand { get; }
 
         public NetworkScanViewModel()
         {
             _networkService = new NetworkService();
 
             _autoRefreshTimer = new DispatcherTimer();
-            _autoRefreshTimer.Tick += async (_, _) => await ScanNetworkAsync();
+            _autoRefreshTimer.Tick += async (_, _) => await ScanNetworkAsync(merge: true);
 
             PingSingleCommand = new RelayCommand(async _ => await PingSingleAsync(), _ => !IsScanning && !string.IsNullOrEmpty(IpAddressInput));
             ScanNetworkCommand = new RelayCommand(async _ => await ScanNetworkAsync(), _ => !IsScanning);
+            CancelScanCommand = new RelayCommand(_ => _scanCts?.Cancel(), _ => IsScanning);
             ClearResultsCommand = new RelayCommand(_ => DiscoveredHosts.Clear());
             RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
             AutoDetectSubnetCommand = new RelayCommand(async _ => await AutoDetectSubnetAsync(), _ => !IsScanning);
@@ -167,8 +175,48 @@ namespace M1Scan.ViewModels
                 if (param is string ip && !string.IsNullOrEmpty(ip))
                     System.Windows.Clipboard.SetText(ip);
             });
+            PingHostCommand = new RelayCommand(
+                async param =>
+                {
+                    if (param is string ip && !string.IsNullOrEmpty(ip))
+                    {
+                        IpAddressInput = ip;
+                        await PingSingleAsync();
+                    }
+                },
+                _ => !IsScanning);
 
             _ = RefreshAdaptersAsync();
+        }
+
+        // Flushes _uiQueue to DiscoveredHosts — must be called on UI thread.
+        private void FlushUiQueue()
+        {
+            while (_uiQueue.TryDequeue(out var host))
+            {
+                var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
+                if (existing is null)
+                {
+                    DiscoveredHosts.Add(host);
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(host.HostName) && host.HostName != host.IpAddress)
+                        existing.HostName = host.HostName;
+                    if (host.ResponseTime > 0) existing.ResponseTime = host.ResponseTime;
+                    if (!string.IsNullOrEmpty(host.Status)) existing.Status = host.Status;
+                    existing.LastSeen = host.LastSeen;
+                    if (host.IsReachable) existing.IsReachable = true;
+                    if (!string.IsNullOrEmpty(host.OsGuess)) existing.OsGuess = host.OsGuess;
+                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
+                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
+                    if (!string.IsNullOrEmpty(host.NetBiosName)) existing.NetBiosName = host.NetBiosName;
+                    if (host.IsPort80Open) existing.IsPort80Open = true;
+                    if (host.IsPort443Open) existing.IsPort443Open = true;
+                    if (host.IsPort8080Open) existing.IsPort8080Open = true;
+                    if (host.IsPort502Open) existing.IsPort502Open = true;
+                }
+            }
         }
 
         private async Task RefreshAdaptersAsync()
@@ -272,20 +320,23 @@ namespace M1Scan.ViewModels
 
             try
             {
-                var host = await _networkService.PingHostAsync(IpAddressInput, SelectedAdapter?.Name ?? string.Empty);
+                _scanCts = new CancellationTokenSource();
+                var ct = _scanCts.Token;
+
+                var host = await _networkService.PingHostAsync(IpAddressInput, SelectedAdapter?.Name ?? string.Empty, ct);
                 if (host.IsReachable)
                 {
                     var portResults = await Task.WhenAll(
-                        _networkService.CheckPortAsync(host.IpAddress, 80),
-                        _networkService.CheckPortAsync(host.IpAddress, 443),
-                        _networkService.CheckPortAsync(host.IpAddress, 8080),
-                        _networkService.CheckPortAsync(host.IpAddress, 502));
+                        _networkService.CheckPortAsync(host.IpAddress, 80, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 443, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 8080, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 502, 1000, ct));
                     host.IsPort80Open   = portResults[0];
                     host.IsPort443Open  = portResults[1];
                     host.IsPort8080Open = portResults[2];
                     host.IsPort502Open  = portResults[3];
 
-                    var mac = await _networkService.GetMacAddressAsync(host.IpAddress);
+                    var mac = await _networkService.GetMacAddressAsync(host.IpAddress, ct);
                     if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
@@ -302,6 +353,9 @@ namespace M1Scan.ViewModels
                     existing.LastSeen = host.LastSeen;
                     existing.IsReachable = host.IsReachable;
                     existing.IsPort80Open = host.IsPort80Open;
+                    existing.IsPort443Open = host.IsPort443Open;
+                    existing.IsPort8080Open = host.IsPort8080Open;
+                    existing.IsPort502Open = host.IsPort502Open;
                     if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
                     if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
                 }
@@ -315,94 +369,126 @@ namespace M1Scan.ViewModels
                     ? $"{host.HostName} svarede på {host.ResponseTime}ms"
                     : $"{IpAddressInput} er offline";
             }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = "Ping annulleret.";
+            }
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
             }
             finally
             {
+                _scanCts?.Dispose();
+                _scanCts = null;
                 IsScanning = false;
             }
         }
 
-        private async Task ScanNetworkAsync()
+        private async Task ScanNetworkAsync(bool merge = false)
         {
             if (IsScanning) return;
             IsScanning = true;
             ScanProgress = 0;
-            DiscoveredHosts.Clear();
-            StatusMessage = SelectedAdapter != null
-                ? $"Starter ping-scanning af {SubnetInput}.x på {SelectedAdapter.Description}..."
-                : $"Starter ping-scanning af {SubnetInput}.x...";
+            if (!merge)
+                DiscoveredHosts.Clear();
+            StatusMessage = merge
+                ? $"Auto-opdatering af {SubnetInput}.x..."
+                : SelectedAdapter != null
+                    ? $"Starter ping-scanning af {SubnetInput}.x på {SelectedAdapter.Description}..."
+                    : $"Starter ping-scanning af {SubnetInput}.x...";
+
+            _scanCts = new CancellationTokenSource();
+            var ct = _scanCts.Token;
+
+            // DispatcherTimer flushes _uiQueue to DiscoveredHosts every 100ms on UI thread
+            bool flushing = false;
+            var uiTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            uiTimer.Tick += (_, _) =>
+            {
+                if (flushing) return;
+                flushing = true;
+                try { FlushUiQueue(); }
+                finally { flushing = false; }
+            };
+            uiTimer.Start();
 
             try
             {
-                // Start alle ping tasks — max 100 samtidige (SemaphoreSlim)
-                var semaphore = new SemaphoreSlim(100);
-                var pingTasks = new List<Task<HostInfo>>();
-                for (int i = StartIp; i <= EndIp; i++)
+                // ===== FASE 0+1: ARP-flood + ping-sweep (samtidige) =====
+                var floodTask = _networkService.FloodArpAsync(SubnetInput, StartIp, EndIp, ct);
+
+                int totalTasks = EndIp - StartIp + 1;
+                var completedCount = 0;
+                var onlineCount = 0;
+                var reachableHosts = new ConcurrentBag<HostInfo>();
+
+                using var semaphore = new SemaphoreSlim(150);
+                var pingTasks = Enumerable.Range(StartIp, totalTasks).Select(i =>
                 {
                     var ip = $"{SubnetInput}.{i}";
-                    pingTasks.Add(Task.Run(async () =>
+                    return Task.Run(async () =>
                     {
-                        await semaphore.WaitAsync();
-                        try { return await _networkService.PingHostAsync(ip, SelectedAdapter?.Name ?? string.Empty); }
+                        if (ct.IsCancellationRequested) return;
+                        await semaphore.WaitAsync(ct).ConfigureAwait(false);
+                        try
+                        {
+                            var host = await _networkService.PingHostAsync(ip, SelectedAdapter?.Name ?? string.Empty, ct);
+                            var cnt = Interlocked.Increment(ref completedCount);
+                            if (host.IsReachable)
+                            {
+                                host.Status = "Online";
+                                Interlocked.Increment(ref onlineCount);
+                                reachableHosts.Add(host);
+                                _uiQueue.Enqueue(host);
+                            }
+                            var progress = 10 + (int)(40.0 * cnt / totalTasks);
+                            _ = Application.Current.Dispatcher.InvokeAsync(() =>
+                            {
+                                ScanProgress = progress;
+                                StatusMessage = $"Ping-scanning: {cnt}/{totalTasks} IP'er, {onlineCount} online";
+                            });
+                        }
                         finally { semaphore.Release(); }
-                    }));
-                }
+                    }, ct);
+                }).ToList();
 
-                var totalTasks = pingTasks.Count;
-                var completedTasks = 0;
-                var onlineCount = 0;
+                await Task.WhenAll(pingTasks);
+                await floodTask;
 
-                // Process results as they complete
-                while (pingTasks.Count > 0)
-                {
-                    var completedTask = await Task.WhenAny(pingTasks);
-                    pingTasks.Remove(completedTask);
+                FlushUiQueue(); // Flush resterende ping-resultater
 
-                    var host = await completedTask;
-                    completedTasks++;
-
-                    if (host.IsReachable)
-                    {
-                        host.Status = "Online";
-                        onlineCount++;
-                        await UpdateHostInUI(host);
-                    }
-
-                    ScanProgress = 10 + (int)(40.0 * completedTasks / totalTasks);
-                    StatusMessage = $"Ping-scanning: {completedTasks}/{totalTasks} IP'er behandlet, {onlineCount} online";
-                }
-
-                StatusMessage = $"Ping-fase færdig — {onlineCount} online fundet. Henter MAC-adresser...";
+                // ===== FASE 2: MAC via native ARP-tabel (instant) =====
+                StatusMessage = $"Ping-fase færdig — {onlineCount} online. Henter MAC-adresser...";
                 ScanProgress = 55;
 
-                // Hent MAC direkte via SendARP for alle online hosts
-                var macTasks = DiscoveredHosts
-                    .Where(h => h.IsReachable && string.IsNullOrEmpty(h.MacAddress))
-                    .Select(async h =>
-                    {
-                        var mac = await _networkService.GetMacAddressAsync(h.IpAddress);
-                        if (!string.IsNullOrEmpty(mac))
-                        {
-                            h.MacAddress = mac;
-                            h.Vendor = OuiLookup.Lookup(mac);
-                        }
-                    });
-                await Task.WhenAll(macTasks);
+                var arpTable = _networkService.GetArpTableNative();
+                var onlineList = reachableHosts.ToList();
 
-                StatusMessage = $"MAC-adresser hentet. Tjekker porte...";
+                foreach (var host in onlineList)
+                {
+                    if (arpTable.TryGetValue(host.IpAddress, out var mac) && !string.IsNullOrEmpty(mac))
+                    {
+                        host.MacAddress = mac;
+                        host.Vendor = OuiLookup.Lookup(mac);
+                        _uiQueue.Enqueue(host);
+                    }
+                }
+
+                FlushUiQueue();
+
+                // ===== FASE 3: Port-tjek =====
+                StatusMessage = "MAC-adresser hentet. Tjekker porte...";
                 ScanProgress = 70;
 
-                var onlineHosts = DiscoveredHosts.Where(h => h.IsReachable).ToList();
-                var portTasks = onlineHosts.Select(async host =>
+                using var portSem = new SemaphoreSlim(50);
+                var portTasks = onlineList.Select(async host =>
                 {
                     var results = await Task.WhenAll(
-                        _networkService.CheckPortAsync(host.IpAddress, 80),
-                        _networkService.CheckPortAsync(host.IpAddress, 443),
-                        _networkService.CheckPortAsync(host.IpAddress, 8080),
-                        _networkService.CheckPortAsync(host.IpAddress, 502));
+                        CheckPortBounded(portSem, host.IpAddress, 80, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 443, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 8080, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 502, ct));
                     host.IsPort80Open   = results[0];
                     host.IsPort443Open  = results[1];
                     host.IsPort8080Open = results[2];
@@ -411,21 +497,27 @@ namespace M1Scan.ViewModels
                 });
                 await Task.WhenAll(portTasks);
 
-                StatusMessage = $"NetBIOS-opslag igangsat...";
+                // ===== FASE 4: NetBIOS =====
+                StatusMessage = "NetBIOS-opslag igangsat...";
                 ScanProgress = 90;
 
-                var netbiosTasks = DiscoveredHosts.Select(async host =>
+                var allHosts = DiscoveredHosts.ToList(); // snapshot på UI thread
+                var netbiosTasks = allHosts.Select(async host =>
                 {
-                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress);
-                    await UpdateHostInUI(host);
+                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress, ct);
+                    if (!string.IsNullOrEmpty(host.NetBiosName))
+                        await UpdateHostInUI(host);
                 });
                 await Task.WhenAll(netbiosTasks);
 
                 SortHostsByIp();
                 ScanProgress = 100;
-
-                onlineCount = DiscoveredHosts.Count(h => h.IsReachable);
-                StatusMessage = $"Færdig — {onlineCount} online enheder fundet.";
+                var total = DiscoveredHosts.Count(h => h.IsReachable);
+                StatusMessage = $"Færdig — {total} online enheder fundet.";
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = "Scanning annulleret.";
             }
             catch (Exception ex)
             {
@@ -433,8 +525,19 @@ namespace M1Scan.ViewModels
             }
             finally
             {
+                uiTimer.Stop();
+                FlushUiQueue();
+                _scanCts?.Dispose();
+                _scanCts = null;
                 IsScanning = false;
             }
+        }
+
+        private async Task<bool> CheckPortBounded(SemaphoreSlim sem, string ip, int port, CancellationToken ct)
+        {
+            await sem.WaitAsync(ct).ConfigureAwait(false);
+            try { return await _networkService.CheckPortAsync(ip, port, 1000, ct); }
+            finally { sem.Release(); }
         }
 
         private async Task UpdateHostInUI(HostInfo host)
@@ -450,6 +553,11 @@ namespace M1Scan.ViewModels
                     existing.LastSeen = host.LastSeen;
                     existing.IsReachable = host.IsReachable;
                     existing.OsGuess = host.OsGuess;
+                    existing.NetBiosName = host.NetBiosName;
+                    existing.IsPort80Open = host.IsPort80Open;
+                    existing.IsPort443Open = host.IsPort443Open;
+                    existing.IsPort8080Open = host.IsPort8080Open;
+                    existing.IsPort502Open = host.IsPort502Open;
                     if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
                     if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
                 }

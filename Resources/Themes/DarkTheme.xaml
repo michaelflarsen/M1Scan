@@ -126,6 +126,27 @@
         <Setter Property="BorderThickness" Value="1"/>
     </Style>
 
+    <!-- ContextMenu + MenuItem dark styling -->
+    <Style TargetType="ContextMenu">
+        <Setter Property="Background" Value="#2D2D2D"/>
+        <Setter Property="BorderBrush" Value="#555555"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="#E0E0E0"/>
+    </Style>
+    <Style TargetType="MenuItem">
+        <Setter Property="Background" Value="#2D2D2D"/>
+        <Setter Property="Foreground" Value="#E0E0E0"/>
+        <Style.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter Property="Background" Value="#3A5A8A"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="#666666"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- DataGrid Item Container Style -->
     <Style TargetType="DataGridRow">
         <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}"/>
