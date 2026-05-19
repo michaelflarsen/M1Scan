@@ -70,8 +70,10 @@ namespace M1Scan.Models
         public bool IsPort502Open
         {
             get => _isPort502Open;
-            set { if (SetProperty(ref _isPort502Open, value)) OnPropertyChanged(nameof(Port502Text)); }
+            set { if (SetProperty(ref _isPort502Open, value)) { OnPropertyChanged(nameof(Port502Text)); OnPropertyChanged(nameof(OtherPorts)); } }
         }
+
+        public string OtherPorts   => _isPort502Open  ? "502"  : string.Empty;
 
         public string Port80Text   => _isPort80Open   ? "80"   : string.Empty;
         public string Port443Text  => _isPort443Open  ? "443"  : string.Empty;

@@ -17,15 +17,16 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="MaterialDesignThemes" Version="5.3.2" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Resources\Themes\" />
-    <Resource Include="app.ico"/>
-    <Resource Include="Resources\ntech-logo.png"/>
-    <Resource Include="Resources\m1scan-logo.jpg"/>
-    <Resource Include="Resources\m1scan-logo-small.jpg"/>
-    <Resource Include="Resources\logo.png"/>
+    <Resource Include="app.ico" />
+    <Resource Include="Resources\ntech-logo.png" />
+    <Resource Include="Resources\m1scan-logo.jpg" />
+    <Resource Include="Resources\m1scan-logo-small.jpg" />
+    <Resource Include="Resources\logo.png" />
   </ItemGroup>
 
 </Project>
