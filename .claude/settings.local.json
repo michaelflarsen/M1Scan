@@ -12,7 +12,11 @@
       "Bash(rtk read *)",
       "Read(//tmp/ipscan/**)",
       "Bash(xargs cat)",
-      "PowerShell(cd \"c:\\\\VS_Code_projekt\\\\M1Scan\"; dotnet build 2>&1 | Select-String \"error|Error\" | Where-Object { $_ -notmatch \"MSB3026|MSB3027|MSB3021\" })"
+      "PowerShell(cd \"c:\\\\VS_Code_projekt\\\\M1Scan\"; dotnet build 2>&1 | Select-String \"error|Error\" | Where-Object { $_ -notmatch \"MSB3026|MSB3027|MSB3021\" })",
+      "Bash(cp \"C:/Users/gimig/.claude/plans/find-name-cs-curried-goose.md\" \"c:/VS_Code_projekt/M1Scan/Design_Plan.md\" *)"
+    ],
+    "additionalDirectories": [
+      "c:\\VS_Code_projekt\\M1Scan"
     ]
   }
 }
