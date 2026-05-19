@@ -1,5 +1,7 @@
 ![M1Scan Logo](Resources/m1scan-logo.jpg)
 
+![Work In Progress](https://img.shields.io/badge/status-work%20in%20progress-yellow?style=for-the-badge)
+
 # M1Scan - Network Utility
 
 Windows desktop applikation til netværksscanning og IP-konfiguration.
