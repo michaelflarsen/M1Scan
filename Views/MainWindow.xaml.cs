@@ -103,6 +103,13 @@ namespace M1Scan.Views
             if (StatsRow      != null) StatsRow.Visibility      = _selectedPage == "Devices"  ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        private void AdapterComboBox_DropDownClosed(object sender, EventArgs e)
+        {
+            if (sender is System.Windows.Controls.ComboBox cb &&
+                cb.SelectedItem is NetworkAdapter adapter)
+                _vm.NetworkScanVm.SelectedAdapter = adapter;
+        }
+
         private void SideNav_Click(object sender, RoutedEventArgs e)
             => SelectedPage = ((FrameworkElement)sender).Tag?.ToString() ?? "Devices";
 

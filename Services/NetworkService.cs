@@ -166,12 +166,18 @@ namespace M1Scan.Services
                     };
 
                     var ipprops = intf.GetIPProperties();
-                    var ipAddresses = ipprops.UnicastAddresses
+                    var unicastInfos = ipprops.UnicastAddresses
                         .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
-                        .Select(a => a.Address.ToString())
-                        .ToArray();
+                        .ToList();
 
-                    adapter.IpAddresses = ipAddresses;
+                    adapter.IpAddresses = unicastInfos.Select(a => a.Address.ToString()).ToArray();
+
+                    var firstUnicast = unicastInfos.FirstOrDefault();
+                    if (firstUnicast != null)
+                    {
+                        try { adapter.SubnetMask = firstUnicast.IPv4Mask?.ToString(); }
+                        catch { /* some tunnel/VPN adapters throw on IPv4Mask */ }
+                    }
                     adapter.DnsServers = ipprops.DnsAddresses
                         .Where(a => a.AddressFamily == AddressFamily.InterNetwork)
                         .Select(a => a.ToString())

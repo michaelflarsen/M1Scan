@@ -237,8 +237,6 @@
                         <ColumnDefinition Width="*" MinWidth="110"/> <!-- Dropdown (flex) -->
                         <ColumnDefinition Width="32"/>          <!-- Refresh icon -->
                         <ColumnDefinition Width="Auto"/>        <!-- Subnet group -->
-                        <ColumnDefinition Width="Auto"/>        <!-- Ping group -->
-                        <ColumnDefinition Width="Auto"/>        <!-- Auto-refresh group -->
                         <ColumnDefinition Width="Auto"/>        <!-- Scan button -->
                         <ColumnDefinition Width="Auto"/>        <!-- Cancel button -->
                     </Grid.ColumnDefinitions>
@@ -254,7 +252,8 @@
                               ItemsSource="{Binding NetworkScanVm.AvailableAdapters}"
                               SelectedItem="{Binding NetworkScanVm.SelectedAdapter}"
                               DisplayMemberPath="Description"
-                              TextSearch.TextPath="Description"/>
+                              TextSearch.TextPath="Description"
+                              DropDownClosed="AdapterComboBox_DropDownClosed"/>
 
                     <!-- Refresh adapters -->
                     <Button Grid.Column="2" ToolTip="Refresh adapters"
@@ -286,32 +285,8 @@
                                 Command="{Binding NetworkScanVm.ClearResultsCommand}"/>
                     </StackPanel>
 
-                    <!-- Single IP ping -->
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
-                        <TextBlock Text="Ping:" VerticalAlignment="Center"
-                                   Foreground="#AAAAAA" FontSize="12" Margin="0,0,6,0"/>
-                        <TextBox Style="{StaticResource DarkTextBoxStyle}" Width="110" Height="30"
-                                 Text="{Binding NetworkScanVm.IpAddressInput, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button Content="Ping" Margin="4,0,0,0"
-                                Style="{StaticResource MaterialDesignOutlinedButton}"
-                                Height="30" Padding="6,0"
-                                Command="{Binding NetworkScanVm.PingSingleCommand}"/>
-                    </StackPanel>
-
-                    <!-- Auto-refresh -->
-                    <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,8,0">
-                        <TextBlock Text="sek:" VerticalAlignment="Center"
-                                   Foreground="#AAAAAA" FontSize="12" Margin="0,0,4,0"/>
-                        <TextBox Style="{StaticResource DarkTextBoxStyle}" Width="40" Height="30"
-                                 Text="{Binding NetworkScanVm.AutoRefreshInterval, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button Content="{Binding NetworkScanVm.AutoRefreshButtonLabel}" Margin="4,0,0,0"
-                                Style="{StaticResource MaterialDesignOutlinedButton}"
-                                Height="30" MinWidth="100" Padding="6,0"
-                                Command="{Binding NetworkScanVm.ToggleAutoRefreshCommand}"/>
-                    </StackPanel>
-
                     <!-- Scan button -->
-                    <Button Grid.Column="6"
+                    <Button Grid.Column="4"
                             Style="{StaticResource MaterialDesignRaisedButton}"
                             Background="#1565C0" BorderBrush="#1565C0"
                             Height="30" Margin="0,0,6,0" VerticalAlignment="Center"
@@ -324,7 +299,7 @@
                     </Button>
 
                     <!-- Cancel (only visible while scanning) -->
-                    <Button Grid.Column="7"
+                    <Button Grid.Column="5"
                             Style="{StaticResource MaterialDesignOutlinedButton}"
                             Height="30" VerticalAlignment="Center"
                             Command="{Binding NetworkScanVm.CancelScanCommand}"

@@ -48,13 +48,11 @@ namespace M1Scan.ViewModels
             get => _selectedAdapter;
             set
             {
-                if (SetProperty(ref _selectedAdapter, value) && value != null)
+                SetProperty(ref _selectedAdapter, value);
+                if (value != null && value.IpAddresses.Length > 0)
                 {
-                    if (value.IpAddresses.Length > 0)
-                    {
-                        UpdateSubnetFromAdapter(value);
-                        StatusMessage = $"Valgt adapter: {value.Description}";
-                    }
+                    UpdateSubnetFromAdapter(value);
+                    StatusMessage = $"Valgt adapter: {value.Description}";
                 }
             }
         }
@@ -239,15 +237,39 @@ namespace M1Scan.ViewModels
 
         private void UpdateSubnetFromAdapter(NetworkAdapter adapter)
         {
-            if (adapter.IpAddresses.Length == 0)
+            if (adapter.IpAddresses.Length == 0) return;
+
+            var ip = adapter.IpAddresses[0];
+            var parts = ip.Split('.');
+            if (parts.Length != 4) return;
+
+            SubnetInput = $"{parts[0]}.{parts[1]}.{parts[2]}";
+            StartIp = 1;
+            EndIp = 254;
+
+            if (string.IsNullOrEmpty(adapter.SubnetMask) ||
+                !IPAddress.TryParse(adapter.SubnetMask, out var maskAddr) ||
+                !IPAddress.TryParse(ip, out var ipAddr))
                 return;
 
-            var parts = adapter.IpAddresses[0].Split('.');
-            if (parts.Length == 4)
+            var maskBytes = maskAddr.GetAddressBytes();
+            var ipBytes   = ipAddr.GetAddressBytes();
+
+            int prefixLen = 0;
+            foreach (var b in maskBytes)
             {
-                SubnetInput = $"{parts[0]}.{parts[1]}.{parts[2]}";
-                StartIp = 1;
-                EndIp = 254;
+                var n = (int)b;
+                while (n != 0) { prefixLen += n & 1; n >>= 1; }
+            }
+
+            int hostBits = 32 - prefixLen;
+
+            if (prefixLen >= 24 && hostBits >= 2)
+            {
+                var netBase = (byte)(ipBytes[3] & maskBytes[3]);
+                int hostCount = (1 << hostBits) - 2;
+                StartIp = netBase + 1;
+                EndIp   = netBase + hostCount;
             }
         }
 
