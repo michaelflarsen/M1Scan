@@ -164,8 +164,14 @@ namespace M1Scan.ViewModels
             ToggleAutoRefreshCommand = new RelayCommand(_ => IsAutoRefreshEnabled = !IsAutoRefreshEnabled);
             OpenInBrowserCommand = new RelayCommand(param =>
             {
-                if (param is string url && !string.IsNullOrEmpty(url))
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+                if (param is string url &&
+                    Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+                    (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+                    IPAddress.TryParse(uri.Host, out _))
+                {
+                    System.Diagnostics.Process.Start(
+                        new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+                }
             });
             CopyIpCommand = new RelayCommand(param =>
             {

@@ -314,6 +314,9 @@ namespace M1Scan.Services
             {
                 if (!scannedIps.Contains(arpEntry.Key) && arpEntry.Key.StartsWith(subnet + "."))
                 {
+                    var lastPart = arpEntry.Key.Split('.').LastOrDefault();
+                    if (!int.TryParse(lastPart, out int octet) || octet < startIp || octet > endIp)
+                        continue;
                     var arpHost = new HostInfo
                     {
                         IpAddress = arpEntry.Key,
