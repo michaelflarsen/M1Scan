@@ -106,7 +106,8 @@ namespace M1Scan.Views
         private void AdapterComboBox_DropDownClosed(object sender, EventArgs e)
         {
             if (sender is System.Windows.Controls.ComboBox cb &&
-                cb.SelectedItem is NetworkAdapter adapter)
+                cb.SelectedItem is NetworkAdapter adapter &&
+                adapter != _vm.NetworkScanVm.SelectedAdapter)
                 _vm.NetworkScanVm.SelectedAdapter = adapter;
         }
 

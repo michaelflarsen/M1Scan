@@ -48,8 +48,7 @@ namespace M1Scan.ViewModels
             get => _selectedAdapter;
             set
             {
-                SetProperty(ref _selectedAdapter, value);
-                if (value != null && value.IpAddresses.Length > 0)
+                if (SetProperty(ref _selectedAdapter, value) && value != null && value.IpAddresses.Length > 0)
                 {
                     UpdateSubnetFromAdapter(value);
                     StatusMessage = $"Valgt adapter: {value.Description}";
@@ -78,13 +77,13 @@ namespace M1Scan.ViewModels
         public int StartIp
         {
             get => _startIp;
-            set => SetProperty(ref _startIp, value);
+            set => SetProperty(ref _startIp, Math.Clamp(value, 1, 254));
         }
 
         public int EndIp
         {
             get => _endIp;
-            set => SetProperty(ref _endIp, value);
+            set => SetProperty(ref _endIp, Math.Clamp(value, 1, 254));
         }
 
         public bool IsScanning
