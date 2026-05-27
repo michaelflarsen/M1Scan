@@ -100,20 +100,11 @@
                                            VerticalAlignment="Center" HorizontalAlignment="Center"/>
                             </Grid>
                         </Border>
-                        <!-- Usynlig ToggleButton øverst i z-order — fanger klik over hele fladen -->
-                        <ToggleButton IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
-                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                      Focusable="False">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border Background="Transparent"/>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                        </ToggleButton>
                         <Popup x:Name="PART_Popup"
                                IsOpen="{TemplateBinding IsDropDownOpen}"
                                Placement="Bottom"
-                               AllowsTransparency="True">
+                               AllowsTransparency="True"
+                               StaysOpen="False">
                             <Border Background="{StaticResource ControlBackgroundBrush}"
                                     BorderBrush="{StaticResource ControlBorderBrush}"
                                     BorderThickness="1"
@@ -123,6 +114,18 @@
                                 </ScrollViewer>
                             </Border>
                         </Popup>
+                        <!-- PART_ToggleButton: ComboBox-kontrollen binder IsChecked↔IsDropDownOpen automatisk via dette navn -->
+                        <ToggleButton x:Name="PART_ToggleButton"
+                                      IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                      ClickMode="Press"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                      Focusable="False">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="Transparent"/>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>

@@ -3,8 +3,10 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Interop;
 using M1Scan.Models;
 using M1Scan.ViewModels;
 
@@ -12,6 +14,14 @@ namespace M1Scan.Views
 {
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        private const int DWMWA_CAPTION_COLOR = 35;
+        private const int DWMWA_TEXT_COLOR = 36;
+        private const int DWMWCP_ROUND = 2;
+
         private MainViewModel _vm = null!;
         private string _selectedPage = "Devices";
         private int _onlineCount;
@@ -56,6 +66,22 @@ namespace M1Scan.Views
         {
             get => _searchText;
             set { _searchText = value; Notify(); _filteredHosts?.Refresh(); }
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            var hwnd = new WindowInteropHelper(this).Handle;
+
+            int pref = DWMWCP_ROUND;
+            DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
+
+            // #1E1E1E som COLORREF (0x00BBGGRR)
+            int captionColor = 0x001E1E1E;
+            DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ref captionColor, sizeof(int));
+
+            int textColor = 0x00FFFFFF;
+            DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, ref textColor, sizeof(int));
         }
 
         public MainWindow()
