@@ -48,7 +48,8 @@
         <Setter Property="Foreground" Value="{StaticResource DarkForegroundBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="CaretBrush" Value="{StaticResource DarkForegroundBrush}"/>
         <Setter Property="FontSize" Value="12"/>
     </Style>
