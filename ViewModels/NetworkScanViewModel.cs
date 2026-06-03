@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -14,7 +15,7 @@ using M1Scan.Utils;
 
 namespace M1Scan.ViewModels
 {
-    public class NetworkScanViewModel : ObservableObject
+    public class NetworkScanViewModel : ObservableObject, IDisposable
     {
         private readonly INetworkService _networkService;
         private readonly DispatcherTimer _autoRefreshTimer;
@@ -48,11 +49,27 @@ namespace M1Scan.ViewModels
             get => _selectedAdapter;
             set
             {
-                if (SetProperty(ref _selectedAdapter, value) && value != null && value.IpAddresses.Length > 0)
+                if (SetProperty(ref _selectedAdapter, value))
                 {
-                    UpdateSubnetFromAdapter(value);
-                    StatusMessage = $"Valgt adapter: {value.Description}";
+                    OnPropertyChanged(nameof(SelectedAdapterLabel));
+                    if (value != null && value.IpAddresses.Length > 0)
+                    {
+                        UpdateSubnetFromAdapter(value);
+                        StatusMessage = $"Valgt adapter: {value.Description}";
+                    }
                 }
+            }
+        }
+
+        public string SelectedAdapterLabel
+        {
+            get
+            {
+                if (_selectedAdapter == null) return "Select adapter";
+                var ip = _selectedAdapter.IpAddresses.Length > 0 ? _selectedAdapter.IpAddresses[0] : "";
+                return string.IsNullOrEmpty(ip)
+                    ? _selectedAdapter.Description
+                    : $"{_selectedAdapter.Description} — {ip}";
             }
         }
 
@@ -190,6 +207,21 @@ namespace M1Scan.ViewModels
                 _ => !IsScanning);
 
             _ = RefreshAdaptersAsync();
+
+            NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
+        }
+
+        private async void OnNetworkAddressChanged(object? sender, EventArgs e)
+        {
+            await Task.Delay(1500); // let OS stabilise before re-enumerating
+            if (Application.Current != null)
+                await Application.Current.Dispatcher.InvokeAsync(RefreshAdaptersAsync);
+        }
+
+        public void Dispose()
+        {
+            NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
+            _autoRefreshTimer.Stop();
         }
 
         // Flushes _uiQueue to DiscoveredHosts — must be called on UI thread.
@@ -226,10 +258,19 @@ namespace M1Scan.ViewModels
         {
             try
             {
+                var previousName = _selectedAdapter?.Name;
                 var adapters = await _networkService.GetNetworkAdaptersAsync();
-                AvailableAdapters = new ObservableCollection<NetworkAdapter>(adapters);
+                var filtered = adapters
+                    .Where(a => !a.Description.Contains("Tunneling", StringComparison.OrdinalIgnoreCase)
+                             && !a.Description.Contains("WAN Miniport", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(a => a.IsConnected)
+                    .ThenBy(a => a.Description)
+                    .ToList();
+
+                AvailableAdapters = new ObservableCollection<NetworkAdapter>(filtered);
                 SelectedAdapter =
-                    AvailableAdapters.FirstOrDefault(a => a.IsConnected && a.IpAddresses.Length > 0 && a.IpAddresses[0].StartsWith("192."))
+                    (previousName != null ? AvailableAdapters.FirstOrDefault(a => a.Name == previousName) : null)
+                    ?? AvailableAdapters.FirstOrDefault(a => a.IsConnected && a.IpAddresses.Length > 0 && a.IpAddresses[0].StartsWith("192."))
                     ?? AvailableAdapters.FirstOrDefault(a => a.IsConnected)
                     ?? AvailableAdapters.FirstOrDefault();
                 StatusMessage = $"Loaded {AvailableAdapters.Count} adapters";

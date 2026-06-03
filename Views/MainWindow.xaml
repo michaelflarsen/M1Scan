@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:utils="clr-namespace:M1Scan.Utils"
+        xmlns:views="clr-namespace:M1Scan.Views"
         mc:Ignorable="d"
         Title="M1Scan" Height="760" Width="1200" MinWidth="960" MinHeight="600"
         Icon="/app.ico"
@@ -78,6 +79,36 @@
             <Setter Property="Margin"    Value="0,2,0,0"/>
         </Style>
 
+        <!-- Adapter dropdown button -->
+        <Style x:Key="AdapterDropdownStyle" TargetType="Button">
+            <Setter Property="Background"    Value="Transparent"/>
+            <Setter Property="Foreground"    Value="#CCCCCC"/>
+            <Setter Property="BorderBrush"   Value="#2A3A55"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor"        Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1A2840"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#263A58"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <!-- Root: sidebar (200px) + content (*) -->
@@ -139,8 +170,24 @@
                 <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <StackPanel Margin="0,6,0,0">
 
+                        <!-- WORKSPACE section -->
+                        <TextBlock Style="{StaticResource SideNavHeader}" Text="WORKSPACE"/>
+
+                        <RadioButton x:Name="WorkspaceNavBtn"
+                                     Style="{StaticResource SideNavStyle}"
+                                     GroupName="SideNav"
+                                     Tag="Workspace" Click="SideNav_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ViewDashboard" Width="18" Height="18"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                                         VerticalAlignment="Center"/>
+                                <TextBlock Text="Workspace" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            </StackPanel>
+                        </RadioButton>
+
                         <!-- SCAN section -->
-                        <TextBlock Style="{StaticResource SideNavHeader}" Text="SCAN"/>
+                        <TextBlock Style="{StaticResource SideNavHeader}" Text="SCAN" Margin="19,14,0,2"/>
 
                         <RadioButton x:Name="DevicesNavBtn"
                                      Style="{StaticResource SideNavStyle}"
@@ -223,48 +270,58 @@
         <!-- ============================================================ -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="48"/>   <!-- TopBar -->
+                <RowDefinition Height="Auto"/> <!-- TopBar -->
                 <RowDefinition Height="Auto"/> <!-- Stats row -->
                 <RowDefinition Height="Auto"/> <!-- Progress bar -->
                 <RowDefinition Height="*"/>    <!-- Content panels -->
             </Grid.RowDefinitions>
 
-            <!-- ===== TOP BAR ===== -->
-            <Border Grid.Row="0" Background="#0D1520" Padding="20,0,12,0">
+            <!-- ===== TOP BAR (hidden on Workspace page) ===== -->
+            <Border Grid.Row="0" Background="#0D1520" Padding="20,9,12,9">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Workspace">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>        <!-- Adapter: label -->
-                        <ColumnDefinition Width="*" MinWidth="110"/> <!-- Dropdown (flex) -->
-                        <ColumnDefinition Width="32"/>          <!-- Refresh icon -->
+                        <ColumnDefinition Width="Auto"/>        <!-- Adapter dropdown button -->
                         <ColumnDefinition Width="Auto"/>        <!-- Subnet group -->
                         <ColumnDefinition Width="Auto"/>        <!-- Scan button -->
                         <ColumnDefinition Width="Auto"/>        <!-- Cancel button -->
                     </Grid.ColumnDefinitions>
 
-                    <!-- Adapter label -->
-                    <TextBlock Grid.Column="0" Text="Adapter:" VerticalAlignment="Center"
-                               Foreground="#AAAAAA" FontSize="12" Margin="0,0,6,0"/>
-
-                    <!-- Adapter dropdown -->
-                    <ComboBox Grid.Column="1"
-                              Style="{StaticResource DarkComboBoxStyle}"
-                              Height="30" VerticalAlignment="Center"
-                              ItemsSource="{Binding NetworkScanVm.AvailableAdapters}"
-                              SelectedItem="{Binding NetworkScanVm.SelectedAdapter}"
-                              DisplayMemberPath="Description"
-                              TextSearch.TextPath="Description"
-                              DropDownClosed="AdapterComboBox_DropDownClosed"/>
-
-                    <!-- Refresh adapters -->
-                    <Button Grid.Column="2" ToolTip="Refresh adapters"
-                            Style="{StaticResource MaterialDesignIconButton}"
-                            Width="30" Height="30" Margin="2,0,4,0"
-                            Command="{Binding NetworkScanVm.RefreshAdaptersCommand}">
-                        <materialDesign:PackIcon Kind="Refresh" Width="15" Height="15"/>
+                    <!-- Adapter dropdown button -->
+                    <Button x:Name="AdapterDropdownButton"
+                            Grid.Column="0"
+                            Style="{StaticResource AdapterDropdownStyle}"
+                            MinWidth="140" MaxWidth="300" Height="30"
+                            VerticalAlignment="Center" Margin="0,0,8,0"
+                            Click="AdapterDropdownButton_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding NetworkScanVm.SelectedAdapterLabel}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       FontSize="12" Foreground="#CCCCCC"
+                                       Margin="10,0,4,0"/>
+                            <TextBlock Grid.Column="1" Text="▾"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0"
+                                       Foreground="#666666" FontSize="12"/>
+                        </Grid>
                     </Button>
 
                     <!-- Subnet + scan range + action buttons -->
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
                         <TextBlock Text="Subnet:" VerticalAlignment="Center"
                                    Foreground="#AAAAAA" FontSize="12" Margin="0,0,6,0"/>
                         <TextBox Style="{StaticResource DarkTextBoxStyle}" Width="108" Height="30"
@@ -286,7 +343,7 @@
                     </StackPanel>
 
                     <!-- Scan button -->
-                    <Button Grid.Column="4"
+                    <Button Grid.Column="2"
                             Style="{StaticResource MaterialDesignRaisedButton}"
                             Background="#1565C0" BorderBrush="#1565C0"
                             Height="30" Margin="0,0,6,0" VerticalAlignment="Center"
@@ -299,7 +356,7 @@
                     </Button>
 
                     <!-- Cancel (only visible while scanning) -->
-                    <Button Grid.Column="5"
+                    <Button Grid.Column="3"
                             Style="{StaticResource MaterialDesignOutlinedButton}"
                             Height="30" VerticalAlignment="Center"
                             Command="{Binding NetworkScanVm.CancelScanCommand}"
@@ -818,6 +875,12 @@
                         </StackPanel>
                     </StackPanel>
                 </Grid>
+
+                <!-- ===================================================== -->
+                <!--  WORKSPACE PANEL                                       -->
+                <!-- ===================================================== -->
+                <views:WorkspaceView x:Name="WorkspacePanel" Visibility="Collapsed"
+                                     DataContext="{Binding WorkspaceVm}"/>
 
             </Grid>
             <!-- end content panels -->

@@ -5,8 +5,14 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Interop;
+using System.Windows.Markup;
+using System.Windows.Media;
+using System.Windows.Media.Effects;
+using System.Windows.Shapes;
 using M1Scan.Models;
 using M1Scan.ViewModels;
 
@@ -21,6 +27,26 @@ namespace M1Scan.Views
         private const int DWMWA_CAPTION_COLOR = 35;
         private const int DWMWA_TEXT_COLOR = 36;
         private const int DWMWCP_ROUND = 2;
+
+        private static readonly Lazy<ControlTemplate> _adapterItemTemplate = new(() =>
+            (ControlTemplate)XamlReader.Parse("""
+                <ControlTemplate
+                    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    TargetType="MenuItem">
+                    <Border x:Name="Bd" Padding="8,5,8,5"
+                            Background="{TemplateBinding Background}">
+                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#3A5A8A"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+                """));
+
+        private static ControlTemplate GetAdapterItemTemplate() => _adapterItemTemplate.Value;
 
         private MainViewModel _vm = null!;
         private string _selectedPage = "Devices";
@@ -90,6 +116,8 @@ namespace M1Scan.Views
             _vm = new MainViewModel();
             DataContext = _vm;
 
+            Closed += (_, _) => _vm.Dispose();
+
             _vm.NetworkScanVm.DiscoveredHosts.CollectionChanged += OnHostsChanged;
             _vm.NetworkScanVm.PropertyChanged += OnScanVmPropertyChanged;
 
@@ -123,18 +151,86 @@ namespace M1Scan.Views
 
         private void UpdatePageVisibility()
         {
-            if (DevicesPanel  != null) DevicesPanel.Visibility  = _selectedPage == "Devices"  ? Visibility.Visible : Visibility.Collapsed;
-            if (AdaptersPanel != null) AdaptersPanel.Visibility = _selectedPage == "Adapters" ? Visibility.Visible : Visibility.Collapsed;
-            if (IpConfigPanel != null) IpConfigPanel.Visibility = _selectedPage == "IpConfig" ? Visibility.Visible : Visibility.Collapsed;
-            if (StatsRow      != null) StatsRow.Visibility      = _selectedPage == "Devices"  ? Visibility.Visible : Visibility.Collapsed;
+            if (WorkspacePanel != null) WorkspacePanel.Visibility = _selectedPage == "Workspace" ? Visibility.Visible : Visibility.Collapsed;
+            if (DevicesPanel   != null) DevicesPanel.Visibility   = _selectedPage == "Devices"   ? Visibility.Visible : Visibility.Collapsed;
+            if (AdaptersPanel  != null) AdaptersPanel.Visibility  = _selectedPage == "Adapters"  ? Visibility.Visible : Visibility.Collapsed;
+            if (IpConfigPanel  != null) IpConfigPanel.Visibility  = _selectedPage == "IpConfig"  ? Visibility.Visible : Visibility.Collapsed;
+            if (StatsRow       != null) StatsRow.Visibility       = _selectedPage == "Devices"   ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void AdapterComboBox_DropDownClosed(object sender, EventArgs e)
+        private void AdapterDropdownButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.ComboBox cb &&
-                cb.SelectedItem is NetworkAdapter adapter &&
-                adapter != _vm.NetworkScanVm.SelectedAdapter)
-                _vm.NetworkScanVm.SelectedAdapter = adapter;
+            var btn = (Button)sender;
+            var vm = _vm.NetworkScanVm;
+
+            var menu = new ContextMenu();
+            menu.PlacementTarget = btn;
+            menu.Placement = PlacementMode.Bottom;
+
+            foreach (var adapter in vm.AvailableAdapters)
+            {
+                var ip = adapter.IpAddresses.Length > 0 ? adapter.IpAddresses[0] : "";
+                var label = string.IsNullOrEmpty(ip) ? adapter.Description : $"{adapter.Description} — {ip}";
+
+                var panel = new StackPanel { Orientation = Orientation.Horizontal };
+
+                var dot = new Ellipse
+                {
+                    Width = 10,
+                    Height = 10,
+                    Fill = new SolidColorBrush(adapter.IsConnected
+                        ? Color.FromRgb(0x4C, 0xAF, 0x50)
+                        : Color.FromRgb(0x66, 0x66, 0x66)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(4, 0, 8, 0)
+                };
+                if (adapter.IsConnected)
+                {
+                    dot.Effect = new DropShadowEffect
+                    {
+                        Color = Color.FromRgb(0x4C, 0xAF, 0x50),
+                        BlurRadius = 6,
+                        ShadowDepth = 0,
+                        Opacity = 0.8
+                    };
+                }
+                panel.Children.Add(dot);
+
+                panel.Children.Add(new TextBlock
+                {
+                    Text = label,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
+                if (adapter == vm.SelectedAdapter)
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = "✓",
+                        Foreground = new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50)),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0)
+                    });
+                }
+
+                var item = new MenuItem
+                {
+                    Header = panel,
+                    Template = GetAdapterItemTemplate(),
+                    Background = new SolidColorBrush(Color.FromRgb(0x2D, 0x2D, 0x2D))
+                };
+                var captured = adapter;
+                item.Click += (_, _) => vm.SelectedAdapter = captured;
+                menu.Items.Add(item);
+            }
+
+            menu.Items.Add(new Separator());
+
+            var refreshItem = new MenuItem { Header = "Refresh adapters" };
+            refreshItem.Click += (_, _) => vm.RefreshAdaptersCommand.Execute(null);
+            menu.Items.Add(refreshItem);
+
+            menu.IsOpen = true;
         }
 
         private void SideNav_Click(object sender, RoutedEventArgs e)

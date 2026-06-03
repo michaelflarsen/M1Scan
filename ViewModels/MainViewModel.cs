@@ -8,7 +8,7 @@ using M1Scan.Utils;
 
 namespace M1Scan.ViewModels
 {
-    public class MainViewModel : ObservableObject
+    public class MainViewModel : ObservableObject, IDisposable
     {
         private readonly INetworkService _networkService;
         private readonly IIpConfigService _ipConfigService;
@@ -58,6 +58,7 @@ namespace M1Scan.ViewModels
 
         public NetworkScanViewModel NetworkScanVm { get; }
         public IpConfigViewModel IpConfigVm { get; }
+        public WorkspaceViewModel WorkspaceVm { get; }
 
         public RelayCommand RefreshAdaptersCommand { get; }
         public RelayCommand ResetAdapterCommand { get; }
@@ -68,13 +69,20 @@ namespace M1Scan.ViewModels
             _ipConfigService = new IpConfigService();
 
             NetworkScanVm = new NetworkScanViewModel();
-            IpConfigVm = new IpConfigViewModel();
+            IpConfigVm    = new IpConfigViewModel();
+            WorkspaceVm   = new WorkspaceViewModel(_ipConfigService);
 
             RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
             ResetAdapterCommand = new RelayCommand(async _ => await ResetAdapterAsync(), _ => SelectedAdapter != null);
 
             // Load adapters on startup
             _ = RefreshAdaptersAsync();
+        }
+
+        public void Dispose()
+        {
+            NetworkScanVm.Dispose();
+            WorkspaceVm.Dispose();
         }
 
         private async Task RefreshAdaptersAsync()
