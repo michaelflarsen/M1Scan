@@ -1,0 +1,660 @@
+<UserControl x:Class="M1Scan.Views.WorkspaceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:utils="clr-namespace:M1Scan.Utils"
+             xmlns:models="clr-namespace:M1Scan.Models">
+
+    <Grid Margin="20,10,20,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- MY IP card -->
+            <RowDefinition Height="Auto"/> <!-- Table header -->
+            <RowDefinition Height="*"/>    <!-- DataGrid -->
+            <RowDefinition Height="Auto"/> <!-- Add row -->
+            <RowDefinition Height="Auto"/> <!-- Bulk add + status -->
+        </Grid.RowDefinitions>
+
+        <!-- ===== MY IP CARD ===== -->
+        <materialDesign:Card x:Name="MyIpCard"
+                             Grid.Row="0" Margin="0,0,0,12" Padding="20,14"
+                             Background="#1C2535"
+                             Cursor="Hand"
+                             MouseLeftButtonUp="MyIpCard_Click"
+                             MouseEnter="MyIpCard_MouseEnter"
+                             MouseLeave="MyIpCard_MouseLeave"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="{Binding MyIpAddress}"
+                               FontFamily="Consolas" FontSize="30" FontWeight="Bold"
+                               Foreground="#64B5F6"/>
+                    <TextBlock Text="{Binding MySubnetDisplay}"
+                               FontFamily="Consolas" FontSize="12" Foreground="#888888"
+                               Margin="0,3,0,0"/>
+                    <TextBlock Text="{Binding MyAdapterName}"
+                               FontSize="11" Foreground="#555555" Margin="0,2,0,0"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                    <materialDesign:PackIcon Kind="Ethernet" Width="14" Height="14"
+                                             Foreground="#1565C0" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBlock Text="MY IP" FontSize="11" FontWeight="SemiBold"
+                               Foreground="#1565C0" VerticalAlignment="Center"/>
+                    <TextBlock Text="▾" FontSize="11" Foreground="#1565C0"
+                               VerticalAlignment="Center" Margin="3,1,0,0"/>
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Width="22" Height="22" Margin="6,0,0,0"
+                            Foreground="#444444"
+                            Command="{Binding RefreshAdapterCommand}"
+                            ToolTip="Opdater adapter-info">
+                        <materialDesign:PackIcon Kind="Refresh" Width="13" Height="13"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- ===== TABLE HEADER ===== -->
+        <Grid Grid.Row="1" Margin="0,0,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                        Background="#151E2C" Height="28">
+                <materialDesign:PackIcon Kind="Pulse" Width="14" Height="14"
+                                         Foreground="#1565C0" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <TextBlock Text="Watch List" FontSize="12" FontWeight="SemiBold"
+                           Foreground="White" Margin="7,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding WatchList.Count, StringFormat='({0})'}"
+                           FontSize="11" Foreground="#555555"
+                           Margin="5,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Interval control -->
+            <Border Grid.Column="1" Background="#151E2C" Height="28" Padding="10,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Interval:" FontSize="11" Foreground="#888888"
+                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox Style="{StaticResource DarkTextBoxStyle}"
+                             Width="40" Height="22" FontFamily="Consolas" FontSize="12"
+                             TextAlignment="Center"
+                             Text="{Binding PingIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Text="sec" FontSize="11" Foreground="#888888"
+                               VerticalAlignment="Center" Margin="5,0,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ===== WATCH LIST DATAGRID ===== -->
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding WatchList}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  Background="{StaticResource ControlBackgroundBrush}"
+                  BorderBrush="{StaticResource ControlBorderBrush}"
+                  BorderThickness="1"
+                  RowHeight="30"
+                  ColumnHeaderHeight="0"
+                  GridLinesVisibility="Horizontal"
+                  CanUserResizeRows="False"
+                  SelectionMode="Single"
+                  CanUserReorderColumns="False"
+                  HorizontalScrollBarVisibility="Disabled"
+                  RowDetailsVisibilityMode="Collapsed">
+
+            <DataGrid.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"                      Color="#0D47A1"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"                  Color="White"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}"     Color="#1A237E"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="White"/>
+                <utils:BindingProxy x:Key="VmProxy" Data="{Binding}"/>
+            </DataGrid.Resources>
+
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="Padding"         Value="4,0"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Padding="{TemplateBinding Padding}"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                    <ContentPresenter VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </DataGrid.CellStyle>
+
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Background"      Value="{StaticResource ControlBackgroundBrush}"/>
+                    <Setter Property="Foreground"      Value="{StaticResource DarkForegroundBrush}"/>
+                    <Setter Property="BorderBrush"     Value="#2A2A2A"/>
+                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Online}">
+                            <Setter Property="Background" Value="#0F1F0F"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Offline}">
+                            <Setter Property="Background" Value="#1F0F0F"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Timeout}">
+                            <Setter Property="Background" Value="#1F0F0F"/>
+                        </DataTrigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#1D2D3D"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+
+            <DataGrid.Columns>
+
+                <!-- Status dot -->
+                <DataGridTemplateColumn Width="28" CanUserSort="False" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Ellipse x:Name="dot" Width="10" Height="10"
+                                     Fill="#FF9800"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Online}">
+                                    <Setter TargetName="dot" Property="Fill" Value="#4CAF50"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Offline}">
+                                    <Setter TargetName="dot" Property="Fill" Value="#EF5350"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Timeout}">
+                                    <Setter TargetName="dot" Property="Fill" Value="#EF5350"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- IP address -->
+                <DataGridTemplateColumn Width="120" SortMemberPath="IpAddress">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding IpAddress}"
+                                       FontFamily="Consolas" FontSize="12"
+                                       Foreground="#64B5F6" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Description -->
+                <DataGridTextColumn Binding="{Binding Description}" Width="*" MinWidth="60">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground"        Value="#AAAAAA"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="TextTrimming"      Value="CharacterEllipsis"/>
+                            <Setter Property="FontSize"          Value="12"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <!-- Port :80 chip -->
+                <DataGridTemplateColumn Width="48" CanUserSort="False" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Width="40" HorizontalAlignment="Center"
+                                    BorderThickness="0" Padding="3,2"
+                                    FontFamily="Consolas" FontSize="11"
+                                    FocusVisualStyle="{x:Null}"
+                                    Command="{Binding Source={StaticResource VmProxy}, Path=Data.OpenPort80Command}"
+                                    CommandParameter="{Binding IpAddress}">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="#222222"/>
+                                        <Setter Property="Foreground" Value="#444444"/>
+                                        <Setter Property="Cursor"     Value="Arrow"/>
+                                        <Setter Property="IsEnabled"  Value="False"/>
+                                        <Setter Property="ToolTip"    Value="Ikke tjekket endnu"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                        <TextBlock x:Name="txt" Text=":80"
+                                                                   FontFamily="{TemplateBinding FontFamily}"
+                                                                   FontSize="{TemplateBinding FontSize}"
+                                                                   FontWeight="{TemplateBinding FontWeight}"
+                                                                   Foreground="{TemplateBinding Foreground}"
+                                                                   HorizontalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <MultiTrigger>
+                                                            <MultiTrigger.Conditions>
+                                                                <Condition Property="IsMouseOver" Value="True"/>
+                                                                <Condition Property="IsEnabled"   Value="True"/>
+                                                            </MultiTrigger.Conditions>
+                                                            <Setter TargetName="Bd"  Property="Background" Value="#1E3B1E"/>
+                                                            <Setter TargetName="txt" Property="FontWeight"  Value="SemiBold"/>
+                                                        </MultiTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Port80Open}" Value="{x:Null}">
+                                                <Setter Property="ToolTip" Value="Ikke tjekket endnu"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Port80Open}" Value="False">
+                                                <Setter Property="ToolTip" Value="Port ikke åben"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Port80Open}" Value="True">
+                                                <Setter Property="IsEnabled"  Value="True"/>
+                                                <Setter Property="Cursor"     Value="Hand"/>
+                                                <Setter Property="Background" Value="#162B16"/>
+                                                <Setter Property="Foreground" Value="#4CAF50"/>
+                                                <Setter Property="ToolTip"    Value="Åbn i browser (http)"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsCheckingPorts}" Value="True">
+                                                <Setter Property="IsEnabled"  Value="False"/>
+                                                <Setter Property="Cursor"     Value="Arrow"/>
+                                                <Setter Property="Background" Value="#2A1E00"/>
+                                                <Setter Property="Foreground" Value="#FFA726"/>
+                                                <Setter Property="ToolTip"    Value="Tjekker..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Port :443 chip -->
+                <DataGridTemplateColumn Width="48" CanUserSort="False" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Width="40" HorizontalAlignment="Center"
+                                    BorderThickness="0" Padding="3,2"
+                                    FontFamily="Consolas" FontSize="11"
+                                    FocusVisualStyle="{x:Null}"
+                                    Command="{Binding Source={StaticResource VmProxy}, Path=Data.OpenPort443Command}"
+                                    CommandParameter="{Binding IpAddress}">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="#222222"/>
+                                        <Setter Property="Foreground" Value="#444444"/>
+                                        <Setter Property="Cursor"     Value="Arrow"/>
+                                        <Setter Property="IsEnabled"  Value="False"/>
+                                        <Setter Property="ToolTip"    Value="Ikke tjekket endnu"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                        <TextBlock x:Name="txt" Text=":443"
+                                                                   FontFamily="{TemplateBinding FontFamily}"
+                                                                   FontSize="{TemplateBinding FontSize}"
+                                                                   FontWeight="{TemplateBinding FontWeight}"
+                                                                   Foreground="{TemplateBinding Foreground}"
+                                                                   HorizontalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <MultiTrigger>
+                                                            <MultiTrigger.Conditions>
+                                                                <Condition Property="IsMouseOver" Value="True"/>
+                                                                <Condition Property="IsEnabled"   Value="True"/>
+                                                            </MultiTrigger.Conditions>
+                                                            <Setter TargetName="Bd"  Property="Background" Value="#1E3B1E"/>
+                                                            <Setter TargetName="txt" Property="FontWeight"  Value="SemiBold"/>
+                                                        </MultiTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Port443Open}" Value="{x:Null}">
+                                                <Setter Property="ToolTip" Value="Ikke tjekket endnu"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Port443Open}" Value="False">
+                                                <Setter Property="ToolTip" Value="Port ikke åben"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Port443Open}" Value="True">
+                                                <Setter Property="IsEnabled"  Value="True"/>
+                                                <Setter Property="Cursor"     Value="Hand"/>
+                                                <Setter Property="Background" Value="#162B16"/>
+                                                <Setter Property="Foreground" Value="#4CAF50"/>
+                                                <Setter Property="ToolTip"    Value="Åbn i browser (https)"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsCheckingPorts}" Value="True">
+                                                <Setter Property="IsEnabled"  Value="False"/>
+                                                <Setter Property="Cursor"     Value="Arrow"/>
+                                                <Setter Property="Background" Value="#2A1E00"/>
+                                                <Setter Property="Foreground" Value="#FFA726"/>
+                                                <Setter Property="ToolTip"    Value="Tjekker..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Port :8080 chip -->
+                <DataGridTemplateColumn Width="52" CanUserSort="False" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Width="44" HorizontalAlignment="Center"
+                                    BorderThickness="0" Padding="3,2"
+                                    FontFamily="Consolas" FontSize="11"
+                                    FocusVisualStyle="{x:Null}"
+                                    Command="{Binding Source={StaticResource VmProxy}, Path=Data.OpenPort8080Command}"
+                                    CommandParameter="{Binding IpAddress}">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="#222222"/>
+                                        <Setter Property="Foreground" Value="#444444"/>
+                                        <Setter Property="Cursor"     Value="Arrow"/>
+                                        <Setter Property="IsEnabled"  Value="False"/>
+                                        <Setter Property="ToolTip"    Value="Ikke tjekket endnu"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                        <TextBlock x:Name="txt" Text=":8080"
+                                                                   FontFamily="{TemplateBinding FontFamily}"
+                                                                   FontSize="{TemplateBinding FontSize}"
+                                                                   FontWeight="{TemplateBinding FontWeight}"
+                                                                   Foreground="{TemplateBinding Foreground}"
+                                                                   HorizontalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <MultiTrigger>
+                                                            <MultiTrigger.Conditions>
+                                                                <Condition Property="IsMouseOver" Value="True"/>
+                                                                <Condition Property="IsEnabled"   Value="True"/>
+                                                            </MultiTrigger.Conditions>
+                                                            <Setter TargetName="Bd"  Property="Background" Value="#1E3B1E"/>
+                                                            <Setter TargetName="txt" Property="FontWeight"  Value="SemiBold"/>
+                                                        </MultiTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Port8080Open}" Value="{x:Null}">
+                                                <Setter Property="ToolTip" Value="Ikke tjekket endnu"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Port8080Open}" Value="False">
+                                                <Setter Property="ToolTip" Value="Port ikke åben"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Port8080Open}" Value="True">
+                                                <Setter Property="IsEnabled"  Value="True"/>
+                                                <Setter Property="Cursor"     Value="Hand"/>
+                                                <Setter Property="Background" Value="#162B16"/>
+                                                <Setter Property="Foreground" Value="#4CAF50"/>
+                                                <Setter Property="ToolTip"    Value="Åbn i browser (port 8080)"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsCheckingPorts}" Value="True">
+                                                <Setter Property="IsEnabled"  Value="False"/>
+                                                <Setter Property="Cursor"     Value="Arrow"/>
+                                                <Setter Property="Background" Value="#2A1E00"/>
+                                                <Setter Property="Foreground" Value="#FFA726"/>
+                                                <Setter Property="ToolTip"    Value="Tjekker..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Status badge -->
+                <DataGridTemplateColumn Width="76" SortMemberPath="Status">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border x:Name="badge" Background="#2A2000"
+                                    CornerRadius="10" Padding="8,2"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock x:Name="badgeText"
+                                           Text="{Binding StatusText}"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="#FF9800"/>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Online}">
+                                    <Setter TargetName="badge"     Property="Background" Value="#162B16"/>
+                                    <Setter TargetName="badgeText" Property="Foreground" Value="#4CAF50"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Offline}">
+                                    <Setter TargetName="badge"     Property="Background" Value="#2B1616"/>
+                                    <Setter TargetName="badgeText" Property="Foreground" Value="#EF5350"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:PingStatus.Timeout}">
+                                    <Setter TargetName="badge"     Property="Background" Value="#2B1616"/>
+                                    <Setter TargetName="badgeText" Property="Foreground" Value="#EF5350"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- ms -->
+                <DataGridTextColumn Binding="{Binding RoundtripMs}" Width="52">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground"          Value="#666666"/>
+                            <Setter Property="VerticalAlignment"   Value="Center"/>
+                            <Setter Property="HorizontalAlignment" Value="Right"/>
+                            <Setter Property="Padding"             Value="0,0,6,0"/>
+                            <Setter Property="FontSize"            Value="11"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <!-- Last seen -->
+                <DataGridTextColumn Binding="{Binding LastCheckedFormatted}" Width="66">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground"        Value="#444444"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="FontSize"          Value="11"/>
+                            <Setter Property="FontFamily"        Value="Consolas"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <!-- Follow button -->
+                <DataGridTemplateColumn Width="76" CanUserSort="False" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Height="22" Padding="5,0" FontSize="11"
+                                    HorizontalAlignment="Center"
+                                    Command="{Binding Source={StaticResource VmProxy}, Path=Data.ToggleFollowCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="LanConnect" Width="12" Height="12"
+                                                             VerticalAlignment="Center" Margin="0,0,3,0"/>
+                                    <TextBlock Text="Follow" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Port scan button -->
+                <DataGridTemplateColumn Width="34" CanUserSort="False" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource MaterialDesignIconButton}"
+                                    Width="26" Height="26"
+                                    Foreground="#445566"
+                                    HorizontalAlignment="Center"
+                                    Command="{Binding Source={StaticResource VmProxy}, Path=Data.CheckPortsCommand}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip="Check ports">
+                                <materialDesign:PackIcon Kind="Magnify" Width="14" Height="14"/>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Remove button -->
+                <DataGridTemplateColumn Width="34" CanUserSort="False" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource MaterialDesignIconButton}"
+                                    Width="26" Height="26"
+                                    Foreground="#555555"
+                                    HorizontalAlignment="Center"
+                                    Command="{Binding Source={StaticResource VmProxy}, Path=Data.RemoveEntryCommand}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip="Remove">
+                                <materialDesign:PackIcon Kind="Close" Width="14" Height="14"/>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- ===== ADD ROW ===== -->
+        <Border Grid.Row="3"
+                Background="#131C29"
+                BorderBrush="{StaticResource ControlBorderBrush}"
+                BorderThickness="1,0,1,1"
+                Padding="8,7">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0"
+                         Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                         FontFamily="Consolas"
+                         Text="{Binding NewIpInput, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="IP address">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <TextBox Grid.Column="2"
+                         Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                         Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Description (optional)">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <Button Grid.Column="4"
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Background="#1565C0" BorderBrush="#1565C0"
+                        Height="28" Padding="12,0"
+                        Command="{Binding AddEntryCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Plus" Width="14" Height="14"
+                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="Add" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- ===== BULK ADD + STATUS ===== -->
+        <Grid Grid.Row="4" Margin="0,10,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Background="#0D1520"
+                    BorderBrush="{StaticResource ControlBorderBrush}"
+                    BorderThickness="1" Padding="10,7">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>  <!-- "Bulk add:" -->
+                        <ColumnDefinition Width="120"/>   <!-- Base -->
+                        <ColumnDefinition Width="14"/>    <!-- "." -->
+                        <ColumnDefinition Width="46"/>    <!-- Start -->
+                        <ColumnDefinition Width="14"/>    <!-- "–" -->
+                        <ColumnDefinition Width="46"/>    <!-- End -->
+                        <ColumnDefinition Width="*"/>     <!-- Preview -->
+                        <ColumnDefinition Width="Auto"/>  <!-- Button -->
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Text="Bulk add:"
+                               Foreground="#888888" FontSize="11"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+                    <TextBox Grid.Column="1"
+                             Style="{StaticResource DarkTextBoxStyle}" Height="26"
+                             FontFamily="Consolas"
+                             Text="{Binding BulkBase, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Subnet base (e.g. 192.168.1)"/>
+
+                    <TextBlock Grid.Column="2" Text="."
+                               Foreground="#888888" FontSize="13"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                    <TextBox Grid.Column="3"
+                             Style="{StaticResource DarkTextBoxStyle}" Height="26"
+                             FontFamily="Consolas" TextAlignment="Center"
+                             Text="{Binding BulkStart, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Start octet"/>
+
+                    <TextBlock Grid.Column="4" Text="–"
+                               Foreground="#888888" FontSize="13"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                    <TextBox Grid.Column="5"
+                             Style="{StaticResource DarkTextBoxStyle}" Height="26"
+                             FontFamily="Consolas" TextAlignment="Center"
+                             Text="{Binding BulkEnd, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="End octet"/>
+
+                    <TextBlock Grid.Column="6"
+                               Text="{Binding BulkPreview}"
+                               Foreground="#555555" FontFamily="Consolas" FontSize="11"
+                               VerticalAlignment="Center" Margin="10,0,6,0"
+                               TextTrimming="CharacterEllipsis"/>
+
+                    <Button Grid.Column="7"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Height="26" Padding="10,0"
+                            Command="{Binding BulkAddCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
+                                                     VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBlock Text="Add all" FontSize="11" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <TextBlock Grid.Row="1"
+                       Text="{Binding StatusMessage}"
+                       Foreground="#555555" FontSize="11"
+                       Margin="2,5,0,0"/>
+        </Grid>
+
+    </Grid>
+</UserControl>

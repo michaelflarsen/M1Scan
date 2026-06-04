@@ -166,7 +166,7 @@ Background `#0F0F0F` (deeper than main bg). Sections:
 ```
 Border (full height, bg #0F0F0F)
 └── DockPanel
-    ├── Logo area (top, 56px): PackIcon kind=Router + "M1Scan" text
+    ├── Logo area (top, 56px): PackIcon kind=Radar (Foreground="{StaticResource PrimaryHueMidBrush}") + "M1Scan" text
     ├── ScrollViewer (*)
     │   ├── Section header "SCAN" (label style, muted text)
     │   ├── NavButton Tag="Devices"  icon=Devices       "Devices"

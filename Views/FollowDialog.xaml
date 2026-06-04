@@ -1,0 +1,105 @@
+<Window x:Class="M1Scan.Views.FollowDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Skift min IP"
+        Width="460" SizeToContent="Height"
+        Background="{StaticResource DarkBackgroundBrush}"
+        Foreground="{StaticResource DarkForegroundBrush}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Adapter info card -->
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/> <!-- Context hint (entry IP) -->
+            <RowDefinition Height="14"/>
+            <RowDefinition Height="Auto"/> <!-- New IP -->
+            <RowDefinition Height="10"/>
+            <RowDefinition Height="Auto"/> <!-- Subnet mask -->
+            <RowDefinition Height="10"/>
+            <RowDefinition Height="Auto"/> <!-- Gateway -->
+            <RowDefinition Height="14"/>
+            <RowDefinition Height="Auto"/> <!-- Error -->
+            <RowDefinition Height="16"/>
+            <RowDefinition Height="Auto"/> <!-- Buttons -->
+        </Grid.RowDefinitions>
+
+        <!-- Current adapter / IP card -->
+        <materialDesign:Card Grid.Row="0" Background="#1C2535" Padding="14,10"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <StackPanel>
+                <TextBlock x:Name="AdapterInfoText"
+                           Foreground="#888888" FontSize="11"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="CurrentIpText"
+                           FontFamily="Consolas" FontSize="16" FontWeight="Bold"
+                           Foreground="#64B5F6" Margin="0,4,0,0"/>
+            </StackPanel>
+        </materialDesign:Card>
+
+        <!-- Context hint: the watched entry IP -->
+        <Border Grid.Row="2" Background="#1A1A2E" CornerRadius="4" Padding="10,7">
+            <StackPanel Orientation="Horizontal">
+                <materialDesign:PackIcon Kind="InformationOutline" Width="13" Height="13"
+                                         Foreground="#555577" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock x:Name="ContextHintText"
+                           Foreground="#666688" FontSize="11" VerticalAlignment="Center"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <!-- New IP address -->
+        <StackPanel Grid.Row="4">
+            <TextBlock Text="Ny IP-adresse" Foreground="#888888" FontSize="11" Margin="0,0,0,5"/>
+            <TextBox x:Name="IpBox"
+                     Style="{StaticResource DarkTextBoxStyle}" Height="30"
+                     FontFamily="Consolas" FontSize="13"/>
+        </StackPanel>
+
+        <!-- Subnet mask -->
+        <StackPanel Grid.Row="6">
+            <TextBlock Text="Subnet-maske" Foreground="#888888" FontSize="11" Margin="0,0,0,5"/>
+            <TextBox x:Name="MaskBox"
+                     Style="{StaticResource DarkTextBoxStyle}" Height="30"
+                     FontFamily="Consolas" FontSize="13"/>
+        </StackPanel>
+
+        <!-- Gateway -->
+        <StackPanel Grid.Row="8">
+            <TextBlock Text="Standard-gateway" Foreground="#888888" FontSize="11" Margin="0,0,0,5"/>
+            <TextBox x:Name="GatewayBox"
+                     Style="{StaticResource DarkTextBoxStyle}" Height="30"
+                     FontFamily="Consolas" FontSize="13"/>
+        </StackPanel>
+
+        <!-- Error -->
+        <TextBlock Grid.Row="10"
+                   x:Name="ErrorText"
+                   Foreground="#EF5350" FontSize="11"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed"/>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="12" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="CancelButton"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    Content="Annuller"
+                    Height="32" Padding="18,0" Margin="0,0,8,0"
+                    Click="Cancel_Click"/>
+            <Button x:Name="ApplyButton"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    Background="#1565C0" BorderBrush="#1565C0"
+                    Height="32" Padding="18,0"
+                    Click="Apply_Click">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="LanConnect" Width="14" Height="14"
+                                             VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="Anvend" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

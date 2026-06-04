@@ -44,3 +44,31 @@ M1Scan is a WPF desktop utility (net8.0-windows) for Windows network management.
 ### Dependency injection
 
 Services are instantiated manually in the ViewModels (no DI container). If adding new services, follow the existing constructor-injection pattern used in `NetworkScanViewModel` and `IpConfigViewModel`.
+
+
+## Documentation — always use Context7
+Always fetch up-to-date documentation via Context7 before writing or editing code that touches:
+- CommunityToolkit.Mvvm (ObservableProperty, RelayCommand, ObservableObject)
+- WPF / System.Windows (DispatcherTimer, Binding, DataTemplate)
+- System.Net.NetworkInformation (Ping, NetworkInterface)
+- System.Text.Json (serialization/deserialization)
+
+## Adding new pages — required conventions
+Each new UI page MUST follow this structure:
+- Views/<PageName>View.xaml
+- ViewModels/<PageName>ViewModel.cs
+- Wired in MainWindow.xaml + MainViewModel.cs only
+
+Never modify existing completed pages unless the task explicitly requires it:
+- DevicesView.xaml / DevicesViewModel.cs  ← do not touch
+- NetworkScanView.xaml / NetworkScanViewModel.cs  ← do not touch
+
+## Persistent storage
+User data (watchlists, profiles etc.) is saved as JSON to:
+  %APPDATA%\M1Scan\<filename>.json
+Use System.Text.Json. Create the directory if it does not exist.
+
+## Elevation
+The app requires Administrator privileges.
+netsh calls use System.Diagnostics.Process with UseShellExecute = false.
+If the manifest is missing, add app.manifest with requestedExecutionLevel level="requireAdministrator".
