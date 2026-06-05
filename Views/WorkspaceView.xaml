@@ -75,6 +75,21 @@
                 <TextBlock Text="{Binding WatchList.Count, StringFormat='({0})'}"
                            FontSize="11" Foreground="#555555"
                            Margin="5,0,0,0" VerticalAlignment="Center"/>
+                <Button Content="Fjern timeout" Margin="8,0,0,0"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
+                        ToolTip="Fjern alle IP-adresser med timeout"
+                        Command="{Binding RemoveTimeoutCommand}"/>
+                <Button Content="Fjern online" Margin="4,0,0,0"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
+                        ToolTip="Fjern alle IP-adresser der er online"
+                        Command="{Binding RemoveOnlineCommand}"/>
+                <Button Content="{Binding ClearAllLabel}" Margin="4,0,0,0"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
+                        ToolTip="Ryd hele watch list"
+                        Command="{Binding ClearAllCommand}"/>
             </StackPanel>
 
             <!-- Interval control -->
