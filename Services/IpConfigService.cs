@@ -29,15 +29,19 @@ namespace M1Scan.Services
             if (!IsValidAdapterName(adapterName) ||
                 !IPAddress.TryParse(ipAddress, out _) ||
                 !IPAddress.TryParse(subnetMask, out _) ||
-                !IPAddress.TryParse(gateway, out _))
+                (!string.IsNullOrEmpty(gateway) && !IPAddress.TryParse(gateway, out _)))
                 return false;
 
             return await Task.Run(() =>
             {
                 try
                 {
-                    RunProcess("netsh", "interface", "ipv4", "set", "address",
-                        $"name={adapterName}", "static", ipAddress, subnetMask, gateway);
+                    if (string.IsNullOrEmpty(gateway))
+                        RunProcess("netsh", "interface", "ipv4", "set", "address",
+                            $"name={adapterName}", "static", ipAddress, subnetMask);
+                    else
+                        RunProcess("netsh", "interface", "ipv4", "set", "address",
+                            $"name={adapterName}", "static", ipAddress, subnetMask, gateway);
                     return true;
                 }
                 catch (Exception ex)
@@ -104,7 +108,7 @@ namespace M1Scan.Services
             {
                 try
                 {
-                    RunProcess("ipconfig", "/renew");
+                    RunProcess("ipconfig", "/renew", adapterName);
                     return "DHCP renewed successfully";
                 }
                 catch (Exception ex) { return $"Error: {ex.Message}"; }

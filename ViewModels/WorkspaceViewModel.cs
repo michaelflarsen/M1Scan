@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Diagnostics;
 using System.Net.Sockets;
@@ -54,6 +55,11 @@ namespace M1Scan.ViewModels
         // Interval + status
         private int    _pingIntervalSeconds = 3;
         private string _statusMessage       = "Ready";
+
+        // Clear-all confirm state
+        private bool _clearConfirmPending;
+        private string _clearAllLabel = "Ryd alle";
+        private DispatcherTimer? _clearConfirmTimer;
 
         // ── Properties ──────────────────────────────────────────────────────
 
@@ -129,6 +135,12 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _statusMessage, value);
         }
 
+        public string ClearAllLabel
+        {
+            get => _clearAllLabel;
+            private set => SetProperty(ref _clearAllLabel, value);
+        }
+
         // ── Commands ─────────────────────────────────────────────────────────
 
         public RelayCommand AddEntryCommand      { get; }
@@ -141,6 +153,9 @@ namespace M1Scan.ViewModels
         public RelayCommand OpenPort80Command    { get; }
         public RelayCommand OpenPort443Command   { get; }
         public RelayCommand OpenPort8080Command  { get; }
+        public RelayCommand RemoveTimeoutCommand { get; }
+        public RelayCommand RemoveOnlineCommand  { get; }
+        public RelayCommand ClearAllCommand      { get; }
 
         // ── Constructor ──────────────────────────────────────────────────────
 
@@ -168,7 +183,8 @@ namespace M1Scan.ViewModels
 
             BulkAddCommand = new RelayCommand(
                 _ => BulkAdd(),
-                _ => !string.IsNullOrWhiteSpace(BulkBase) && BulkStart <= BulkEnd);
+                param => !string.IsNullOrWhiteSpace(BulkBase) && BulkStart <= BulkEnd
+                         && IPAddress.TryParse($"{BulkBase.Trim()}.0", out _));
 
             // Fix 3: suggestion is based on MY adapter IP, not the watched entry IP.
             // The watched entry IP is passed purely as context for the dialog label.
@@ -208,6 +224,58 @@ namespace M1Scan.ViewModels
             OpenPort80Command   = new RelayCommand(param => OpenUrl($"http://{param}"),      param => !string.IsNullOrEmpty(param as string));
             OpenPort443Command  = new RelayCommand(param => OpenUrl($"https://{param}"),     param => !string.IsNullOrEmpty(param as string));
             OpenPort8080Command = new RelayCommand(param => OpenUrl($"http://{param}:8080"), param => !string.IsNullOrEmpty(param as string));
+
+            RemoveTimeoutCommand = new RelayCommand(
+                _ =>
+                {
+                    foreach (var e in WatchList.Where(e => e.Status is PingStatus.Timeout or PingStatus.Offline).ToList())
+                        WatchList.Remove(e);
+                    SaveWatchList();
+                },
+                _ => WatchList.Any(e => e.Status is PingStatus.Timeout or PingStatus.Offline));
+
+            RemoveOnlineCommand = new RelayCommand(
+                _ =>
+                {
+                    foreach (var e in WatchList.Where(e => e.Status == PingStatus.Online).ToList())
+                        WatchList.Remove(e);
+                    SaveWatchList();
+                },
+                _ => WatchList.Any(e => e.Status == PingStatus.Online));
+
+            ClearAllCommand = new RelayCommand(
+                _ =>
+                {
+                    if (!_clearConfirmPending)
+                    {
+                        _clearConfirmTimer?.Stop();
+                        _clearConfirmTimer = null;
+                        _clearConfirmPending = true;
+                        ClearAllLabel = "Bekræft?";
+                        _clearConfirmTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+                        _clearConfirmTimer.Tick += (_, _) =>
+                        {
+                            _clearConfirmTimer?.Stop();
+                            _clearConfirmTimer = null;
+                            _clearConfirmPending = false;
+                            ClearAllLabel = "Ryd alle";
+                        };
+                        _clearConfirmTimer.Start();
+                    }
+                    else
+                    {
+                        _clearConfirmTimer?.Stop();
+                        _clearConfirmTimer = null;
+                        _clearConfirmPending = false;
+                        ClearAllLabel = "Ryd alle";
+                        if (WatchList.Count > 0)
+                        {
+                            WatchList.Clear();
+                            SaveWatchList();
+                        }
+                    }
+                },
+                _ => WatchList.Count > 0);
 
             NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
 
@@ -284,11 +352,15 @@ namespace M1Scan.ViewModels
                     entry.LastChecked = DateTime.Now;
                 });
 
-                if (triggerPortCheck)
+                if (triggerPortCheck && Application.Current != null)
                     _ = CheckPortsAsync(entry);
             });
 
             await Task.WhenAll(tasks);
+
+            if (Application.Current != null)
+                await Application.Current.Dispatcher.InvokeAsync(
+                    System.Windows.Input.CommandManager.InvalidateRequerySuggested);
         }
 
         private static void OpenUrl(string url)
@@ -415,9 +487,13 @@ namespace M1Scan.ViewModels
         // Fix 1: wait 1500ms so the OS has time to assign an IP before we read it
         private async void OnNetworkAddressChanged(object? sender, EventArgs e)
         {
-            await Task.Delay(1500);
-            if (Application.Current != null)
-                await Application.Current.Dispatcher.InvokeAsync(RefreshMyIp);
+            try
+            {
+                await Task.Delay(1500);
+                if (Application.Current != null)
+                    await Application.Current.Dispatcher.InvokeAsync(RefreshMyIp);
+            }
+            catch { }
         }
 
         public void Dispose()
@@ -425,6 +501,8 @@ namespace M1Scan.ViewModels
             NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
             _pingTimer.Stop();
             _adapterTimer.Stop();
+            _clearConfirmTimer?.Stop();
+            _clearConfirmTimer = null;
         }
 
         private void SelectAdapter(AdapterEntry entry)

@@ -13,10 +13,6 @@ namespace M1Scan.Models
         private long _roundtripMs;
         private DateTime _lastChecked = DateTime.MinValue;
         private PingStatus _status = PingStatus.Waiting;
-        private bool _isFollowOpen;
-        private string _followIpInput = string.Empty;
-        private string _followMaskInput = "255.255.255.0";
-        private string _followGatewayInput = string.Empty;
         private bool? _port80Open;
         private bool? _port443Open;
         private bool? _port8080Open;
@@ -56,30 +52,6 @@ namespace M1Scan.Models
         {
             get => _status;
             set { if (SetProperty(ref _status, value)) OnPropertyChanged(nameof(StatusText)); }
-        }
-
-        public bool IsFollowOpen
-        {
-            get => _isFollowOpen;
-            set => SetProperty(ref _isFollowOpen, value);
-        }
-
-        public string FollowIpInput
-        {
-            get => _followIpInput;
-            set => SetProperty(ref _followIpInput, value);
-        }
-
-        public string FollowMaskInput
-        {
-            get => _followMaskInput;
-            set => SetProperty(ref _followMaskInput, value);
-        }
-
-        public string FollowGatewayInput
-        {
-            get => _followGatewayInput;
-            set => SetProperty(ref _followGatewayInput, value);
         }
 
         public bool? Port80Open
