@@ -253,9 +253,6 @@
                 <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <StackPanel Margin="0,6,0,0">
 
-                        <!-- HOME section -->
-                        <TextBlock Style="{StaticResource SideNavHeader}" Text="START"/>
-
                         <RadioButton x:Name="HomeNavBtn"
                                      Style="{StaticResource SideNavStyle}"
                                      GroupName="SideNav" IsChecked="True"
@@ -264,13 +261,10 @@
                                 <materialDesign:PackIcon Kind="ViewDashboardOutline" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                          VerticalAlignment="Center"/>
-                                <TextBlock Text="Overblik" Margin="10,0,0,0" VerticalAlignment="Center"
+                                <TextBlock Text="Dashboard" Margin="10,0,0,0" VerticalAlignment="Center"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                             </StackPanel>
                         </RadioButton>
-
-                        <!-- WORKSPACE section -->
-                        <TextBlock Style="{StaticResource SideNavHeader}" Text="WORKSPACE"/>
 
                         <RadioButton x:Name="WorkspaceNavBtn"
                                      Style="{StaticResource SideNavStyle}"
@@ -280,13 +274,10 @@
                                 <materialDesign:PackIcon Kind="ViewDashboard" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                          VerticalAlignment="Center"/>
-                                <TextBlock Text="Workspace" Margin="10,0,0,0" VerticalAlignment="Center"
+                                <TextBlock Text="Device Follow" Margin="10,0,0,0" VerticalAlignment="Center"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                             </StackPanel>
                         </RadioButton>
-
-                        <!-- SCAN section -->
-                        <TextBlock Style="{StaticResource SideNavHeader}" Text="SCAN" Margin="19,14,0,2"/>
 
                         <RadioButton x:Name="DevicesNavBtn"
                                      Style="{StaticResource SideNavStyle}"
@@ -296,7 +287,7 @@
                                 <materialDesign:PackIcon Kind="Devices" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                          VerticalAlignment="Center"/>
-                                <TextBlock Text="Devices" Margin="10,0,0,0" VerticalAlignment="Center"
+                                <TextBlock Text="Scan" Margin="10,0,0,0" VerticalAlignment="Center"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                             </StackPanel>
                         </RadioButton>
@@ -322,9 +313,6 @@
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                             </StackPanel>
                         </RadioButton>
-
-                        <!-- ANALYSE section -->
-                        <TextBlock Style="{StaticResource SideNavHeader}" Text="ANALYSE" Margin="19,16,0,2"/>
 
                         <RadioButton Style="{StaticResource SideNavStyle}" IsEnabled="False"
                                      GroupName="SideNav">

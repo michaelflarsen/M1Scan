@@ -93,23 +93,24 @@
         </Grid>
 
         <!-- ══════════════════════════════════════════════════════ -->
-        <!-- INTERNET + ADAPTERE — side om side                     -->
+        <!-- INTERNET + ADAPTERE — egne headers, side om side      -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <StackPanel Grid.Row="2">
-            <TextBlock FontFamily="Consolas" FontSize="10"
-                       Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8">
-                <Run Text="// INTERNET"/>
-                <Run Text="  &amp;  " Foreground="#1A2A3A"/>
-                <Run Text="MINE ADAPTERE"/>
-            </TextBlock>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>   <!-- internet -->
+                <ColumnDefinition Width="Auto"/>   <!-- separator -->
+                <ColumnDefinition Width="*"/>      <!-- adaptere -->
+            </Grid.ColumnDefinitions>
 
-            <WrapPanel>
-                <!-- ── Internet-kort (samme stil som adapter) ── -->
+            <!-- ── INTERNET ── -->
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="// INTERNET" FontFamily="Consolas" FontSize="10"
+                           Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
                 <materialDesign:Card Background="#151E2C" Padding="14,12"
-                                     Margin="0,0,20,0" MinWidth="190"
+                                     MinWidth="190"
                                      materialDesign:ElevationAssist.Elevation="Dp2">
                     <StackPanel>
-                        <!-- Status-header: prik + ONLINE/OFFLINE -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                 <Ellipse.Style>
@@ -146,7 +147,6 @@
                             </TextBlock>
                         </StackPanel>
 
-                        <!-- 3 ping-rækker -->
                         <ItemsControl ItemsSource="{Binding InternetChecks}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -157,8 +157,6 @@
                                             <ColumnDefinition Width="10"/>
                                             <ColumnDefinition Width="8"/>
                                         </Grid.ColumnDefinitions>
-
-                                        <!-- Host IP -->
                                         <TextBlock Grid.Column="0" Text="{Binding Host}"
                                                    FontFamily="Consolas" FontSize="12" FontWeight="Bold"
                                                    VerticalAlignment="Center">
@@ -184,8 +182,6 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-
-                                        <!-- Latency -->
                                         <TextBlock Grid.Column="1" Text="{Binding LatencyDisplay}"
                                                    FontFamily="Consolas" FontSize="11"
                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -211,8 +207,6 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-
-                                        <!-- LED prik -->
                                         <Ellipse Grid.Column="3" Width="6" Height="6" VerticalAlignment="Center">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse">
@@ -241,18 +235,34 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- Via adapter (footer som adapter-beskrivelse) -->
                         <TextBlock Text="{Binding InternetVia}" FontSize="10"
                                    Foreground="#2A3A4A" Margin="0,6,0,0"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </materialDesign:Card>
+            </StackPanel>
 
-                <!-- Vertikal separator -->
-                <Border Width="1" Background="#1A2A3A" Margin="0,4,20,4" VerticalAlignment="Stretch"/>
+            <!-- Vertikal separator -->
+            <Border Grid.Column="1" Width="1" Background="#1A2A3A"
+                    Margin="20,22,20,4" VerticalAlignment="Stretch"/>
 
-                <!-- ── Adapter-kort ── -->
+            <!-- ── MINE ADAPTERE ── -->
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="// MINE ADAPTERE" FontFamily="Consolas" FontSize="10"
+                           Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                <!-- Adapter-kort (skjult når ingen adaptere) -->
                 <ItemsControl ItemsSource="{Binding ActiveAdapters}">
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ActiveAdapters.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel/>
@@ -289,8 +299,36 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </WrapPanel>
-        </StackPanel>
+
+                <!-- Ingen aktiv adapter — placeholder (vises når ActiveAdapters er tom) -->
+                <materialDesign:Card Background="#0E1520" Padding="14,12" MinWidth="190"
+                                     materialDesign:ElevationAssist.Elevation="Dp1">
+                    <materialDesign:Card.Style>
+                        <Style TargetType="materialDesign:Card">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ActiveAdapters.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </materialDesign:Card.Style>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <Ellipse Width="7" Height="7" Fill="#5C2A2A"
+                                     VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="Ingen forbindelse" FontSize="11"
+                                       Foreground="#4A3A3A"/>
+                        </StackPanel>
+                        <TextBlock Text="Ingen Aktiv Adapter"
+                                   FontFamily="Consolas" FontSize="15" FontWeight="Bold"
+                                   Foreground="#3A3A4A"/>
+                        <TextBlock Text="Kontroller netværksforbindelsen"
+                                   FontSize="10" Foreground="#2A2A3A" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </materialDesign:Card>
+            </StackPanel>
+        </Grid>
 
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- NÆRLIGGENDE ENHEDER — GRUPPERT PER SUBNET             -->
