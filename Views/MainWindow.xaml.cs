@@ -49,7 +49,10 @@ namespace M1Scan.Views
         private static ControlTemplate GetAdapterItemTemplate() => _adapterItemTemplate.Value;
 
         private MainViewModel _vm = null!;
-        private string _selectedPage = "Devices";
+        private static readonly double[] Scales = { 0.50, 0.60, 0.70, 0.80, 0.90, 1.0, 1.15, 1.30, 1.50, 1.75, 2.00 };
+        private int _scaleIndex = 5;
+
+        private string _selectedPage = "Home";
         private int _onlineCount;
         private int _offlineCount;
         private string _lastScanTime = "—";
@@ -125,7 +128,11 @@ namespace M1Scan.Views
             view.Filter = obj => obj is HostInfo h && MatchesSearch(h);
             FilteredHosts = view;
 
+            AppVersionText.Text = "v" + (System.Reflection.Assembly.GetExecutingAssembly()
+                                              .GetName().Version?.ToString(3) ?? "?");
+
             UpdatePageVisibility();
+            ApplyScale();
         }
 
         private void OnHostsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -151,6 +158,7 @@ namespace M1Scan.Views
 
         private void UpdatePageVisibility()
         {
+            if (HomePanel      != null) HomePanel.Visibility      = _selectedPage == "Home"      ? Visibility.Visible : Visibility.Collapsed;
             if (WorkspacePanel != null) WorkspacePanel.Visibility = _selectedPage == "Workspace" ? Visibility.Visible : Visibility.Collapsed;
             if (DevicesPanel   != null) DevicesPanel.Visibility   = _selectedPage == "Devices"   ? Visibility.Visible : Visibility.Collapsed;
             if (AdaptersPanel  != null) AdaptersPanel.Visibility  = _selectedPage == "Adapters"  ? Visibility.Visible : Visibility.Collapsed;
@@ -231,6 +239,31 @@ namespace M1Scan.Views
             menu.Items.Add(refreshItem);
 
             menu.IsOpen = true;
+        }
+
+        private void ApplyScale()
+        {
+            double s = Scales[_scaleIndex];
+            ContentScale.ScaleX = s;
+            ContentScale.ScaleY = s;
+            ZoomLabel.Text = $"{(int)(s * 100)}%";
+            ZoomOutBtn.IsEnabled  = _scaleIndex > 0;
+            ZoomInBtn.IsEnabled   = _scaleIndex < Scales.Length - 1;
+        }
+
+        private void ZoomIn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_scaleIndex < Scales.Length - 1) { _scaleIndex++; ApplyScale(); }
+        }
+
+        private void ZoomOut_Click(object sender, RoutedEventArgs e)
+        {
+            if (_scaleIndex > 0) { _scaleIndex--; ApplyScale(); }
+        }
+
+        private void ZoomReset_Click(object sender, RoutedEventArgs e)
+        {
+            _scaleIndex = 5; ApplyScale();
         }
 
         private void SideNav_Click(object sender, RoutedEventArgs e)

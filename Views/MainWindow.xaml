@@ -79,6 +79,38 @@
             <Setter Property="Margin"    Value="0,2,0,0"/>
         </Style>
 
+        <!-- Zoom button style -->
+        <Style x:Key="ZoomBtnStyle" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#7A9EC0"/>
+            <Setter Property="BorderBrush"     Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Height"          Value="30"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1A3050"/>
+                                <Setter Property="Foreground" Value="#C8E0FF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1565C0"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#1E2C3A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Adapter dropdown button -->
         <Style x:Key="AdapterDropdownStyle" TargetType="Button">
             <Setter Property="Background"    Value="Transparent"/>
@@ -133,13 +165,64 @@
                             <TextBlock Text="M1SCAN" FontSize="14" FontWeight="Bold"
                                        Foreground="White"/>
                             <TextBlock Text="Network Discovery" FontSize="10" Foreground="#444444"/>
+                            <TextBlock x:Name="AppVersionText" FontSize="9" Foreground="#2A3A4A" Margin="0,1,0,0"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <!-- Bottom buttons: Adapters + Settings -->
+                <!-- Bottom buttons: Zoom + Adapters + Settings -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,10">
-                    <Border Height="1" Background="#151E2C" Margin="16,6"/>
+
+                    <!-- Zoom widget -->
+                    <Border Padding="10,7,10,5"
+                            Background="#0C1420"
+                            BorderBrush="#1A2A40" BorderThickness="0,1,0,0">
+                        <StackPanel>
+                            <TextBlock Text="// ZOOM" FontFamily="Consolas" FontSize="9"
+                                       Foreground="#3A6A9A" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                            <Border Background="#060D18" CornerRadius="5"
+                                    BorderBrush="#1A3050" BorderThickness="1"
+                                    Padding="2">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Zoom ud -->
+                                    <Button x:Name="ZoomOutBtn" Grid.Column="0"
+                                            Style="{StaticResource ZoomBtnStyle}"
+                                            Click="ZoomOut_Click" ToolTip="Zoom ud (−)">
+                                        <materialDesign:PackIcon Kind="MagnifyMinus" Width="17" Height="17"
+                                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                    </Button>
+
+                                    <!-- Reset / procent -->
+                                    <Button x:Name="ZoomResetBtn" Grid.Column="1"
+                                            Style="{StaticResource ZoomBtnStyle}"
+                                            Click="ZoomReset_Click" ToolTip="Nulstil til 100%"
+                                            MinWidth="46">
+                                        <TextBlock x:Name="ZoomLabel" Text="100%"
+                                                   FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                   HorizontalAlignment="Center"/>
+                                    </Button>
+
+                                    <!-- Zoom ind -->
+                                    <Button x:Name="ZoomInBtn" Grid.Column="2"
+                                            Style="{StaticResource ZoomBtnStyle}"
+                                            Click="ZoomIn_Click" ToolTip="Zoom ind (+)">
+                                        <materialDesign:PackIcon Kind="MagnifyPlus" Width="17" Height="17"
+                                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Height="1" Background="#151E2C" Margin="16,4"/>
 
                     <RadioButton x:Name="AdaptersNavBtn"
                                  Style="{StaticResource SideNavStyle}"
@@ -170,6 +253,22 @@
                 <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <StackPanel Margin="0,6,0,0">
 
+                        <!-- HOME section -->
+                        <TextBlock Style="{StaticResource SideNavHeader}" Text="START"/>
+
+                        <RadioButton x:Name="HomeNavBtn"
+                                     Style="{StaticResource SideNavStyle}"
+                                     GroupName="SideNav" IsChecked="True"
+                                     Tag="Home" Click="SideNav_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ViewDashboardOutline" Width="18" Height="18"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                                         VerticalAlignment="Center"/>
+                                <TextBlock Text="Overblik" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            </StackPanel>
+                        </RadioButton>
+
                         <!-- WORKSPACE section -->
                         <TextBlock Style="{StaticResource SideNavHeader}" Text="WORKSPACE"/>
 
@@ -191,7 +290,7 @@
 
                         <RadioButton x:Name="DevicesNavBtn"
                                      Style="{StaticResource SideNavStyle}"
-                                     GroupName="SideNav" IsChecked="True"
+                                     GroupName="SideNav"
                                      Tag="Devices" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Devices" Width="18" Height="18"
@@ -269,6 +368,9 @@
         <!--  CONTENT AREA                                                 -->
         <!-- ============================================================ -->
         <Grid Grid.Column="1">
+            <Grid.LayoutTransform>
+                <ScaleTransform x:Name="ContentScale" ScaleX="1" ScaleY="1"/>
+            </Grid.LayoutTransform>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- TopBar -->
                 <RowDefinition Height="Auto"/> <!-- Stats row -->
@@ -282,6 +384,9 @@
                     <Style TargetType="Border">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Workspace">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Home">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -437,6 +542,12 @@
             <!--  CONTENT PANELS                                               -->
             <!-- ============================================================ -->
             <Grid Grid.Row="3">
+
+                <!-- ===================================================== -->
+                <!--  HOME PANEL                                             -->
+                <!-- ===================================================== -->
+                <views:HomeView x:Name="HomePanel" Visibility="Collapsed"
+                                DataContext="{Binding HomeVm}"/>
 
                 <!-- ===================================================== -->
                 <!--  DEVICES PANEL                                          -->

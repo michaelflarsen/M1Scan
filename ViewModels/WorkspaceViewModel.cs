@@ -186,8 +186,6 @@ namespace M1Scan.ViewModels
                 param => !string.IsNullOrWhiteSpace(BulkBase) && BulkStart <= BulkEnd
                          && IPAddress.TryParse($"{BulkBase.Trim()}.0", out _));
 
-            // Fix 3: suggestion is based on MY adapter IP, not the watched entry IP.
-            // The watched entry IP is passed purely as context for the dialog label.
             ToggleFollowCommand = new RelayCommand(param =>
             {
                 if (param is not PingEntry entry) return;
@@ -197,10 +195,9 @@ namespace M1Scan.ViewModels
                     _myAdapterSystemName,
                     _myAdapterName,
                     _myIpAddress,
-                    SuggestFollowIp(_myIpAddress, watchedIps),
+                    SuggestFollowIp(entry.IpAddress, watchedIps),
                     _mySubnetMask,
-                    _myGateway,
-                    entry.IpAddress)         // context only — "For at nå X skal du være på samme subnet"
+                    DeriveGateway(entry.IpAddress))
                 {
                     Owner = Application.Current.MainWindow
                 };
@@ -583,7 +580,6 @@ namespace M1Scan.ViewModels
             return count;
         }
 
-        // Fix 3: baseIp is always the ACTIVE ADAPTER IP, not the watched entry IP.
         private static string SuggestFollowIp(string baseIp, List<string> watchedIps)
         {
             var parts = baseIp.Split('.');
@@ -597,6 +593,12 @@ namespace M1Scan.ViewModels
                 if (!watchedIps.Contains(ip)) return ip;
             }
             return $"{prefix}55";
+        }
+
+        private static string DeriveGateway(string entryIp)
+        {
+            var parts = entryIp.Split('.');
+            return parts.Length == 4 ? $"{parts[0]}.{parts[1]}.{parts[2]}.1" : string.Empty;
         }
 
         // ── Persistence ──────────────────────────────────────────────────────

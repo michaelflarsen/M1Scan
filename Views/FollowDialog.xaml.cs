@@ -8,8 +8,8 @@ namespace M1Scan.Views
     {
         private readonly IIpConfigService _ipConfigService;
         private readonly string _adapterSystemName;
+        private string _prefix = string.Empty;
 
-        /// <param name="targetEntryIp">The watched entry's IP — used only as a context hint label.</param>
         public FollowDialog(
             IIpConfigService ipConfigService,
             string adapterSystemName,
@@ -17,8 +17,7 @@ namespace M1Scan.Views
             string currentIp,
             string suggestedIp,
             string subnetMask,
-            string gateway,
-            string targetEntryIp)
+            string gateway)
         {
             InitializeComponent();
             _ipConfigService   = ipConfigService;
@@ -26,15 +25,21 @@ namespace M1Scan.Views
 
             AdapterInfoText.Text = adapterDescription;
             CurrentIpText.Text   = currentIp;
-            IpBox.Text           = suggestedIp;
             MaskBox.Text         = subnetMask;
             GatewayBox.Text      = gateway;
 
-            // Fix 3: show context — the entry IP is what motivated opening this dialog,
-            // but the suggested IP is always in the same /24 as the active adapter.
-            ContextHintText.Text = string.IsNullOrWhiteSpace(targetEntryIp)
-                ? "Ny IP sættes på den aktive adapter."
-                : $"For at nå {targetEntryIp} skal du være på samme subnet.";
+            var parts = suggestedIp.Split('.');
+            if (parts.Length == 4)
+            {
+                _prefix          = $"{parts[0]}.{parts[1]}.{parts[2]}.";
+                PrefixLabel.Text = _prefix;
+                OctetBox.Text    = parts[3];
+            }
+            else
+            {
+                PrefixLabel.Text = string.Empty;
+                OctetBox.Text    = suggestedIp;
+            }
         }
 
         private async void Apply_Click(object sender, RoutedEventArgs e)
@@ -45,20 +50,29 @@ namespace M1Scan.Views
 
             try
             {
+                var octetRaw = OctetBox.Text.Trim();
+
+                if (!string.IsNullOrEmpty(_prefix))
+                {
+                    if (!int.TryParse(octetRaw, out int octet) || octet < 1 || octet > 254)
+                    {
+                        ShowError("Ugyldigt sidst octet — angiv et tal mellem 1 og 254.");
+                        return;
+                    }
+                }
+
+                string ip = _prefix + octetRaw;
+
                 bool ok = await _ipConfigService.SetStaticIpAsync(
                     _adapterSystemName,
-                    IpBox.Text.Trim(),
+                    ip,
                     MaskBox.Text.Trim(),
                     GatewayBox.Text.Trim());
 
                 if (ok)
-                {
                     DialogResult = true;
-                }
                 else
-                {
                     ShowError("Kunne ikke anvende IP-ændringen.\nKontrollér at IP, maske og gateway er gyldige, og at appen kører som administrator.");
-                }
             }
             catch (Exception ex)
             {

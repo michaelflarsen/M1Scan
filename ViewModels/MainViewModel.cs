@@ -56,9 +56,10 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _statusMessage, value);
         }
 
+        public HomeViewModel         HomeVm        { get; }
         public NetworkScanViewModel NetworkScanVm { get; }
-        public IpConfigViewModel IpConfigVm { get; }
-        public WorkspaceViewModel WorkspaceVm { get; }
+        public IpConfigViewModel    IpConfigVm    { get; }
+        public WorkspaceViewModel   WorkspaceVm   { get; }
 
         public RelayCommand RefreshAdaptersCommand { get; }
         public RelayCommand ResetAdapterCommand { get; }
@@ -68,6 +69,7 @@ namespace M1Scan.ViewModels
             _networkService = new NetworkService();
             _ipConfigService = new IpConfigService();
 
+            HomeVm        = new HomeViewModel();
             NetworkScanVm = new NetworkScanViewModel();
             IpConfigVm    = new IpConfigViewModel();
             WorkspaceVm   = new WorkspaceViewModel(_ipConfigService);
@@ -81,9 +83,12 @@ namespace M1Scan.ViewModels
 
         public void Dispose()
         {
+            HomeVm.Dispose();
             NetworkScanVm.Dispose();
             WorkspaceVm.Dispose();
         }
+
+
 
         private async Task RefreshAdaptersAsync()
         {

@@ -13,10 +13,8 @@
     <Grid Margin="20,16,20,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Adapter info card -->
-            <RowDefinition Height="12"/>
-            <RowDefinition Height="Auto"/> <!-- Context hint (entry IP) -->
             <RowDefinition Height="14"/>
-            <RowDefinition Height="Auto"/> <!-- New IP -->
+            <RowDefinition Height="Auto"/> <!-- New IP: prefix + octet -->
             <RowDefinition Height="10"/>
             <RowDefinition Height="Auto"/> <!-- Subnet mask -->
             <RowDefinition Height="10"/>
@@ -40,27 +38,35 @@
             </StackPanel>
         </materialDesign:Card>
 
-        <!-- Context hint: the watched entry IP -->
-        <Border Grid.Row="2" Background="#1A1A2E" CornerRadius="4" Padding="10,7">
-            <StackPanel Orientation="Horizontal">
-                <materialDesign:PackIcon Kind="InformationOutline" Width="13" Height="13"
-                                         Foreground="#555577" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <TextBlock x:Name="ContextHintText"
-                           Foreground="#666688" FontSize="11" VerticalAlignment="Center"
-                           TextWrapping="Wrap"/>
-            </StackPanel>
-        </Border>
-
-        <!-- New IP address -->
-        <StackPanel Grid.Row="4">
+        <!-- New IP address: locked subnet prefix + editable last octet -->
+        <StackPanel Grid.Row="2">
             <TextBlock Text="Ny IP-adresse" Foreground="#888888" FontSize="11" Margin="0,0,0,5"/>
-            <TextBox x:Name="IpBox"
-                     Style="{StaticResource DarkTextBoxStyle}" Height="30"
-                     FontFamily="Consolas" FontSize="13"/>
+            <Grid Height="30">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <!-- Locked subnet prefix -->
+                <Border Grid.Column="0"
+                        Background="#2D2D2D" BorderBrush="#454545"
+                        BorderThickness="1,1,0,1" CornerRadius="2,0,0,2"
+                        Padding="8,0">
+                    <TextBlock x:Name="PrefixLabel"
+                               FontFamily="Consolas" FontSize="13"
+                               Foreground="#6677AA" VerticalAlignment="Center"/>
+                </Border>
+                <!-- Editable last octet -->
+                <TextBox x:Name="OctetBox" Grid.Column="1"
+                         Style="{StaticResource DarkTextBoxStyle}" Height="30"
+                         FontFamily="Consolas" FontSize="13"
+                         BorderThickness="0,1,1,1"
+                         MaxLength="3"
+                         VerticalContentAlignment="Center"/>
+            </Grid>
         </StackPanel>
 
         <!-- Subnet mask -->
-        <StackPanel Grid.Row="6">
+        <StackPanel Grid.Row="4">
             <TextBlock Text="Subnet-maske" Foreground="#888888" FontSize="11" Margin="0,0,0,5"/>
             <TextBox x:Name="MaskBox"
                      Style="{StaticResource DarkTextBoxStyle}" Height="30"
@@ -68,7 +74,7 @@
         </StackPanel>
 
         <!-- Gateway -->
-        <StackPanel Grid.Row="8">
+        <StackPanel Grid.Row="6">
             <TextBlock Text="Standard-gateway" Foreground="#888888" FontSize="11" Margin="0,0,0,5"/>
             <TextBox x:Name="GatewayBox"
                      Style="{StaticResource DarkTextBoxStyle}" Height="30"
@@ -76,14 +82,14 @@
         </StackPanel>
 
         <!-- Error -->
-        <TextBlock Grid.Row="10"
+        <TextBlock Grid.Row="8"
                    x:Name="ErrorText"
                    Foreground="#EF5350" FontSize="11"
                    TextWrapping="Wrap"
                    Visibility="Collapsed"/>
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="12" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="10" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="CancelButton"
                     Style="{StaticResource MaterialDesignOutlinedButton}"
                     Content="Annuller"
