@@ -13,12 +13,13 @@ namespace M1Scan.ViewModels
 {
     public class AdapterDisplay
     {
-        public string Name        { get; init; } = string.Empty;
-        public string Description { get; init; } = string.Empty;
-        public string IpAddress   { get; init; } = string.Empty;
-        public string SubnetMask  { get; init; } = string.Empty;
-        public string Gateway     { get; init; } = string.Empty;
-        public bool   IsUp        { get; init; }
+        public string Name          { get; init; } = string.Empty;
+        public string Description   { get; init; } = string.Empty;
+        public string IpAddress     { get; init; } = string.Empty;
+        public string SubnetMask    { get; init; } = string.Empty;
+        public string Gateway       { get; init; } = string.Empty;
+        public bool   IsUp          { get; init; }
+        public bool   IsDefaultRoute { get; set; }
     }
 
     public class InternetCheckResult : ObservableObject
@@ -59,12 +60,26 @@ namespace M1Scan.ViewModels
         public string Vendor     { get; init; } = string.Empty;
     }
 
-    public class ArpSubnetGroup
+    public class ArpSubnetGroup : ObservableObject
     {
         public string               Subnet      { get; init; } = string.Empty;
         public string               Display     { get; init; } = string.Empty;
         public string               AdapterName { get; init; } = string.Empty;
         public List<ArpDeviceEntry> Devices     { get; init; } = new();
+
+        private bool _isExpanded;
+        public bool IsExpanded
+        {
+            get => _isExpanded;
+            set => SetProperty(ref _isExpanded, value);
+        }
+
+        public RelayCommand ToggleCommand { get; }
+
+        public ArpSubnetGroup()
+        {
+            ToggleCommand = new RelayCommand(_ => IsExpanded = !IsExpanded);
+        }
     }
 
     public class HomeViewModel : ObservableObject, IDisposable
@@ -138,6 +153,19 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _internetVia, value);
         }
 
+        private InternetCheckResult? _gatewayCheck;
+        public InternetCheckResult? GatewayCheck
+        {
+            get => _gatewayCheck;
+            set
+            {
+                if (SetProperty(ref _gatewayCheck, value))
+                    OnPropertyChanged(nameof(HasGateway));
+            }
+        }
+
+        public bool HasGateway => GatewayCheck != null;
+
         public RelayCommand RefreshCommand { get; }
 
         public HomeViewModel()
@@ -159,12 +187,15 @@ namespace M1Scan.ViewModels
             _loadLock.Dispose();
         }
 
-        // FIX #5: kald LoadAsync direkte — den marshaler selv til UI-thread via dispatcher
         private async void OnNetworkChanged(object? sender, EventArgs e)
         {
             await Task.Delay(NetworkChangeDebounceMs);
-            if (Application.Current != null)
-                await LoadAsync();
+            try
+            {
+                if (Application.Current != null)
+                    await LoadAsync();
+            }
+            catch (ObjectDisposedException) { }
         }
 
         public async Task LoadAsync()
@@ -183,6 +214,7 @@ namespace M1Scan.ViewModels
                 {
                     IsRefreshing = true;
                     foreach (var c in InternetChecks) c.IsChecking = true;
+                    if (GatewayCheck != null) GatewayCheck.IsChecking = true;
                 });
 
                 var adaptersTask = _networkService.GetNetworkAdaptersAsync();
@@ -230,11 +262,53 @@ namespace M1Scan.ViewModels
                     }).ToList();
 
                 var best = displays.FirstOrDefault(a => a.Gateway != "—" && !string.IsNullOrEmpty(a.Gateway));
+                if (best != null) best.IsDefaultRoute = true;
+
+                // IPv6 link-local gateways (fe80::...) kan ikke pinges pålideligt — brug kun IPv4
+                string? gatewayIp = (best?.Gateway != null && !best.Gateway.Contains(':'))
+                    ? best.Gateway : null;
+                Task gatewayPingTask = Task.CompletedTask;
                 await dispatcher.InvokeAsync(() =>
                 {
                     ActiveAdapters = new ObservableCollection<AdapterDisplay>(displays);
                     InternetVia    = best != null ? $"{best.Name}  ({best.IpAddress})" : "—";
+                    GatewayCheck   = !string.IsNullOrEmpty(gatewayIp)
+                        ? new InternetCheckResult { Host = gatewayIp!, Label = "Gateway" }
+                        : null;
                 });
+
+                var gwResult = GatewayCheck;
+                if (gwResult != null)
+                {
+                    var capturedGw = gwResult;
+                    var capturedIp = gatewayIp!;
+                    gatewayPingTask = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using var ping  = new Ping();
+                            var       reply = await ping.SendPingAsync(capturedIp, 3000);
+                            bool ok = reply.Status == IPStatus.Success;
+                            var d = Application.Current?.Dispatcher;
+                            if (d != null) await d.InvokeAsync(() =>
+                            {
+                                capturedGw.IsOnline   = ok;
+                                capturedGw.LatencyMs  = ok ? (int)reply.RoundtripTime : 0;
+                                capturedGw.IsChecking = false;
+                            });
+                        }
+                        catch
+                        {
+                            var d = Application.Current?.Dispatcher;
+                            if (d != null) await d.InvokeAsync(() =>
+                            {
+                                capturedGw.IsOnline   = false;
+                                capturedGw.LatencyMs  = 0;
+                                capturedGw.IsChecking = false;
+                            });
+                        }
+                    });
+                }
 
                 var arp = await arpTask;
                 var arpGroups = arp
@@ -273,7 +347,7 @@ namespace M1Scan.ViewModels
                     TotalNearby  = arpGroups.Sum(g => g.Devices.Count);
                 });
 
-                await Task.WhenAll(pingTasks);
+                await Task.WhenAll(pingTasks.Append(gatewayPingTask));
 
                 await dispatcher.InvokeAsync(() =>
                 {

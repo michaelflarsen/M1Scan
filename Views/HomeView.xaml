@@ -147,6 +147,96 @@
                             </TextBlock>
                         </StackPanel>
 
+                        <!-- Gateway-ping række -->
+                        <Grid Height="22" Margin="0,0,0,2"
+                              Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="52"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="8"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Gateway" FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#3A4A5A"/>
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="True"/>
+                                                        <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Foreground" Value="#4CAF50"/>
+                                                </MultiDataTrigger>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
+                                                        <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Foreground" Value="#EF5350"/>
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding GatewayCheck.Host}"
+                                           FontFamily="Consolas" FontSize="12"
+                                           Foreground="#4A7A9A" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding GatewayCheck.LatencyDisplay}"
+                                       FontFamily="Consolas" FontSize="11"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#2A3A4A"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="True"/>
+                                                    <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Foreground" Value="#2E7D32"/>
+                                            </MultiDataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
+                                                    <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Foreground" Value="#C62828"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Ellipse Grid.Column="3" Width="6" Height="6" VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="#1A2A3A"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="True"/>
+                                                    <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Fill" Value="#4CAF50"/>
+                                            </MultiDataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
+                                                    <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Fill" Value="#EF5350"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                        </Grid>
+                        <Border Height="1" Background="#1A2A3A" Margin="0,0,0,4"
+                                Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
                         <ItemsControl ItemsSource="{Binding InternetChecks}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -270,9 +360,22 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <materialDesign:Card Background="#151E2C" Padding="14,12"
+                            <materialDesign:Card Padding="14,12"
                                                  Margin="0,0,12,0" MinWidth="190"
                                                  materialDesign:ElevationAssist.Elevation="Dp2">
+                                <materialDesign:Card.Style>
+                                    <Style TargetType="materialDesign:Card">
+                                        <Setter Property="Background"      Value="#151E2C"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDefaultRoute}" Value="True">
+                                                <Setter Property="Background"      Value="#0C1A2C"/>
+                                                <Setter Property="BorderThickness" Value="1"/>
+                                                <Setter Property="BorderBrush"     Value="#1A4A80"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:Card.Style>
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                                         <Ellipse Width="7" Height="7" Fill="#4CAF50"
@@ -341,7 +444,7 @@
 
             <!-- Sektionshoved -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-                <TextBlock Text="// NÆRLIGGENDE ENHEDER (ARP)"
+                <TextBlock Text="// KENDTE ENHEDER  —  ARP cache (ikke live scan)"
                            FontFamily="Consolas" FontSize="10"
                            Foreground="#1565C0" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <TextBlock FontFamily="Consolas" FontSize="10"
@@ -362,26 +465,61 @@
                             <Border Margin="0,0,0,10" BorderBrush="#1C2A3A" BorderThickness="1" CornerRadius="4">
 
                                 <StackPanel>
-                                    <!-- Gruppe-header -->
-                                    <Border Background="#111C2A" CornerRadius="4,4,0,0" Padding="12,7">
+                                    <!-- Gruppe-header (klikbar toggle) -->
+                                    <Button Command="{Binding ToggleCommand}"
+                                            Cursor="Hand"
+                                            HorizontalContentAlignment="Stretch"
+                                            Focusable="False">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="#111C2A" CornerRadius="4,4,0,0" Padding="12,7">
+                                                    <ContentPresenter HorizontalAlignment="Stretch"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Button.Template>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
 
+                                            <!-- Chevron-ikon (roterer 90° når udvidet) -->
                                             <materialDesign:PackIcon Grid.Column="0"
+                                                                     Kind="ChevronRight" Width="14" Height="14"
+                                                                     Foreground="#3A6A9A" VerticalAlignment="Center"
+                                                                     Margin="0,0,6,0"
+                                                                     RenderTransformOrigin="0.5,0.5">
+                                                <materialDesign:PackIcon.RenderTransform>
+                                                    <RotateTransform Angle="0"/>
+                                                </materialDesign:PackIcon.RenderTransform>
+                                                <materialDesign:PackIcon.Style>
+                                                    <Style TargetType="materialDesign:PackIcon">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                <Setter Property="RenderTransform">
+                                                                    <Setter.Value>
+                                                                        <RotateTransform Angle="90"/>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </materialDesign:PackIcon.Style>
+                                            </materialDesign:PackIcon>
+
+                                            <materialDesign:PackIcon Grid.Column="1"
                                                                      Kind="NetworkOutline" Width="14" Height="14"
                                                                      Foreground="#1565C0" VerticalAlignment="Center"
                                                                      Margin="0,0,8,0"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Display}"
+                                            <TextBlock Grid.Column="2" Text="{Binding Display}"
                                                        FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
                                                        Foreground="#64B5F6" VerticalAlignment="Center"/>
 
                                             <!-- Adapter-badge (kun synlig når AdapterName ikke er tom) -->
-                                            <Border Grid.Column="2"
+                                            <Border Grid.Column="3"
                                                     Background="#0D1E30" CornerRadius="10"
                                                     Padding="7,2" VerticalAlignment="Center" Margin="0,0,6,0">
                                                 <Border.Style>
@@ -405,8 +543,8 @@
                                                 </StackPanel>
                                             </Border>
 
-                                            <!-- Enhed-tæller badge -->
-                                            <Border Grid.Column="3"
+                                            <!-- Enhed-tæller badge (altid synlig) -->
+                                            <Border Grid.Column="4"
                                                     Background="#0D1E30" CornerRadius="10"
                                                     Padding="8,2" VerticalAlignment="Center">
                                                 <TextBlock FontFamily="Consolas" FontSize="10" Foreground="#3A6A9A">
@@ -415,10 +553,11 @@
                                                 </TextBlock>
                                             </Border>
                                         </Grid>
-                                    </Border>
+                                    </Button>
 
                                     <!-- Kolonne-headers -->
-                                    <Grid Background="#0C1520" Height="24">
+                                    <Grid Background="#0C1520" Height="24"
+                                          Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="120"/>
                                             <ColumnDefinition Width="148"/>
@@ -436,7 +575,8 @@
                                     </Grid>
 
                                     <!-- Enheder -->
-                                    <ItemsControl ItemsSource="{Binding Devices}">
+                                    <ItemsControl ItemsSource="{Binding Devices}"
+                                                  Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border BorderBrush="#0C1520" BorderThickness="0,1,0,0">
