@@ -16,7 +16,7 @@
 
         <!-- ===== MY IP CARD ===== -->
         <materialDesign:Card x:Name="MyIpCard"
-                             Grid.Row="0" Margin="0,0,0,12" Padding="20,14"
+                             Grid.Row="0" Margin="0,0,0,12" Padding="16,10"
                              Background="#1C2535"
                              Cursor="Hand"
                              MouseLeftButtonUp="MyIpCard_Click"
@@ -29,32 +29,109 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0">
+                <!-- Left: large IP + compact info row -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding MyIpAddress}"
                                FontFamily="Consolas" FontSize="30" FontWeight="Bold"
                                Foreground="#64B5F6"/>
-                    <TextBlock Text="{Binding MySubnetDisplay}"
-                               FontFamily="Consolas" FontSize="12" Foreground="#888888"
-                               Margin="0,3,0,0"/>
-                    <TextBlock Text="{Binding MyAdapterName}"
-                               FontSize="11" Foreground="#555555" Margin="0,2,0,0"
-                               TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <TextBlock Text="{Binding MySubnetDisplay}"
+                                   FontFamily="Consolas" FontSize="11" Foreground="#666666"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="  ·  GW " FontSize="11" Foreground="#444444"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding GatewayIp}"
+                                   FontFamily="Consolas" FontSize="11" Foreground="#666666"
+                                   VerticalAlignment="Center"/>
+                        <Ellipse Width="8" Height="8" Margin="5,0,0,0" VerticalAlignment="Center">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#555555"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding GatewayOnline}" Value="True">
+                                            <Setter Property="Fill" Value="#4CAF50"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding GatewayOnline}" Value="False">
+                                            <Setter Property="Fill" Value="#EF5350"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="  ·  " FontSize="11" Foreground="#444444"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding MyAdapterName}"
+                                   FontSize="11" Foreground="#555555"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                    <materialDesign:PackIcon Kind="Ethernet" Width="14" Height="14"
-                                             Foreground="#1565C0" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                    <TextBlock Text="MY IP" FontSize="11" FontWeight="SemiBold"
-                               Foreground="#1565C0" VerticalAlignment="Center"/>
-                    <TextBlock Text="▾" FontSize="11" Foreground="#1565C0"
-                               VerticalAlignment="Center" Margin="3,1,0,0"/>
+                <!-- Right: compact button group [ MY IP ▾ ] [ DHCP ] [ ↺ ] -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+
+                    <!-- MY IP ▾ -->
+                    <Button Click="MyIpButton_Click"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Height="24" Padding="7,0"
+                            Foreground="#1565C0" BorderBrush="#1565C0"
+                            ToolTip="Vælg netværksadapter">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Ethernet" Width="12" Height="12"
+                                                     Foreground="#1565C0" VerticalAlignment="Center"
+                                                     Margin="0,0,4,0"/>
+                            <TextBlock Text="MY IP" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#1565C0" VerticalAlignment="Center"/>
+                            <TextBlock Text="▾" FontSize="10" Foreground="#1565C0"
+                                       VerticalAlignment="Center" Margin="3,1,0,0"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- DHCP -->
+                    <Button Command="{Binding SetDhcpCommand}"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Height="24" Padding="7,0" Margin="4,0,0,0"
+                            ToolTip="Skift til DHCP">
+                        <Grid Width="38">
+                            <TextBlock Text="DHCP" FontSize="11" Foreground="#888888"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDhcpBusy}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ProgressBar IsIndeterminate="True" Value="0"
+                                Width="14" Height="14" Foreground="#64B5F6"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ProgressBar.Style>
+                                    <Style TargetType="ProgressBar" BasedOn="{StaticResource MaterialDesignCircularProgressBar}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDhcpBusy}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ProgressBar.Style>
+                            </ProgressBar>
+                        </Grid>
+                    </Button>
+
+                    <!-- Refresh -->
                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                            Width="22" Height="22" Margin="6,0,0,0"
+                            Width="24" Height="24" Margin="4,0,0,0"
                             Foreground="#444444"
                             Command="{Binding RefreshAdapterCommand}"
                             ToolTip="Opdater adapter-info">
                         <materialDesign:PackIcon Kind="Refresh" Width="13" Height="13"/>
                     </Button>
+
                 </StackPanel>
             </Grid>
         </materialDesign:Card>

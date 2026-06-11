@@ -57,7 +57,9 @@ namespace M1Scan.ViewModels
         private string _statusMessage       = "Ready";
 
         // Clear-all confirm state
-        private bool _clearConfirmPending;
+        private bool  _clearConfirmPending;
+        private bool? _gatewayOnline;
+        private bool  _isDhcpBusy;
         private string _clearAllLabel = "Ryd alle";
         private DispatcherTimer? _clearConfirmTimer;
 
@@ -83,6 +85,24 @@ namespace M1Scan.ViewModels
 
         public string ActiveAdapterSystemName => _myAdapterSystemName;
         public IReadOnlyList<AdapterEntry> AvailableAdapters => _availableAdapters;
+
+        public string GatewayIp => _myGateway;
+
+        public bool? GatewayOnline
+        {
+            get => _gatewayOnline;
+            set => SetProperty(ref _gatewayOnline, value);
+        }
+
+        public bool IsDhcpBusy
+        {
+            get => _isDhcpBusy;
+            set
+            {
+                if (SetProperty(ref _isDhcpBusy, value))
+                    System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+            }
+        }
 
         public ObservableCollection<PingEntry> WatchList { get; } = new();
 
@@ -156,6 +176,7 @@ namespace M1Scan.ViewModels
         public RelayCommand RemoveTimeoutCommand { get; }
         public RelayCommand RemoveOnlineCommand  { get; }
         public RelayCommand ClearAllCommand      { get; }
+        public RelayCommand SetDhcpCommand       { get; }
 
         // ── Constructor ──────────────────────────────────────────────────────
 
@@ -206,6 +227,10 @@ namespace M1Scan.ViewModels
             });
 
             RefreshAdapterCommand = new RelayCommand(_ => RefreshMyIp());
+
+            SetDhcpCommand = new RelayCommand(
+                _ => _ = ExecuteSetDhcpAsync(),
+                _ => !string.IsNullOrEmpty(_myAdapterSystemName) && !_isDhcpBusy);
 
             SelectAdapterCommand = new RelayCommand(param =>
             {
@@ -458,6 +483,8 @@ namespace M1Scan.ViewModels
                     MyAdapterName        = "";
                     _mySubnetMask        = "255.255.255.0";
                     _myGateway           = "";
+                    OnPropertyChanged(nameof(GatewayIp));
+                    GatewayOnline        = false;
                     _myAdapterSystemName = "";
                     return;
                 }
@@ -473,6 +500,8 @@ namespace M1Scan.ViewModels
                 _mySubnetMask        = maskStr;
                 _myGateway           = best.Gw?.ToString() ?? "";
                 _myAdapterSystemName = best.Iface.Name;
+                OnPropertyChanged(nameof(GatewayIp));
+                _ = PingGatewayAsync(_myGateway);
             }
             catch (Exception ex)
             {
@@ -533,8 +562,35 @@ namespace M1Scan.ViewModels
                 _mySubnetMask        = maskStr;
                 _myGateway           = gw?.ToString() ?? "";
                 _myAdapterSystemName = iface.Name;
+                OnPropertyChanged(nameof(GatewayIp));
+                _ = PingGatewayAsync(_myGateway);
             }
             catch { }
+        }
+
+        // ── Gateway + DHCP helpers ───────────────────────────────────────────
+
+        private async Task ExecuteSetDhcpAsync()
+        {
+            if (string.IsNullOrEmpty(_myAdapterSystemName)) return;
+            IsDhcpBusy = true;
+            await _ipConfigService.SetDhcpAsync(_myAdapterSystemName);
+            await Task.Delay(1500);
+            RefreshMyIp();
+            IsDhcpBusy = false;
+        }
+
+        private async Task PingGatewayAsync(string gateway)
+        {
+            if (string.IsNullOrEmpty(gateway)) { GatewayOnline = false; return; }
+            GatewayOnline = null;
+            try
+            {
+                using var ping = new Ping();
+                var reply = await ping.SendPingAsync(gateway, 1000);
+                GatewayOnline = reply.Status == IPStatus.Success;
+            }
+            catch { GatewayOnline = false; }
         }
 
         // ── Adapter selection helpers ────────────────────────────────────────

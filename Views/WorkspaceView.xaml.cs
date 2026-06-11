@@ -49,11 +49,22 @@ namespace M1Scan.Views
 
         private void MyIpCard_Click(object sender, MouseButtonEventArgs e)
         {
+            ShowAdapterMenu((UIElement)sender);
+        }
+
+        private void MyIpButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowAdapterMenu((UIElement)sender);
+            e.Handled = true;
+        }
+
+        private void ShowAdapterMenu(UIElement target)
+        {
             if (DataContext is not WorkspaceViewModel vm) return;
 
             var menu = new ContextMenu
             {
-                PlacementTarget = (UIElement)sender,
+                PlacementTarget = target,
                 Placement = PlacementMode.Bottom
             };
 
