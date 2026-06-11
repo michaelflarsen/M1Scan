@@ -1,26 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet build)",
-      "Bash(start \"\" \"bin/Debug/net8.0-windows/M1Scan.exe\")",
+      "Skill(run)",
+      "Skill(run:*)",
       "Bash(dotnet build *)",
-      "Bash(Get-ChildItem -Path \"C:\\\\VS_Code_projekt\\\\M1Scan\" -Recurse -File -Filter \"*.csproj\" -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(rtk git *)",
-      "Bash(rtk dotnet *)",
-      "Bash(rtk ls *)",
-      "Bash(rtk read *)",
-      "Read(//tmp/ipscan/**)",
-      "Bash(xargs cat)",
-      "PowerShell(cd \"c:\\\\VS_Code_projekt\\\\M1Scan\"; dotnet build 2>&1 | Select-String \"error|Error\" | Where-Object { $_ -notmatch \"MSB3026|MSB3027|MSB3021\" })",
-      "Bash(cp \"C:/Users/gimig/.claude/plans/find-name-cs-curried-goose.md\" \"c:/VS_Code_projekt/M1Scan/Design_Plan.md\" *)",
-      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Release\\\\net8.0-windows\\\\M1Scan.exe\")",
-      "Bash(\\\\.cs\")",
-      "Bash(xargs grep -l \"Port.*Chip\\\\|PortChip\")",
-      "Bash(rtk grep *)"
-    ],
-    "additionalDirectories": [
-      "c:\\VS_Code_projekt\\M1Scan"
+      "Bash(start \"\" \"bin/Debug/net8.0-windows/M1Scan.exe\")",
+      "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" -ErrorAction SilentlyContinue; Get-ChildItem \"C:\\\\Program Files \\(x86\\)\\\\dotnet\\\\dotnet.exe\" -ErrorAction SilentlyContinue; Test-Path \"$env:ProgramFiles\\\\dotnet\\\\dotnet.exe\")",
+      "PowerShell($env:PATH)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); Start-Process \"c:\\\\VS_Code\\\\M1SCAN\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\")",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); dotnet build 2>&1)"
     ]
   }
 }
