@@ -141,6 +141,17 @@
         <Setter Property="BorderThickness" Value="1"/>
     </Style>
 
+    <!-- ToolTip Style -->
+    <Style TargetType="ToolTip">
+        <Setter Property="Background"       Value="#111C2A"/>
+        <Setter Property="Foreground"       Value="#E8E8E8"/>
+        <Setter Property="BorderBrush"      Value="#1A4A80"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="Padding"          Value="8,5"/>
+        <Setter Property="FontSize"         Value="11"/>
+        <Setter Property="HasDropShadow"    Value="False"/>
+    </Style>
+
     <!-- ContextMenu + MenuItem dark styling -->
     <Style TargetType="ContextMenu">
         <Setter Property="Background" Value="#2D2D2D"/>
