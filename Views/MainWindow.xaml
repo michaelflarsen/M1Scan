@@ -156,17 +156,85 @@
         <Border Grid.Column="0" Background="#0D1117">
             <DockPanel LastChildFill="True">
 
-                <!-- Logo -->
-                <Border DockPanel.Dock="Top" Padding="16,14" Background="#0D1520">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Router" Width="26" Height="26"
-                                                 Foreground="#1565C0" VerticalAlignment="Center"/>
-                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="M1SCAN" FontSize="14" FontWeight="Bold"
-                                       Foreground="White"/>
-                            <TextBlock Text="Network Discovery" FontSize="10" Foreground="#444444"/>
-                            <TextBlock x:Name="AppVersionText" FontSize="9" Foreground="#2A3A4A" Margin="0,1,0,0"/>
+                <!-- Logo / brand header -->
+                <Border DockPanel.Dock="Top" Padding="0,16,0,12" Background="#07030d">
+                    <StackPanel HorizontalAlignment="Center">
+
+                        <!-- Radar icon — pure WPF geometry, 60×60 -->
+                        <Viewbox Width="60" Height="60" HorizontalAlignment="Center" Margin="0,0,0,8">
+                            <Canvas Width="60" Height="60">
+
+                                <!-- Pie slice fill -->
+                                <Path Fill="#e0337a" Opacity="0.13">
+                                    <Path.Data>
+                                        <PathGeometry>
+                                            <PathFigure StartPoint="30,30" IsClosed="True">
+                                                <LineSegment Point="43.6,9.0"/>
+                                                <ArcSegment Point="51.0,16.4" Size="25,25"
+                                                            SweepDirection="Clockwise" IsLargeArc="False"/>
+                                            </PathFigure>
+                                        </PathGeometry>
+                                    </Path.Data>
+                                </Path>
+
+                                <!-- Crosshair horizontal -->
+                                <Line X1="5" Y1="30" X2="55" Y2="30"
+                                      Stroke="#e0337a" StrokeThickness="0.5" Opacity="0.15"/>
+                                <!-- Crosshair vertical -->
+                                <Line X1="30" Y1="5" X2="30" Y2="55"
+                                      Stroke="#e0337a" StrokeThickness="0.5" Opacity="0.15"/>
+
+                                <!-- Outer circle r=25 -->
+                                <Ellipse Canvas.Left="5"  Canvas.Top="5"  Width="50" Height="50"
+                                         Stroke="#e0337a" StrokeThickness="1" Fill="Transparent" Opacity="0.3"/>
+                                <!-- Mid circle r=17 -->
+                                <Ellipse Canvas.Left="13" Canvas.Top="13" Width="34" Height="34"
+                                         Stroke="#e0337a" StrokeThickness="1" Fill="Transparent" Opacity="0.5"/>
+                                <!-- Inner circle r=10 -->
+                                <Ellipse Canvas.Left="20" Canvas.Top="20" Width="20" Height="20"
+                                         Stroke="#e0337a" StrokeThickness="1" Fill="Transparent" Opacity="0.6"/>
+
+                                <!-- Sweep line — upper-right direction -->
+                                <Line X1="30" Y1="30" X2="48" Y2="12"
+                                      Stroke="#e0337a" StrokeThickness="2"/>
+
+                                <!-- Center dot -->
+                                <Ellipse Canvas.Left="27.5" Canvas.Top="27.5" Width="5" Height="5"
+                                         Fill="#e0337a"/>
+
+                                <!-- Ping dot 1 — near inner ring, upper-left -->
+                                <Ellipse Canvas.Left="16.5" Canvas.Top="16.5" Width="3" Height="3"
+                                         Fill="#f06ab0" Opacity="0.95"/>
+                                <!-- Ping dot 2 — near mid ring, right -->
+                                <Ellipse Canvas.Left="44.5" Canvas.Top="26.5" Width="3" Height="3"
+                                         Fill="#f06ab0" Opacity="0.6"/>
+                                <!-- Ping dot 3 — near outer ring, lower-right -->
+                                <Ellipse Canvas.Left="41.5" Canvas.Top="44.5" Width="3" Height="3"
+                                         Fill="#f06ab0" Opacity="0.4"/>
+
+                            </Canvas>
+                        </Viewbox>
+
+                        <!-- M1Scan logotype -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                            <TextBlock Text="M1"   FontFamily="Inter, Segoe UI, Arial" FontSize="20"
+                                       FontWeight="ExtraBold" Foreground="#e0337a" VerticalAlignment="Center"/>
+                            <TextBlock Text="Scan" FontFamily="Inter, Segoe UI, Arial" FontSize="20"
+                                       FontWeight="Light"     Foreground="White"    VerticalAlignment="Center"/>
                         </StackPanel>
+
+                        <!-- Tagline -->
+                        <TextBlock Text="NETWORK DISCOVERY"
+                                   FontFamily="Inter, Segoe UI, Arial" FontSize="9"
+                                   Foreground="#e0337a" Opacity="0.8"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,3"/>
+
+                        <!-- Version -->
+                        <TextBlock x:Name="AppVersionText"
+                                   FontSize="9" Foreground="#444444"
+                                   HorizontalAlignment="Center"/>
+
                     </StackPanel>
                 </Border>
 

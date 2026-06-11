@@ -8,7 +8,10 @@
       "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" -ErrorAction SilentlyContinue; Get-ChildItem \"C:\\\\Program Files \\(x86\\)\\\\dotnet\\\\dotnet.exe\" -ErrorAction SilentlyContinue; Test-Path \"$env:ProgramFiles\\\\dotnet\\\\dotnet.exe\")",
       "PowerShell($env:PATH)",
       "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); Start-Process \"c:\\\\VS_Code\\\\M1SCAN\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\")",
-      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); dotnet build 2>&1)"
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); dotnet build 2>&1)",
+      "Bash(rtk dotnet *)",
+      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs)",
+      "Read(//c/Users/gimig/AppData/Local/Temp/m1scan_ico_gen/**)"
     ]
   }
 }
