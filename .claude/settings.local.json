@@ -12,7 +12,15 @@
       "Bash(rtk dotnet *)",
       "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs)",
       "Read(//c/Users/gimig/AppData/Local/Temp/m1scan_ico_gen/**)",
-      "Bash(rtk git *)"
+      "Bash(rtk git *)",
+      "PowerShell(Get-ChildItem \"$env:APPDATA\\\\M1Scan\" | Select-Object Name, Length, LastWriteTime)",
+      "PowerShell(Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile', '-Command', 'cd ''c:\\\\VS_Code_projekt\\\\M1Scan''; dotnet run' -WindowStyle Normal; Start-Sleep 12; Add-Type -AssemblyName System.Windows.Forms; $bmp = New-Object System.Drawing.Bitmap\\([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height\\); $g = [System.Drawing.Graphics]::FromImage\\($bmp\\); $g.CopyFromScreen\\(0,0,0,0,$bmp.Size\\); $path = \"C:\\\\Users\\\\gimig\\\\AppData\\\\Local\\\\Temp\\\\m1scan_clean.png\"; $bmp.Save\\($path\\); $g.Dispose\\(\\); $bmp.Dispose\\(\\); \"saved\")",
+      "PowerShell(Get-Process M1Scan -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell(\"stopped\")",
+      "PowerShell(Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile', '-Command', 'cd ''c:\\\\VS_Code_projekt\\\\M1Scan''; dotnet run' -WindowStyle Normal; Start-Sleep 12; Add-Type -AssemblyName System.Windows.Forms; $bmp = New-Object System.Drawing.Bitmap\\([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height\\); $g = [System.Drawing.Graphics]::FromImage\\($bmp\\); $g.CopyFromScreen\\(0,0,0,0,$bmp.Size\\); $path = \"C:\\\\Users\\\\gimig\\\\AppData\\\\Local\\\\Temp\\\\m1scan_layout.png\"; $bmp.Save\\($path\\); $g.Dispose\\(\\); $bmp.Dispose\\(\\); \"saved\")",
+      "PowerShell(cd \"c:\\\\VS_Code_projekt\\\\M1Scan\"; .\\\\run.ps1; Start-Sleep 13; Add-Type -AssemblyName System.Windows.Forms; $bmp = New-Object System.Drawing.Bitmap\\([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height\\); $g = [System.Drawing.Graphics]::FromImage\\($bmp\\); $g.CopyFromScreen\\(0,0,0,0,$bmp.Size\\); $path = \"C:\\\\Users\\\\gimig\\\\AppData\\\\Local\\\\Temp\\\\m1scan_tt2.png\"; $bmp.Save\\($path\\); $g.Dispose\\(\\); $bmp.Dispose\\(\\); \"saved\")",
+      "Read(//c/Users/gimig/AppData/Local/Temp/**)"
     ]
   }
 }

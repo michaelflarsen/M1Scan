@@ -444,6 +444,9 @@
                             <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Home">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Devices">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
@@ -601,18 +604,100 @@
                       Margin="20,6,20,10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
+                    <!-- Scan bar -->
+                    <Border Grid.Row="0" Background="#0D1520" CornerRadius="4" Padding="12,9" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button x:Name="DevicesAdapterDropdownButton"
+                                    Grid.Column="0"
+                                    Style="{StaticResource AdapterDropdownStyle}"
+                                    MinWidth="200" MaxWidth="420" Height="30"
+                                    VerticalAlignment="Center" Margin="0,0,8,0"
+                                    Click="AdapterDropdownButton_Click">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding SelectedAdapterLabel}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               Margin="10,0,4,0"/>
+                                    <TextBlock Grid.Column="1" Text="▾"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,8,0"
+                                               Foreground="#666666" FontSize="12"/>
+                                </Grid>
+                            </Button>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
+                                <TextBlock Text="Subnet:" VerticalAlignment="Center"
+                                           Foreground="#AAAAAA" FontSize="12" Margin="0,0,6,0"/>
+                                <TextBox Style="{StaticResource DarkTextBoxStyle}" Width="108" Height="30"
+                                         Text="{Binding SubnetInput, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="." VerticalAlignment="Center" Foreground="#888888" Margin="3,0"/>
+                                <TextBox Style="{StaticResource DarkTextBoxStyle}" Width="38" Height="30"
+                                         Text="{Binding StartIp, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="–" VerticalAlignment="Center" Foreground="#888888" Margin="3,0"/>
+                                <TextBox Style="{StaticResource DarkTextBoxStyle}" Width="38" Height="30"
+                                         Text="{Binding EndIp, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Content="Auto-detect" Margin="6,0,0,0"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Height="30" Padding="6,0"
+                                        Command="{Binding AutoDetectSubnetCommand}"/>
+                                <Button Content="Clear" Margin="4,0,0,0"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Height="30" Padding="6,0"
+                                        Command="{Binding ClearResultsCommand}"/>
+                            </StackPanel>
+
+                            <Button Grid.Column="2"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                    Background="#1565C0" BorderBrush="#1565C0"
+                                    Height="30" Margin="0,0,6,0" VerticalAlignment="Center"
+                                    Command="{Binding ScanNetworkCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Radar" Width="15" Height="15"
+                                                             VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <TextBlock Text="Scan Network" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button Grid.Column="3"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Height="30" VerticalAlignment="Center"
+                                    Command="{Binding CancelScanCommand}"
+                                    Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Cancel" Width="15" Height="15"
+                                                             VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <TextBlock Text="Annuller" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+
                     <!-- Search box -->
-                    <TextBox Grid.Row="0" Margin="0,0,0,6" Height="30"
+                    <TextBox Grid.Row="1" Margin="0,0,0,6" Height="30"
                              Style="{StaticResource DarkTextBoxStyle}"
                              Text="{Binding SearchText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
                              materialDesign:HintAssist.Hint="Search IP, hostname, vendor…"
                              materialDesign:HintAssist.Foreground="#444444"/>
 
                     <!-- DataGrid -->
-                    <DataGrid Grid.Row="1"
+                    <DataGrid Grid.Row="2"
                               ItemsSource="{Binding FilteredHosts, RelativeSource={RelativeSource AncestorType=Window}}"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"

@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Threading;
+using M1Scan.Models;
 using M1Scan.Services;
 using M1Scan.Utils;
 
@@ -61,11 +64,22 @@ namespace M1Scan.ViewModels
             IsChecking ? "..." : IsOnline ? $"{LatencyMs} ms" : "—";
     }
 
-    public class ArpDeviceEntry
+    public class ArpDeviceEntry : ObservableObject
     {
         public string IpAddress  { get; init; } = string.Empty;
         public string MacAddress { get; init; } = string.Empty;
         public string Vendor     { get; init; } = string.Empty;
+        public DateTimeOffset? FirstSeen { get; init; }
+
+        private bool _isNew;
+        public bool IsNew
+        {
+            get => _isNew;
+            set => SetProperty(ref _isNew, value);
+        }
+
+        public string FirstSeenDisplay =>
+            FirstSeen.HasValue ? $"Først set: {FirstSeen.Value:dd-MM-yyyy HH:mm}" : string.Empty;
     }
 
     public class ArpSubnetGroup : ObservableObject
@@ -80,6 +94,13 @@ namespace M1Scan.ViewModels
         {
             get => _isExpanded;
             set => SetProperty(ref _isExpanded, value);
+        }
+
+        private int _newCount;
+        public int NewCount
+        {
+            get => _newCount;
+            set => SetProperty(ref _newCount, value);
         }
 
         public RelayCommand ToggleCommand { get; }
@@ -108,6 +129,7 @@ namespace M1Scan.ViewModels
     public class HomeViewModel : ObservableObject, IDisposable
     {
         private const int NetworkChangeDebounceMs = 1500;
+        private const string WanProbeHost = "1.1.1.1";
 
         private static readonly (string Host, string Label)[] InternetHosts =
         {
@@ -118,8 +140,23 @@ namespace M1Scan.ViewModels
 
         private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
 
-        private readonly INetworkService  _networkService;
-        private readonly SemaphoreSlim    _loadLock = new SemaphoreSlim(1, 1);
+        private static readonly string DashboardDataPath =
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                         "M1Scan", "dashboard.json");
+
+        private readonly INetworkService     _networkService;
+        private readonly IDiagnosticsService _diagnosticsService;
+        private readonly KnownDevicesStore   _knownDevices;
+        private readonly SemaphoreSlim       _loadLock = new SemaphoreSlim(1, 1);
+        private readonly DispatcherTimer     _sampleTimer;
+
+        private int _sampleInFlight;
+        private int _diagInFlight;
+        private volatile string?   _samplerGatewayIp;
+        private string[]           _diagDnsServers  = Array.Empty<string>();
+        private string             _diagAdapterName = string.Empty;
+        private double?            _fastestDnsMs;
+        private CancellationTokenSource? _speedCts;
 
         private ObservableCollection<AdapterDisplay>      _activeAdapters = new();
         private ObservableCollection<InternetCheckResult> _internetChecks = new();
@@ -200,11 +237,182 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _defaultAdapter, value);
         }
 
-        public RelayCommand RefreshCommand { get; }
+        // ── Forbindelseskvalitet (live sampler) ──────────────────────────────
+
+        public LatencySeries GatewaySeries { get; } = new() { Label = "Gateway" };
+        public LatencySeries WanSeries     { get; } = new() { Label = "Internet" };
+
+        private string _gatewaySeriesTitle = "GATEWAY";
+        public string GatewaySeriesTitle
+        {
+            get => _gatewaySeriesTitle;
+            set => SetProperty(ref _gatewaySeriesTitle, value);
+        }
+
+        public string WanSeriesTitle => $"INTERNET · {WanProbeHost}";
+
+        // ── Sundhedsscore ────────────────────────────────────────────────────
+
+        private HealthScore _health = HealthScore.Measuring;
+        public HealthScore Health
+        {
+            get => _health;
+            set
+            {
+                if (SetProperty(ref _health, value))
+                {
+                    OnPropertyChanged(nameof(HealthSubline));
+                    OnPropertyChanged(nameof(HeaderScoreText));
+                }
+            }
+        }
+
+        public string HealthSubline
+        {
+            get
+            {
+                if (WanSeries.SampleCount == 0) return "Venter på målinger...";
+                var dns = _fastestDnsMs.HasValue ? $"{_fastestDnsMs.Value:F0} ms" : "—";
+                return $"Tab {WanSeries.LossPercent:F0}% · Jitter {WanSeries.JitterMs:F1} ms · DNS {dns}";
+            }
+        }
+
+        public string HeaderScoreText => Health.IsValid ? $"{Health.Score} · {Health.Grade}" : "—";
+
+        // ── Nye enheder ──────────────────────────────────────────────────────
+
+        private int _newDeviceCount;
+        public int NewDeviceCount
+        {
+            get => _newDeviceCount;
+            set { if (SetProperty(ref _newDeviceCount, value)) OnPropertyChanged(nameof(HasNewDevices)); }
+        }
+
+        public bool HasNewDevices => NewDeviceCount > 0;
+
+        // ── Diagnostik ───────────────────────────────────────────────────────
+
+        private ObservableCollection<DnsTimingResult> _dnsResults = new();
+        public ObservableCollection<DnsTimingResult> DnsResults
+        {
+            get => _dnsResults;
+            set => SetProperty(ref _dnsResults, value);
+        }
+
+        private bool _dhcpIsDhcp;
+        public bool DhcpIsDhcp
+        {
+            get => _dhcpIsDhcp;
+            set => SetProperty(ref _dhcpIsDhcp, value);
+        }
+
+        private string _dhcpServerText = "—";
+        public string DhcpServerText
+        {
+            get => _dhcpServerText;
+            set => SetProperty(ref _dhcpServerText, value);
+        }
+
+        private string _dhcpObtainedText = "—";
+        public string DhcpObtainedText
+        {
+            get => _dhcpObtainedText;
+            set => SetProperty(ref _dhcpObtainedText, value);
+        }
+
+        private string _dhcpExpiresText = "—";
+        public string DhcpExpiresText
+        {
+            get => _dhcpExpiresText;
+            set => SetProperty(ref _dhcpExpiresText, value);
+        }
+
+        private string _ipv6Text = "Måler...";
+        public string Ipv6Text
+        {
+            get => _ipv6Text;
+            set => SetProperty(ref _ipv6Text, value);
+        }
+
+        private bool _ipv6Ok;
+        public bool Ipv6Ok
+        {
+            get => _ipv6Ok;
+            set => SetProperty(ref _ipv6Ok, value);
+        }
+
+        private string _portalText = "Måler...";
+        public string PortalText
+        {
+            get => _portalText;
+            set => SetProperty(ref _portalText, value);
+        }
+
+        private bool _portalWarning;
+        public bool PortalWarning
+        {
+            get => _portalWarning;
+            set => SetProperty(ref _portalWarning, value);
+        }
+
+        // ── Hastighedstest ───────────────────────────────────────────────────
+
+        private bool _isSpeedTesting;
+        public bool IsSpeedTesting
+        {
+            get => _isSpeedTesting;
+            set { if (SetProperty(ref _isSpeedTesting, value)) OnPropertyChanged(nameof(SpeedTestButtonText)); }
+        }
+
+        public string SpeedTestButtonText => IsSpeedTesting ? "Annuller" : "Test hastighed";
+
+        private double _speedTestProgressPercent;
+        public double SpeedTestProgressPercent
+        {
+            get => _speedTestProgressPercent;
+            set => SetProperty(ref _speedTestProgressPercent, value);
+        }
+
+        private string _speedTestPhaseText = string.Empty;
+        public string SpeedTestPhaseText
+        {
+            get => _speedTestPhaseText;
+            set => SetProperty(ref _speedTestPhaseText, value);
+        }
+
+        private SpeedTestResult? _lastSpeedTest;
+        public SpeedTestResult? LastSpeedTest
+        {
+            get => _lastSpeedTest;
+            set
+            {
+                if (SetProperty(ref _lastSpeedTest, value))
+                {
+                    OnPropertyChanged(nameof(HasSpeedTestResult));
+                    OnPropertyChanged(nameof(SpeedTestDownText));
+                    OnPropertyChanged(nameof(SpeedTestUpText));
+                    OnPropertyChanged(nameof(SpeedTestTimeText));
+                }
+            }
+        }
+
+        public bool   HasSpeedTestResult => LastSpeedTest != null;
+        public string SpeedTestDownText  => LastSpeedTest != null ? $"↓ {LastSpeedTest.downloadMbps:F0} Mbit/s" : "";
+        public string SpeedTestUpText    => LastSpeedTest != null ? $"↑ {LastSpeedTest.uploadMbps:F0} Mbit/s (est.)" : "";
+        public string SpeedTestTimeText  => LastSpeedTest != null ? $"Senest testet: {LastSpeedTest.timestamp:dd-MM-yyyy HH:mm}" : "";
+
+        // ── Kommandoer ───────────────────────────────────────────────────────
+
+        public RelayCommand RefreshCommand           { get; }
+        public RelayCommand TestSpeedCommand         { get; }
+        public RelayCommand AcknowledgeDeviceCommand { get; }
+        public RelayCommand AcknowledgeAllCommand    { get; }
 
         public HomeViewModel()
         {
-            _networkService = new NetworkService();
+            _networkService     = new NetworkService();
+            _diagnosticsService = new DiagnosticsService();
+            _knownDevices       = new KnownDevicesStore();
 
             foreach (var (host, label) in InternetHosts)
                 InternetChecks.Add(new InternetCheckResult { Host = host, Label = label });
@@ -212,14 +420,63 @@ namespace M1Scan.ViewModels
             NetworkChange.NetworkAddressChanged += OnNetworkChanged;
 
             RefreshCommand = new RelayCommand(_ => _ = LoadAsync());
+
+            TestSpeedCommand = new RelayCommand(_ =>
+            {
+                if (IsSpeedTesting) _speedCts?.Cancel();
+                else _ = RunSpeedTestAsync();
+            });
+
+            AcknowledgeDeviceCommand = new RelayCommand(p =>
+            {
+                if (p is not ArpDeviceEntry e || !e.IsNew) return;
+                _knownDevices.Acknowledge(e.MacAddress);
+                _knownDevices.Save();
+                e.IsNew = false;
+                RecountNewDevices();
+            });
+
+            AcknowledgeAllCommand = new RelayCommand(_ =>
+            {
+                _knownDevices.AcknowledgeAll();
+                _knownDevices.Save();
+                foreach (var g in NearbyGroups)
+                    foreach (var d in g.Devices)
+                        d.IsNew = false;
+                RecountNewDevices();
+            }, _ => HasNewDevices);
+
+            _sampleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _sampleTimer.Tick += OnSampleTick;
+
+            LoadDashboardData();
             _ = LoadAsync();
         }
 
         public void Dispose()
         {
             NetworkChange.NetworkAddressChanged -= OnNetworkChanged;
+            _sampleTimer.Stop();
+            _sampleTimer.Tick -= OnSampleTick;
+            _speedCts?.Cancel();
             _loadLock.Dispose();
         }
+
+        /// <summary>Kaldes fra HomeView ved IsVisibleChanged — styrer sampler-timeren.</summary>
+        public void SetDashboardVisible(bool visible)
+        {
+            if (visible)
+            {
+                _sampleTimer.Start();
+                _ = SampleOnceAsync();
+            }
+            else
+            {
+                _sampleTimer.Stop();
+            }
+        }
+
+        private void OnSampleTick(object? sender, EventArgs e) => _ = SampleOnceAsync();
 
         private async void OnNetworkChanged(object? sender, EventArgs e)
         {
@@ -231,6 +488,59 @@ namespace M1Scan.ViewModels
             }
             catch (ObjectDisposedException) { }
         }
+
+        // ── Live latency-sampler ─────────────────────────────────────────────
+
+        private async Task SampleOnceAsync()
+        {
+            // Ingen overlap — et langsomt tick må aldrig stable sig op
+            if (Interlocked.CompareExchange(ref _sampleInFlight, 1, 0) != 0) return;
+            try
+            {
+                var gwIp = _samplerGatewayIp;
+                var wanTask = PingOnceAsync(WanProbeHost);
+                var gwTask  = gwIp != null ? PingOnceAsync(gwIp) : Task.FromResult<double?>(null);
+
+                double? wan = await wanTask;
+                double? gw  = await gwTask;
+
+                // Tick kører på UI-tråden og awaits genoptager dér — serierne er UI-bundne
+                WanSeries.Add(wan);
+                if (gwIp != null) GatewaySeries.Add(gw);
+
+                RecomputeHealth();
+            }
+            catch { /* enkeltstående sample-fejl ignoreres */ }
+            finally
+            {
+                Interlocked.Exchange(ref _sampleInFlight, 0);
+            }
+        }
+
+        private static async Task<double?> PingOnceAsync(string host)
+        {
+            try
+            {
+                using var ping  = new Ping();
+                var       reply = await ping.SendPingAsync(host, 1500);
+                return reply.Status == IPStatus.Success ? reply.RoundtripTime : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void RecomputeHealth()
+        {
+            Health = HealthScore.Compute(
+                WanSeries,
+                _samplerGatewayIp != null ? GatewaySeries : null,
+                _fastestDnsMs);
+            OnPropertyChanged(nameof(HealthSubline));
+        }
+
+        // ── Hovedindlæsning ──────────────────────────────────────────────────
 
         public async Task LoadAsync()
         {
@@ -304,6 +614,14 @@ namespace M1Scan.ViewModels
                 // IPv6 link-local gateways (fe80::...) kan ikke pinges pålideligt — brug kun IPv4
                 string? gatewayIp = (best?.Gateway != null && !best.Gateway.Contains(':'))
                     ? best.Gateway : null;
+
+                // Giv sampleren og diagnostikken deres mål
+                _samplerGatewayIp = gatewayIp;
+                _diagAdapterName  = best?.Name ?? string.Empty;
+                _diagDnsServers   = best != null
+                    ? adapters.FirstOrDefault(a => a.Name == best.Name)?.DnsServers ?? Array.Empty<string>()
+                    : Array.Empty<string>();
+
                 Task gatewayPingTask = Task.CompletedTask;
                 await dispatcher.InvokeAsync(() =>
                 {
@@ -313,6 +631,7 @@ namespace M1Scan.ViewModels
                         ? new InternetCheckResult { Host = gatewayIp!, Label = "Gateway" }
                         : null;
                     DefaultAdapter = best;
+                    GatewaySeriesTitle = gatewayIp != null ? $"GATEWAY · {gatewayIp}" : "GATEWAY";
                 });
 
                 var gwResult = GatewayCheck;
@@ -349,6 +668,11 @@ namespace M1Scan.ViewModels
                 }
 
                 var arp = await arpTask;
+
+                // Ny enhed-detektion: første kørsel seeder hele baseline som kendt,
+                // så eksisterende enheder ikke alle markeres NYE
+                bool seedAsKnown = !_knownDevices.FileExisted;
+
                 var arpGroups = arp
                     .GroupBy(kv =>
                     {
@@ -364,25 +688,44 @@ namespace M1Scan.ViewModels
                             var p = a.IpAddress.Split('.');
                             return p.Length >= 3 && $"{p[0]}.{p[1]}.{p[2]}" == pfx;
                         });
-                        return new ArpSubnetGroup
+                        var group = new ArpSubnetGroup
                         {
                             Subnet      = g.Key,
                             Display     = g.Key + ".0 /24",
                             AdapterName = matchedAdapter?.Description ?? string.Empty,
                             Devices     = g.OrderBy(kv => IpSortKey(kv.Key))
-                                           .Select(kv => new ArpDeviceEntry
+                                           .Select(kv =>
                                            {
-                                               IpAddress  = kv.Key,
-                                               MacAddress = kv.Value,
-                                               Vendor     = OuiLookup.Lookup(kv.Value) ?? string.Empty
+                                               var vendor = OuiLookup.Lookup(kv.Value) ?? string.Empty;
+                                               bool isNew = false;
+                                               DateTimeOffset? firstSeen = null;
+                                               if (KnownDevicesStore.IsRealDeviceMac(kv.Value))
+                                               {
+                                                   var dev = _knownDevices.Observe(kv.Value, kv.Key, vendor, seedAsKnown);
+                                                   isNew     = !dev.acknowledged;
+                                                   firstSeen = dev.firstSeen;
+                                               }
+                                               return new ArpDeviceEntry
+                                               {
+                                                   IpAddress  = kv.Key,
+                                                   MacAddress = kv.Value,
+                                                   Vendor     = vendor,
+                                                   IsNew      = isNew,
+                                                   FirstSeen  = firstSeen
+                                               };
                                            }).ToList()
                         };
+                        group.NewCount = group.Devices.Count(d => d.IsNew);
+                        return group;
                     }).ToList();
+
+                _knownDevices.Save();
 
                 await dispatcher.InvokeAsync(() =>
                 {
-                    NearbyGroups = new ObservableCollection<ArpSubnetGroup>(arpGroups);
-                    TotalNearby  = arpGroups.Sum(g => g.Devices.Count);
+                    NearbyGroups   = new ObservableCollection<ArpSubnetGroup>(arpGroups);
+                    TotalNearby    = arpGroups.Sum(g => g.Devices.Count);
+                    NewDeviceCount = arpGroups.Sum(g => g.NewCount);
                 });
 
                 await Task.WhenAll(pingTasks.Append(gatewayPingTask));
@@ -392,6 +735,9 @@ namespace M1Scan.ViewModels
                     IsOnline      = InternetChecks.Any(c => c.IsOnline);
                     LastRefreshed = DateTime.Now.ToString("HH:mm:ss");
                 });
+
+                // Diagnostik kører fire-and-forget med egen guard — må aldrig blokere refresh
+                _ = RunDiagnosticsAsync(dispatcher);
             }
             finally
             {
@@ -399,6 +745,152 @@ namespace M1Scan.ViewModels
                 await dispatcher.InvokeAsync(() => IsRefreshing = false);
                 _loadLock.Release();
             }
+        }
+
+        // ── Diagnostik (DNS, DHCP, IPv6, portal) ─────────────────────────────
+
+        private async Task RunDiagnosticsAsync(Dispatcher dispatcher)
+        {
+            if (Interlocked.CompareExchange(ref _diagInFlight, 1, 0) != 0) return;
+            try
+            {
+                var gateway = _samplerGatewayIp;
+                var servers = new List<(string Server, string Label)>();
+                foreach (var dns in _diagDnsServers.Where(s => s.Contains('.')))
+                    servers.Add((dns, dns == gateway ? "Gateway" : dns));
+
+                var adapterName = _diagAdapterName;
+                var dnsTask    = _diagnosticsService.MeasureDnsServersAsync(servers);
+                var ipv6Task   = _diagnosticsService.CheckIpv6Async();
+                var portalTask = _diagnosticsService.CheckCaptivePortalAsync();
+                var leaseTask  = Task.Run(() => string.IsNullOrEmpty(adapterName)
+                    ? null
+                    : _diagnosticsService.GetDhcpLease(adapterName));
+
+                var dnsResults = await dnsTask;
+                var ipv6       = await ipv6Task;
+                var portal     = await portalTask;
+                var lease      = await leaseTask;
+
+                _fastestDnsMs = dnsResults
+                    .Where(r => r.ResponseMs.HasValue)
+                    .Select(r => r.ResponseMs)
+                    .Min();
+
+                await dispatcher.InvokeAsync(() =>
+                {
+                    DnsResults = new ObservableCollection<DnsTimingResult>(dnsResults);
+
+                    DhcpIsDhcp = lease?.IsDhcp == true;
+                    if (lease is { IsDhcp: true })
+                    {
+                        DhcpServerText   = string.IsNullOrEmpty(lease.Server) ? "—" : lease.Server;
+                        DhcpObtainedText = lease.Obtained?.ToString("dd-MM HH:mm") ?? "—";
+                        if (lease.Expires.HasValue)
+                        {
+                            var rem = lease.Expires.Value - DateTimeOffset.Now;
+                            var dateStr = lease.Expires.Value.ToString("dd-MM HH:mm");
+                            DhcpExpiresText = rem.TotalSeconds > 0
+                                ? $"{dateStr}  ({(int)rem.TotalHours}t {rem.Minutes:D2}m tilbage)"
+                                : $"{dateStr}  (udløbet)";
+                        }
+                        else { DhcpExpiresText = "—"; }
+                    }
+
+                    Ipv6Ok   = ipv6 == Ipv6Status.Connected;
+                    Ipv6Text = ipv6 == Ipv6Status.Connected ? "Forbundet" : "Ikke tilgængelig";
+
+                    PortalWarning = portal != CaptivePortalStatus.None;
+                    PortalText = portal switch
+                    {
+                        CaptivePortalStatus.None           => "Ingen portal registreret",
+                        CaptivePortalStatus.PortalDetected => "Portal registreret — login kan være påkrævet",
+                        _                                  => "Intet svar"
+                    };
+
+                    RecomputeHealth();
+                });
+            }
+            catch { /* diagnostik må aldrig vælte dashboardet */ }
+            finally
+            {
+                Interlocked.Exchange(ref _diagInFlight, 0);
+            }
+        }
+
+        // ── Hastighedstest ───────────────────────────────────────────────────
+
+        private async Task RunSpeedTestAsync()
+        {
+            IsSpeedTesting = true;
+            SpeedTestProgressPercent = 0;
+            SpeedTestPhaseText = "Starter...";
+            _speedCts = new CancellationTokenSource();
+
+            var progress = new Progress<SpeedTestProgress>(p =>
+            {
+                SpeedTestProgressPercent = p.Percent;
+                SpeedTestPhaseText = p.Phase == SpeedTestPhase.Download
+                    ? $"Henter... {p.CurrentMbps:F0} Mbit/s"
+                    : "Sender...";
+            });
+
+            try
+            {
+                var result = await _diagnosticsService.RunSpeedTestAsync(progress, _speedCts.Token);
+                LastSpeedTest = result;
+                SaveDashboardData();
+                SpeedTestPhaseText = string.Empty;
+            }
+            catch (OperationCanceledException)
+            {
+                SpeedTestPhaseText = "Annulleret";
+            }
+            catch
+            {
+                SpeedTestPhaseText = "Test fejlede";
+            }
+            finally
+            {
+                IsSpeedTesting = false;
+                SpeedTestProgressPercent = 0;
+                _speedCts.Dispose();
+                _speedCts = null;
+            }
+        }
+
+        // ── Persistens (dashboard.json) ──────────────────────────────────────
+
+        private void LoadDashboardData()
+        {
+            try
+            {
+                if (!File.Exists(DashboardDataPath)) return;
+                var json = File.ReadAllText(DashboardDataPath);
+                var data = JsonSerializer.Deserialize<DashboardData>(json);
+                if (data?.lastSpeedTest != null)
+                    LastSpeedTest = data.lastSpeedTest;
+            }
+            catch { /* ignore corrupt file */ }
+        }
+
+        private void SaveDashboardData()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(DashboardDataPath)!);
+                var data = new DashboardData { lastSpeedTest = LastSpeedTest };
+                var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(DashboardDataPath, json);
+            }
+            catch { /* ignore write errors */ }
+        }
+
+        private void RecountNewDevices()
+        {
+            foreach (var g in NearbyGroups)
+                g.NewCount = g.Devices.Count(d => d.IsNew);
+            NewDeviceCount = NearbyGroups.Sum(g => g.NewCount);
         }
 
         private async Task FetchWanInfoAsync(Dispatcher dispatcher)
