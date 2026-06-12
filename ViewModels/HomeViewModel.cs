@@ -405,7 +405,7 @@ namespace M1Scan.ViewModels
         {
             try
             {
-                var json = await _httpClient.GetStringAsync("https://ip-api.com/json");
+                var json = await _httpClient.GetStringAsync("http://ip-api.com/json");
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 var root = doc.RootElement;
                 string ip      = root.TryGetProperty("query",   out var q) ? q.GetString() ?? "?" : "?";
