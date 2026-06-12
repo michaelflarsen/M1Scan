@@ -5,21 +5,29 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Net.Http;
 using System.Windows;
+using System.Windows.Threading;
 using M1Scan.Services;
 using M1Scan.Utils;
 
 namespace M1Scan.ViewModels
 {
-    public class AdapterDisplay
+    public class AdapterDisplay : ObservableObject
     {
-        public string Name          { get; init; } = string.Empty;
-        public string Description   { get; init; } = string.Empty;
-        public string IpAddress     { get; init; } = string.Empty;
-        public string SubnetMask    { get; init; } = string.Empty;
-        public string Gateway       { get; init; } = string.Empty;
-        public bool   IsUp          { get; init; }
-        public bool   IsDefaultRoute { get; set; }
+        public string Name        { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+        public string IpAddress   { get; init; } = string.Empty;
+        public string SubnetMask  { get; init; } = string.Empty;
+        public string Gateway     { get; init; } = string.Empty;
+        public bool   IsUp        { get; init; }
+
+        private bool _isDefaultRoute;
+        public bool IsDefaultRoute
+        {
+            get => _isDefaultRoute;
+            set => SetProperty(ref _isDefaultRoute, value);
+        }
     }
 
     public class InternetCheckResult : ObservableObject
@@ -82,6 +90,21 @@ namespace M1Scan.ViewModels
         }
     }
 
+    public class WanInfo : ObservableObject
+    {
+        private bool   _isLoading = true;
+        private string _ip        = "Henter...";
+        private string _isp       = string.Empty;
+        private string _asn       = string.Empty;
+        private string _country   = string.Empty;
+
+        public bool   IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
+        public string Ip        { get => _ip;        set => SetProperty(ref _ip,        value); }
+        public string Isp       { get => _isp;       set => SetProperty(ref _isp,       value); }
+        public string Asn       { get => _asn;       set => SetProperty(ref _asn,       value); }
+        public string Country   { get => _country;   set => SetProperty(ref _country,   value); }
+    }
+
     public class HomeViewModel : ObservableObject, IDisposable
     {
         private const int NetworkChangeDebounceMs = 1500;
@@ -92,6 +115,8 @@ namespace M1Scan.ViewModels
             ("1.1.1.1",   "Cloudflare DNS"),
             ("8.8.4.4",   "Google DNS (alt)")
         };
+
+        private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
 
         private readonly INetworkService  _networkService;
         private readonly SemaphoreSlim    _loadLock = new SemaphoreSlim(1, 1);
@@ -166,6 +191,15 @@ namespace M1Scan.ViewModels
 
         public bool HasGateway => GatewayCheck != null;
 
+        public WanInfo Wan { get; } = new();
+
+        private AdapterDisplay? _defaultAdapter;
+        public AdapterDisplay? DefaultAdapter
+        {
+            get => _defaultAdapter;
+            set => SetProperty(ref _defaultAdapter, value);
+        }
+
         public RelayCommand RefreshCommand { get; }
 
         public HomeViewModel()
@@ -215,10 +249,13 @@ namespace M1Scan.ViewModels
                     IsRefreshing = true;
                     foreach (var c in InternetChecks) c.IsChecking = true;
                     if (GatewayCheck != null) GatewayCheck.IsChecking = true;
+                    Wan.IsLoading = true;
+                    Wan.Ip        = "Henter...";
                 });
 
                 var adaptersTask = _networkService.GetNetworkAdaptersAsync();
                 var arpTask      = _networkService.GetArpTableAsync();
+                _ = FetchWanInfoAsync(dispatcher);
 
                 var pingTasks = InternetHosts.Select(async h =>
                 {
@@ -275,6 +312,7 @@ namespace M1Scan.ViewModels
                     GatewayCheck   = !string.IsNullOrEmpty(gatewayIp)
                         ? new InternetCheckResult { Host = gatewayIp!, Label = "Gateway" }
                         : null;
+                    DefaultAdapter = best;
                 });
 
                 var gwResult = GatewayCheck;
@@ -360,6 +398,32 @@ namespace M1Scan.ViewModels
                 // FIX #4: IsRefreshing = false altid på UI-thread; lås frigives bagefter
                 await dispatcher.InvokeAsync(() => IsRefreshing = false);
                 _loadLock.Release();
+            }
+        }
+
+        private async Task FetchWanInfoAsync(Dispatcher dispatcher)
+        {
+            try
+            {
+                var json = await _httpClient.GetStringAsync("https://ip-api.com/json");
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                string ip      = root.TryGetProperty("query",   out var q) ? q.GetString() ?? "?" : "?";
+                string isp     = root.TryGetProperty("isp",     out var i) ? i.GetString() ?? "" : "";
+                string asn     = root.TryGetProperty("as",      out var a) ? a.GetString() ?? "" : "";
+                string country = root.TryGetProperty("country", out var c) ? c.GetString() ?? "" : "";
+                await dispatcher.InvokeAsync(() =>
+                {
+                    Wan.Ip      = ip;
+                    Wan.Isp     = isp;
+                    Wan.Asn     = asn;
+                    Wan.Country = country;
+                    Wan.IsLoading = false;
+                });
+            }
+            catch
+            {
+                await dispatcher.InvokeAsync(() => { Wan.Ip = "Ikke tilgængelig"; Wan.IsLoading = false; });
             }
         }
 

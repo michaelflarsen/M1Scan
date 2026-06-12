@@ -430,7 +430,6 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- TopBar -->
                 <RowDefinition Height="Auto"/> <!-- Stats row -->
-                <RowDefinition Height="Auto"/> <!-- Progress bar -->
                 <RowDefinition Height="*"/>    <!-- Content panels -->
             </Grid.RowDefinitions>
 
@@ -583,21 +582,10 @@
                 </materialDesign:Card>
             </Grid>
 
-            <!-- ===== PROGRESS BAR ===== -->
-            <Grid Grid.Row="2" Margin="20,8,20,0" Height="4">
-                <ProgressBar Value="{Binding NetworkScanVm.ScanProgress}" Maximum="100"
-                             Background="{StaticResource ControlBackgroundBrush}"
-                             Foreground="{StaticResource AccentBrush}"/>
-                <ProgressBar IsIndeterminate="True"
-                             Background="Transparent"
-                             Foreground="{StaticResource AccentDarkBrush}"
-                             Visibility="{Binding NetworkScanVm.IsScanning, Converter={StaticResource BoolToVisibilityConverter}}"/>
-            </Grid>
-
             <!-- ============================================================ -->
             <!--  CONTENT PANELS                                               -->
             <!-- ============================================================ -->
-            <Grid Grid.Row="3">
+            <Grid Grid.Row="2">
 
                 <!-- ===================================================== -->
                 <!--  HOME PANEL                                             -->

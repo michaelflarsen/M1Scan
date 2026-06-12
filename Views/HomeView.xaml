@@ -5,11 +5,15 @@
 
     <Grid Margin="20,12,20,10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- header -->
-            <RowDefinition Height="14"/>
-            <RowDefinition Height="Auto"/>  <!-- internet + adaptere side om side -->
-            <RowDefinition Height="14"/>
-            <RowDefinition Height="*"/>     <!-- ARP tabel -->
+            <RowDefinition Height="Auto"/>  <!-- 0: header -->
+            <RowDefinition Height="10"/>    <!-- 1: spacer -->
+            <RowDefinition Height="Auto"/>  <!-- 2: WAN chain -->
+            <RowDefinition Height="8"/>     <!-- 3: spacer -->
+            <RowDefinition Height="38"/>    <!-- 4: ping bar -->
+            <RowDefinition Height="10"/>    <!-- 5: spacer -->
+            <RowDefinition Height="Auto"/>  <!-- 6: adapter cards -->
+            <RowDefinition Height="14"/>    <!-- 7: spacer -->
+            <RowDefinition Height="*"/>     <!-- 8: known devices -->
         </Grid.RowDefinitions>
 
         <!-- ══════════════════════════════════════════════════════ -->
@@ -30,13 +34,11 @@
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
 
-                <!-- Sidst opdateret -->
                 <TextBlock VerticalAlignment="Center" FontSize="10" Foreground="#3A4A5A" Margin="0,0,12,0">
                     <Run Text="Sidst opdateret: "/>
                     <Run Text="{Binding LastRefreshed}"/>
                 </TextBlock>
 
-                <!-- Refresh knap -->
                 <Button Style="{StaticResource MaterialDesignOutlinedButton}"
                         Height="28" Padding="12,0" Margin="0,0,10,0"
                         Command="{Binding RefreshCommand}"
@@ -48,7 +50,6 @@
                     </StackPanel>
                 </Button>
 
-                <!-- Online / Offline badge -->
                 <Border CornerRadius="4" Padding="10,5">
                     <Border.Style>
                         <Style TargetType="Border">
@@ -93,356 +94,405 @@
         </Grid>
 
         <!-- ══════════════════════════════════════════════════════ -->
-        <!-- INTERNET + ADAPTERE — egne headers, side om side      -->
+        <!-- WAN TOPOLOGY CHAIN                                     -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="2" HorizontalAlignment="Left">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>   <!-- internet -->
-                <ColumnDefinition Width="Auto"/>   <!-- separator -->
-                <ColumnDefinition Width="*"/>      <!-- adaptere -->
+                <ColumnDefinition Width="200"/> <!-- NODE 1: WAN -->
+                <ColumnDefinition Width="44"/>  <!-- Connector -->
+                <ColumnDefinition Width="200"/> <!-- NODE 2: ROUTER -->
+                <ColumnDefinition Width="44"/>  <!-- Connector -->
+                <ColumnDefinition Width="200"/> <!-- NODE 3: ADAPTER -->
             </Grid.ColumnDefinitions>
 
-            <!-- ── INTERNET ── -->
-            <StackPanel Grid.Column="0">
-                <TextBlock Text="// INTERNET" FontFamily="Consolas" FontSize="10"
-                           Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <!-- ── NODE 1: WAN ── -->
+            <Border Grid.Column="0" Height="108" Background="#080f14"
+                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Opacity" Value="1.0"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Wan.IsLoading}" Value="True">
+                                <Setter Property="Opacity" Value="0.55"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <!-- Globe icon -->
+                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
+                        <Canvas Width="32" Height="32">
+                            <Ellipse Canvas.Left="1" Canvas.Top="1" Width="30" Height="30"
+                                     Stroke="#4fc3f7" StrokeThickness="1" Fill="Transparent"/>
+                            <Ellipse Canvas.Left="7" Canvas.Top="1" Width="18" Height="30"
+                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                            <Ellipse Canvas.Left="12" Canvas.Top="1" Width="8" Height="30"
+                                     Stroke="#4fc3f7" StrokeThickness="0.6" Fill="Transparent" Opacity="0.5"/>
+                            <Line X1="4"  Y1="9"  X2="28" Y2="9"  Stroke="#4fc3f7" StrokeThickness="0.6" Opacity="0.45"/>
+                            <Line X1="1"  Y1="16" X2="31" Y2="16" Stroke="#4fc3f7" StrokeThickness="0.7" Opacity="0.55"/>
+                            <Line X1="4"  Y1="23" X2="28" Y2="23" Stroke="#4fc3f7" StrokeThickness="0.6" Opacity="0.45"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="WAN" FontSize="9" FontWeight="Bold"
+                               Foreground="#4fc3f7" HorizontalAlignment="Center" Margin="0,0,0,3"/>
+                    <TextBlock FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                               HorizontalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text"       Value="{Binding Wan.Ip}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Wan.IsLoading}" Value="True">
+                                        <Setter Property="Foreground" Value="#2A4060"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="{Binding Wan.Isp}" FontSize="9" Foreground="#2A4A5A"
+                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               MaxWidth="190" Margin="6,2,6,0"/>
+                    <TextBlock FontSize="9" Foreground="#1E3A4A"
+                               HorizontalAlignment="Center" MaxWidth="190" Margin="6,1,6,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="{Binding Wan.Country}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Wan.IsLoading}" Value="True">
+                                        <Setter Property="Text" Value=""/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
 
-                <materialDesign:Card Background="#151E2C" Padding="14,12"
-                                     MinWidth="190"
-                                     materialDesign:ElevationAssist.Elevation="Dp2">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,6,0">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#2A3A4A"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                                <Setter Property="Fill" Value="#4CAF50"/>
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsOnline}" Value="False">
-                                                <Setter Property="Fill" Value="#EF5350"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                            <TextBlock FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text"       Value="CHECKER…"/>
-                                        <Setter Property="Foreground" Value="#3A4A5A"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                                <Setter Property="Text"       Value="ONLINE"/>
-                                                <Setter Property="Foreground" Value="#4CAF50"/>
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsOnline}" Value="False">
-                                                <Setter Property="Text"       Value="OFFLINE"/>
-                                                <Setter Property="Foreground" Value="#EF5350"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
+            <!-- Connector 1 → 2 -->
+            <Grid Grid.Column="1">
+                <Rectangle Height="1" Fill="#1a3040" VerticalAlignment="Center"/>
+                <Path Data="M 0,-4 L 7,0 L 0,4 Z" Fill="#1a3040"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            </Grid>
 
-                        <!-- Gateway-ping række -->
-                        <Grid Height="22" Margin="0,0,0,2"
-                              Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="52"/>
-                                <ColumnDefinition Width="10"/>
-                                <ColumnDefinition Width="8"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Gateway" FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                           VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="#3A4A5A"/>
-                                            <Style.Triggers>
-                                                <MultiDataTrigger>
-                                                    <MultiDataTrigger.Conditions>
-                                                        <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="True"/>
-                                                        <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
-                                                    </MultiDataTrigger.Conditions>
-                                                    <Setter Property="Foreground" Value="#4CAF50"/>
-                                                </MultiDataTrigger>
-                                                <MultiDataTrigger>
-                                                    <MultiDataTrigger.Conditions>
-                                                        <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
-                                                        <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
-                                                    </MultiDataTrigger.Conditions>
-                                                    <Setter Property="Foreground" Value="#EF5350"/>
-                                                </MultiDataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <TextBlock Text="{Binding GatewayCheck.Host}"
-                                           FontFamily="Consolas" FontSize="12"
-                                           Foreground="#4A7A9A" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                            </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{Binding GatewayCheck.LatencyDisplay}"
-                                       FontFamily="Consolas" FontSize="11"
-                                       HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#2A3A4A"/>
-                                        <Style.Triggers>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="True"/>
-                                                    <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Foreground" Value="#2E7D32"/>
-                                            </MultiDataTrigger>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
-                                                    <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Foreground" Value="#C62828"/>
-                                            </MultiDataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <Ellipse Grid.Column="3" Width="6" Height="6" VerticalAlignment="Center">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#1A2A3A"/>
-                                        <Style.Triggers>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="True"/>
-                                                    <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Fill" Value="#4CAF50"/>
-                                            </MultiDataTrigger>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
-                                                    <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Fill" Value="#EF5350"/>
-                                            </MultiDataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                        </Grid>
-                        <Border Height="1" Background="#1A2A3A" Margin="0,0,0,4"
-                                Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            <!-- ── NODE 2: ROUTER ── -->
+            <Border Grid.Column="2" Height="108" Background="#080f14"
+                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <!-- Router icon -->
+                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
+                        <Canvas Width="32" Height="32">
+                            <!-- Router body -->
+                            <Rectangle Canvas.Left="3" Canvas.Top="14" Width="26" Height="11"
+                                       Stroke="#4fc3f7" StrokeThickness="1" Fill="Transparent"/>
+                            <!-- Left antenna -->
+                            <Line X1="9"  Y1="14" X2="8"  Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
+                            <Ellipse Canvas.Left="6"  Canvas.Top="2" Width="4" Height="4"
+                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                            <!-- Center antenna -->
+                            <Line X1="16" Y1="14" X2="16" Y2="2" Stroke="#4fc3f7" StrokeThickness="1"/>
+                            <Ellipse Canvas.Left="14" Canvas.Top="0" Width="4" Height="4"
+                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                            <!-- Right antenna -->
+                            <Line X1="23" Y1="14" X2="24" Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
+                            <Ellipse Canvas.Left="22" Canvas.Top="2" Width="4" Height="4"
+                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                            <!-- LED dots on body -->
+                            <Ellipse Canvas.Left="6"  Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.7"/>
+                            <Ellipse Canvas.Left="14" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.4"/>
+                            <Ellipse Canvas.Left="22" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.2"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="ROUTER" FontSize="9" FontWeight="Bold"
+                               Foreground="#4fc3f7" HorizontalAlignment="Center" Margin="0,0,0,3"/>
+                    <TextBlock Text="{Binding GatewayCheck.Host, FallbackValue='—'}"
+                               FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                               Foreground="White" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding GatewayCheck.LatencyDisplay, FallbackValue='—'}"
+                               FontSize="9" HorizontalAlignment="Center" Margin="0,2,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#2A4060"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding GatewayCheck.IsOnline}" Value="True">
+                                        <Setter Property="Foreground" Value="#2E7D32"/>
+                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
+                                            <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Foreground" Value="#7A2020"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
 
-                        <ItemsControl ItemsSource="{Binding InternetChecks}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Height="22">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="52"/>
-                                            <ColumnDefinition Width="10"/>
-                                            <ColumnDefinition Width="8"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Host}"
-                                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                                   VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="#3A4A5A"/>
-                                                    <Style.Triggers>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsOnline}"   Value="True"/>
-                                                                <Condition Binding="{Binding IsChecking}" Value="False"/>
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Foreground" Value="#4CAF50"/>
-                                                        </MultiDataTrigger>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsOnline}"   Value="False"/>
-                                                                <Condition Binding="{Binding IsChecking}" Value="False"/>
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Foreground" Value="#EF5350"/>
-                                                        </MultiDataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                        <TextBlock Grid.Column="1" Text="{Binding LatencyDisplay}"
-                                                   FontFamily="Consolas" FontSize="11"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="#2A3A4A"/>
-                                                    <Style.Triggers>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsOnline}"   Value="True"/>
-                                                                <Condition Binding="{Binding IsChecking}" Value="False"/>
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Foreground" Value="#2E7D32"/>
-                                                        </MultiDataTrigger>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsOnline}"   Value="False"/>
-                                                                <Condition Binding="{Binding IsChecking}" Value="False"/>
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Foreground" Value="#C62828"/>
-                                                        </MultiDataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                        <Ellipse Grid.Column="3" Width="6" Height="6" VerticalAlignment="Center">
-                                            <Ellipse.Style>
-                                                <Style TargetType="Ellipse">
-                                                    <Setter Property="Fill" Value="#1A2A3A"/>
-                                                    <Style.Triggers>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsOnline}"   Value="True"/>
-                                                                <Condition Binding="{Binding IsChecking}" Value="False"/>
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Fill" Value="#4CAF50"/>
-                                                        </MultiDataTrigger>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsOnline}"   Value="False"/>
-                                                                <Condition Binding="{Binding IsChecking}" Value="False"/>
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Fill" Value="#EF5350"/>
-                                                        </MultiDataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Ellipse.Style>
-                                        </Ellipse>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+            <!-- Connector 2 → 3 -->
+            <Grid Grid.Column="3">
+                <Rectangle Height="1" Fill="#1a3040" VerticalAlignment="Center"/>
+                <Path Data="M 0,-4 L 7,0 L 0,4 Z" Fill="#1a3040"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            </Grid>
 
-                        <TextBlock Text="{Binding InternetVia}" FontSize="10"
-                                   Foreground="#2A3A4A" Margin="0,6,0,0"
-                                   TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
-                </materialDesign:Card>
-            </StackPanel>
+            <!-- ── NODE 3: AKTIV ADAPTER ── -->
+            <Border Grid.Column="4" Height="108" Background="#080f14"
+                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="#1a3040"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DefaultAdapter.IsDefaultRoute}" Value="True">
+                                <Setter Property="BorderBrush" Value="#1A4A30"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <!-- Monitor/adapter icon -->
+                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
+                        <Canvas Width="32" Height="32">
+                            <Rectangle Canvas.Left="2" Canvas.Top="2" Width="28" Height="19"
+                                       Stroke="#4CAF50" StrokeThickness="1" Fill="Transparent"/>
+                            <Rectangle Canvas.Left="5" Canvas.Top="5" Width="22" Height="13"
+                                       Fill="#071207"/>
+                            <!-- Signal bars -->
+                            <Rectangle Canvas.Left="10"   Canvas.Top="14" Width="3" Height="3" Fill="#4CAF50" Opacity="0.4"/>
+                            <Rectangle Canvas.Left="14.5" Canvas.Top="12" Width="3" Height="5" Fill="#4CAF50" Opacity="0.65"/>
+                            <Rectangle Canvas.Left="19"   Canvas.Top="10" Width="3" Height="7" Fill="#4CAF50" Opacity="0.9"/>
+                            <!-- Stand -->
+                            <Line X1="16" Y1="21" X2="16" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
+                            <!-- Base -->
+                            <Line X1="9" Y1="26" X2="23" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="{Binding DefaultAdapter.Name, FallbackValue='ADAPTER'}"
+                               FontSize="9" FontWeight="Bold" Foreground="#4CAF50"
+                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               MaxWidth="190" Margin="0,0,0,3"/>
+                    <TextBlock Text="{Binding DefaultAdapter.IpAddress, FallbackValue='—'}"
+                               FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                               Foreground="White" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding DefaultAdapter.SubnetMask, FallbackValue='—'}"
+                               FontFamily="Consolas" FontSize="9" Foreground="#1E4A2A"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding DefaultAdapter.Description, FallbackValue='—'}"
+                               FontSize="9" Foreground="#2A4A3A"
+                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               MaxWidth="190" Margin="6,1,6,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
 
-            <!-- Vertikal separator -->
-            <Border Grid.Column="1" Width="1" Background="#1A2A3A"
-                    Margin="20,22,20,4" VerticalAlignment="Stretch"/>
+        <!-- ══════════════════════════════════════════════════════ -->
+        <!-- PING BAR                                               -->
+        <!-- ══════════════════════════════════════════════════════ -->
+        <Border Grid.Row="4" Background="#06111a" CornerRadius="4"
+                BorderBrush="#1a3040" BorderThickness="0.5">
+            <Grid Margin="12,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <!-- ── MINE ADAPTERE ── -->
-            <StackPanel Grid.Column="2">
-                <TextBlock Text="// MINE ADAPTERE" FontFamily="Consolas" FontSize="10"
-                           Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
-
-                <!-- Adapter-kort (skjult når ingen adaptere) -->
-                <ItemsControl ItemsSource="{Binding ActiveAdapters}">
-                    <ItemsControl.Style>
-                        <Style TargetType="ItemsControl">
-                            <Setter Property="Visibility" Value="Visible"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding ActiveAdapters.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ItemsControl.Style>
+                <ItemsControl Grid.Column="0" ItemsSource="{Binding InternetChecks}"
+                              VerticalAlignment="Center">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel/>
+                            <StackPanel Orientation="Horizontal"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <materialDesign:Card Padding="14,12"
-                                                 Margin="0,0,12,0" MinWidth="190"
-                                                 materialDesign:ElevationAssist.Elevation="Dp2">
-                                <materialDesign:Card.Style>
-                                    <Style TargetType="materialDesign:Card">
-                                        <Setter Property="Background"      Value="#151E2C"/>
-                                        <Setter Property="BorderThickness" Value="0"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsDefaultRoute}" Value="True">
-                                                <Setter Property="Background"      Value="#0C1A2C"/>
-                                                <Setter Property="BorderThickness" Value="1"/>
-                                                <Setter Property="BorderBrush"     Value="#1A4A80"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </materialDesign:Card.Style>
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                        <Ellipse Width="7" Height="7" Fill="#4CAF50"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <TextBlock Text="{Binding Name}" FontSize="11"
-                                                   Foreground="#5A7A9A" TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding IpAddress}"
-                                               FontFamily="Consolas" FontSize="17" FontWeight="Bold"
-                                               Foreground="#64B5F6"/>
-                                    <TextBlock Text="{Binding SubnetMask}"
-                                               FontFamily="Consolas" FontSize="11"
-                                               Foreground="#3A5A6A" Margin="0,2,0,0"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                        <TextBlock Text="GW " FontFamily="Consolas" FontSize="11" Foreground="#2A3A4A"/>
-                                        <TextBlock Text="{Binding Gateway}"
-                                                   FontFamily="Consolas" FontSize="11" Foreground="#3A6A5A"/>
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding Description}" FontSize="10"
-                                               Foreground="#2A3A4A" TextTrimming="CharacterEllipsis"
-                                               Margin="0,5,0,0"/>
-                                </StackPanel>
-                            </materialDesign:Card>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,22,0" VerticalAlignment="Center">
+                                <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,5,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#2A1A1A"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOnline}"  Value="True">
+                                                    <Setter Property="Fill" Value="#4CAF50"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsChecking}" Value="True">
+                                                    <Setter Property="Fill" Value="#2A3A4A"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="{Binding Host}" FontFamily="Consolas" FontSize="11"
+                                           Foreground="#3A5060" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock Text="{Binding LatencyDisplay}" FontFamily="Consolas" FontSize="11"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#2A3A4A"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOnline}"  Value="True">
+                                                    <Setter Property="Foreground" Value="#2E7D32"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsChecking}" Value="True">
+                                                    <Setter Property="Foreground" Value="#2A3A4A"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <!-- Ingen aktiv adapter — placeholder (vises når ActiveAdapters er tom) -->
-                <materialDesign:Card Background="#0E1520" Padding="14,12" MinWidth="190"
-                                     materialDesign:ElevationAssist.Elevation="Dp1">
-                    <materialDesign:Card.Style>
-                        <Style TargetType="materialDesign:Card">
-                            <Setter Property="Visibility" Value="Collapsed"/>
+                <Border Grid.Column="1" CornerRadius="3" Padding="9,4" VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#180E0E"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding ActiveAdapters.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Visible"/>
+                                <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                    <Setter Property="Background" Value="#0D1E10"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </materialDesign:Card.Style>
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <Ellipse Width="7" Height="7" Fill="#5C2A2A"
-                                     VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock Text="Ingen forbindelse" FontSize="11"
-                                       Foreground="#4A3A3A"/>
-                        </StackPanel>
-                        <TextBlock Text="Ingen Aktiv Adapter"
-                                   FontFamily="Consolas" FontSize="15" FontWeight="Bold"
-                                   Foreground="#3A3A4A"/>
-                        <TextBlock Text="Kontroller netværksforbindelsen"
-                                   FontSize="10" Foreground="#2A2A3A" Margin="0,5,0,0"/>
+                    </Border.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,6,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#4A1A1A"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                            <Setter Property="Fill" Value="#4CAF50"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock FontSize="11" FontWeight="Bold" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text"       Value="OFFLINE"/>
+                                    <Setter Property="Foreground" Value="#6A2A2A"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                            <Setter Property="Text"       Value="ONLINE"/>
+                                            <Setter Property="Foreground" Value="#4CAF50"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
-                </materialDesign:Card>
-            </StackPanel>
-        </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════════════ -->
+        <!-- MINE ADAPTERE                                          -->
+        <!-- ══════════════════════════════════════════════════════ -->
+        <StackPanel Grid.Row="6">
+            <TextBlock Text="// MINE ADAPTERE" FontFamily="Consolas" FontSize="10"
+                       Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+            <ItemsControl ItemsSource="{Binding ActiveAdapters}">
+                <ItemsControl.Style>
+                    <Style TargetType="ItemsControl">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ActiveAdapters.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ItemsControl.Style>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <materialDesign:Card Padding="14,12" Margin="0,0,12,12" Width="200"
+                                             materialDesign:ElevationAssist.Elevation="Dp2">
+                            <materialDesign:Card.Style>
+                                <Style TargetType="materialDesign:Card">
+                                    <Setter Property="Background"      Value="#151E2C"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDefaultRoute}" Value="True">
+                                            <Setter Property="Background"      Value="#0C1A2C"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Setter Property="BorderBrush"     Value="#1A4A80"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialDesign:Card.Style>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                    <Ellipse Width="7" Height="7" Fill="#4CAF50"
+                                             VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{Binding Name}" FontSize="11"
+                                               Foreground="#5A7A9A" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding IpAddress}"
+                                           FontFamily="Consolas" FontSize="17" FontWeight="Bold"
+                                           Foreground="#64B5F6"/>
+                                <TextBlock Text="{Binding SubnetMask}"
+                                           FontFamily="Consolas" FontSize="11"
+                                           Foreground="#3A5A6A" Margin="0,2,0,0"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="GW " FontFamily="Consolas" FontSize="11" Foreground="#2A3A4A"/>
+                                    <TextBlock Text="{Binding Gateway}"
+                                               FontFamily="Consolas" FontSize="11" Foreground="#3A6A5A"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Description}" FontSize="10"
+                                           Foreground="#2A3A4A" TextTrimming="CharacterEllipsis"
+                                           Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Ingen aktiv adapter -->
+            <materialDesign:Card Background="#0E1520" Padding="14,12" MinWidth="190"
+                                 materialDesign:ElevationAssist.Elevation="Dp1">
+                <materialDesign:Card.Style>
+                    <Style TargetType="materialDesign:Card">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ActiveAdapters.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </materialDesign:Card.Style>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Ellipse Width="7" Height="7" Fill="#5C2A2A"
+                                 VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Ingen forbindelse" FontSize="11" Foreground="#4A3A3A"/>
+                    </StackPanel>
+                    <TextBlock Text="Ingen Aktiv Adapter"
+                               FontFamily="Consolas" FontSize="15" FontWeight="Bold"
+                               Foreground="#3A3A4A"/>
+                    <TextBlock Text="Kontroller netværksforbindelsen"
+                               FontSize="10" Foreground="#2A2A3A" Margin="0,5,0,0"/>
+                </StackPanel>
+            </materialDesign:Card>
+        </StackPanel>
 
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- NÆRLIGGENDE ENHEDER — GRUPPERT PER SUBNET             -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="4">
+        <Grid Grid.Row="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Sektionshoved -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
                 <TextBlock Text="// KENDTE ENHEDER  —  ARP cache (ikke live scan)"
                            FontFamily="Consolas" FontSize="10"
@@ -457,15 +507,12 @@
                 </TextBlock>
             </StackPanel>
 
-            <!-- Grupperet liste -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding NearbyGroups}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Margin="0,0,0,10" BorderBrush="#1C2A3A" BorderThickness="1" CornerRadius="4">
-
                                 <StackPanel>
-                                    <!-- Gruppe-header (klikbar toggle) -->
                                     <Button Command="{Binding ToggleCommand}"
                                             Cursor="Hand"
                                             HorizontalContentAlignment="Stretch"
@@ -486,7 +533,6 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
 
-                                            <!-- Chevron-ikon (roterer 90° når udvidet) -->
                                             <materialDesign:PackIcon Grid.Column="0"
                                                                      Kind="ChevronRight" Width="14" Height="14"
                                                                      Foreground="#3A6A9A" VerticalAlignment="Center"
@@ -518,7 +564,6 @@
                                                        FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
                                                        Foreground="#64B5F6" VerticalAlignment="Center"/>
 
-                                            <!-- Adapter-badge (kun synlig når AdapterName ikke er tom) -->
                                             <Border Grid.Column="3"
                                                     Background="#0D1E30" CornerRadius="10"
                                                     Padding="7,2" VerticalAlignment="Center" Margin="0,0,6,0">
@@ -543,7 +588,6 @@
                                                 </StackPanel>
                                             </Border>
 
-                                            <!-- Enhed-tæller badge (altid synlig) -->
                                             <Border Grid.Column="4"
                                                     Background="#0D1E30" CornerRadius="10"
                                                     Padding="8,2" VerticalAlignment="Center">
@@ -555,7 +599,6 @@
                                         </Grid>
                                     </Button>
 
-                                    <!-- Kolonne-headers -->
                                     <Grid Background="#0C1520" Height="24"
                                           Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <Grid.ColumnDefinitions>
@@ -574,7 +617,6 @@
                                                    VerticalAlignment="Center"/>
                                     </Grid>
 
-                                    <!-- Enheder -->
                                     <ItemsControl ItemsSource="{Binding Devices}"
                                                   Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <ItemsControl.ItemTemplate>
