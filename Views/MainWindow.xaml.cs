@@ -52,7 +52,7 @@ namespace M1Scan.Views
         private static readonly double[] Scales = { 0.50, 0.60, 0.70, 0.80, 0.90, 1.0, 1.15, 1.30, 1.50, 1.75, 2.00 };
         private int _scaleIndex = 5;
 
-        private string _selectedPage = "Home";
+        private string _selectedPage = "Dashboard";
         private int _onlineCount;
         private int _offlineCount;
         private string _lastScanTime = "—";
@@ -158,12 +158,12 @@ namespace M1Scan.Views
 
         private void UpdatePageVisibility()
         {
-            if (HomePanel      != null) HomePanel.Visibility      = _selectedPage == "Home"      ? Visibility.Visible : Visibility.Collapsed;
-            if (WorkspacePanel != null) WorkspacePanel.Visibility = _selectedPage == "Workspace" ? Visibility.Visible : Visibility.Collapsed;
-            if (DevicesPanel   != null) DevicesPanel.Visibility   = _selectedPage == "Devices"   ? Visibility.Visible : Visibility.Collapsed;
-            if (AdaptersPanel  != null) AdaptersPanel.Visibility  = _selectedPage == "Adapters"  ? Visibility.Visible : Visibility.Collapsed;
-            if (IpConfigPanel  != null) IpConfigPanel.Visibility  = _selectedPage == "IpConfig"  ? Visibility.Visible : Visibility.Collapsed;
-            if (StatsRow       != null) StatsRow.Visibility       = _selectedPage == "Devices"   ? Visibility.Visible : Visibility.Collapsed;
+            if (HomePanel      != null) HomePanel.Visibility      = _selectedPage == "Dashboard"    ? Visibility.Visible : Visibility.Collapsed;
+            if (WorkspacePanel != null) WorkspacePanel.Visibility = _selectedPage == "DeviceFollow" ? Visibility.Visible : Visibility.Collapsed;
+            if (DevicesPanel   != null) DevicesPanel.Visibility   = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
+            if (AdaptersPanel  != null) AdaptersPanel.Visibility  = _selectedPage == "Adapters"     ? Visibility.Visible : Visibility.Collapsed;
+            if (IpConfigPanel  != null) IpConfigPanel.Visibility  = _selectedPage == "Settings"     ? Visibility.Visible : Visibility.Collapsed;
+            if (StatsRow       != null) StatsRow.Visibility       = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void AdapterDropdownButton_Click(object sender, RoutedEventArgs e)
@@ -267,7 +267,7 @@ namespace M1Scan.Views
         }
 
         private void SideNav_Click(object sender, RoutedEventArgs e)
-            => SelectedPage = ((FrameworkElement)sender).Tag?.ToString() ?? "Devices";
+            => SelectedPage = ((FrameworkElement)sender).Tag?.ToString() ?? "Scan";
 
         private void Notify([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

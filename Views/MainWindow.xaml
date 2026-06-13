@@ -306,7 +306,7 @@
 
                     <RadioButton x:Name="IpConfigNavBtn"
                                  Style="{StaticResource SideNavStyle}"
-                                 GroupName="SideNav" Tag="IpConfig" Click="SideNav_Click">
+                                 GroupName="SideNav" Tag="Settings" Click="SideNav_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Cog" Width="18" Height="18"
                                                      Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
@@ -324,7 +324,7 @@
                         <RadioButton x:Name="HomeNavBtn"
                                      Style="{StaticResource SideNavStyle}"
                                      GroupName="SideNav" IsChecked="True"
-                                     Tag="Home" Click="SideNav_Click">
+                                     Tag="Dashboard" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ViewDashboardOutline" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
@@ -337,7 +337,7 @@
                         <RadioButton x:Name="WorkspaceNavBtn"
                                      Style="{StaticResource SideNavStyle}"
                                      GroupName="SideNav"
-                                     Tag="Workspace" Click="SideNav_Click">
+                                     Tag="DeviceFollow" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ViewDashboard" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
@@ -350,7 +350,7 @@
                         <RadioButton x:Name="DevicesNavBtn"
                                      Style="{StaticResource SideNavStyle}"
                                      GroupName="SideNav"
-                                     Tag="Devices" Click="SideNav_Click">
+                                     Tag="Scan" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Devices" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
@@ -438,13 +438,19 @@
                 <Border.Style>
                     <Style TargetType="Border">
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Workspace">
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="DeviceFollow">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Home">
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Dashboard">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Devices">
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Scan">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Adapters">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Settings">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                         </Style.Triggers>

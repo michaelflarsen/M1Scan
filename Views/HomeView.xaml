@@ -4,21 +4,22 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:controls="clr-namespace:M1Scan.Controls">
 
-    <Grid Margin="20,12,20,10">
+    <Grid x:Name="RootGrid" Margin="20,12,20,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- 0: header -->
             <RowDefinition Height="10"/>    <!-- 1: spacer -->
             <RowDefinition Height="Auto"/>  <!-- 2: WAN chain + score -->
-            <RowDefinition Height="8"/>     <!-- 3: spacer -->
-            <RowDefinition Height="80" MinHeight="60"/>  <!-- 4: forbindelseskvalitet (resizable) -->
-            <RowDefinition Height="8"/>               <!-- 5: GridSplitter -->
-            <RowDefinition Height="Auto"/>            <!-- 6: diagnostik -->
-            <RowDefinition Height="8"/>     <!-- 7: spacer -->
-            <RowDefinition Height="Auto"/>  <!-- 8: adapter cards -->
-            <RowDefinition Height="0"/>     <!-- 9: (ubrugt) -->
+            <RowDefinition Height="Auto"/>  <!-- 3: diagnostik toggle -->
+            <RowDefinition Height="Auto"/>  <!-- 4: diagnostik cards -->
+            <RowDefinition Height="0"/>     <!-- 5: spacer efter diagnostik -->
+            <RowDefinition Height="Auto"/>  <!-- 6: graph-header (klikbar toggle) -->
+            <RowDefinition Height="Auto"/>  <!-- 7: forbindelseskvalitet (resizable) -->
+            <RowDefinition Height="8"/>     <!-- 8: spacer efter graph -->
+            <RowDefinition Height="Auto"/>  <!-- 9: adapter cards -->
             <RowDefinition Height="0"/>     <!-- 10: (ubrugt) -->
-            <RowDefinition Height="12"/>    <!-- 11: spacer -->
-            <RowDefinition Height="*"/>     <!-- 12: known devices -->
+            <RowDefinition Height="0"/>     <!-- 11: (ubrugt) -->
+            <RowDefinition Height="12"/>    <!-- 12: spacer -->
+            <RowDefinition Height="*"/>     <!-- 13: known devices -->
         </Grid.RowDefinitions>
 
         <!-- ══════════════════════════════════════════════════════ -->
@@ -141,8 +142,126 @@
                 <ColumnDefinition Width="200"/> <!-- NODE 3: ADAPTER -->
             </Grid.ColumnDefinitions>
 
-            <!-- ── NODE 1: WAN ── -->
+            <!-- ── NODE 1: AKTIV ADAPTER ── -->
             <Border Grid.Column="0" Height="148" Background="#080f14"
+                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="#1a3040"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DefaultAdapter.IsDefaultRoute}" Value="True">
+                                <Setter Property="BorderBrush" Value="#1A4A30"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <!-- Monitor/adapter icon -->
+                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
+                        <Canvas Width="32" Height="32">
+                            <Rectangle Canvas.Left="2" Canvas.Top="2" Width="28" Height="19"
+                                       Stroke="#4CAF50" StrokeThickness="1" Fill="Transparent"/>
+                            <Rectangle Canvas.Left="5" Canvas.Top="5" Width="22" Height="13"
+                                       Fill="#071207"/>
+                            <!-- Signal bars -->
+                            <Rectangle Canvas.Left="10"   Canvas.Top="14" Width="3" Height="3" Fill="#4CAF50" Opacity="0.4"/>
+                            <Rectangle Canvas.Left="14.5" Canvas.Top="12" Width="3" Height="5" Fill="#4CAF50" Opacity="0.65"/>
+                            <Rectangle Canvas.Left="19"   Canvas.Top="10" Width="3" Height="7" Fill="#4CAF50" Opacity="0.9"/>
+                            <!-- Stand -->
+                            <Line X1="16" Y1="21" X2="16" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
+                            <!-- Base -->
+                            <Line X1="9" Y1="26" X2="23" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="{Binding DefaultAdapter.Name, FallbackValue='ADAPTER'}"
+                               FontSize="9" FontWeight="Bold" Foreground="#4CAF50"
+                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               MaxWidth="190" Margin="0,0,0,3"/>
+                    <TextBlock Text="{Binding DefaultAdapter.IpAddress, FallbackValue='—'}"
+                               FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                               Foreground="White" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding DefaultAdapter.SubnetMask, FallbackValue='—'}"
+                               FontFamily="Consolas" FontSize="9" Foreground="#1E4A2A"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding DefaultAdapter.Description, FallbackValue='—'}"
+                               FontSize="9" Foreground="#2A4A3A"
+                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               MaxWidth="190" Margin="6,1,6,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Connector 1 → 2 -->
+            <Grid Grid.Column="1">
+                <Rectangle Height="1" Fill="#1a3040" VerticalAlignment="Center"/>
+                <Path Data="M 0,-4 L 7,0 L 0,4 Z" Fill="#1a3040"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            </Grid>
+
+            <!-- ── NODE 2: ROUTER ── -->
+            <Border Grid.Column="2" Height="148" Background="#080f14"
+                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <!-- Router icon -->
+                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
+                        <Canvas Width="32" Height="32">
+                            <!-- Router body -->
+                            <Rectangle Canvas.Left="3" Canvas.Top="14" Width="26" Height="11"
+                                       Stroke="#4fc3f7" StrokeThickness="1" Fill="Transparent"/>
+                            <!-- Left antenna -->
+                            <Line X1="9"  Y1="14" X2="8"  Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
+                            <Ellipse Canvas.Left="6"  Canvas.Top="2" Width="4" Height="4"
+                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                            <!-- Center antenna -->
+                            <Line X1="16" Y1="14" X2="16" Y2="2" Stroke="#4fc3f7" StrokeThickness="1"/>
+                            <Ellipse Canvas.Left="14" Canvas.Top="0" Width="4" Height="4"
+                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                            <!-- Right antenna -->
+                            <Line X1="23" Y1="14" X2="24" Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
+                            <Ellipse Canvas.Left="22" Canvas.Top="2" Width="4" Height="4"
+                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                            <!-- LED dots on body -->
+                            <Ellipse Canvas.Left="6"  Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.7"/>
+                            <Ellipse Canvas.Left="14" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.4"/>
+                            <Ellipse Canvas.Left="22" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.2"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="ROUTER" FontSize="9" FontWeight="Bold"
+                               Foreground="#4fc3f7" HorizontalAlignment="Center" Margin="0,0,0,3"/>
+                    <TextBlock Text="{Binding GatewayCheck.Host, FallbackValue='—'}"
+                               FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                               Foreground="White" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding GatewayCheck.LatencyDisplay, FallbackValue='—'}"
+                               FontSize="9" HorizontalAlignment="Center" Margin="0,2,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#2A4060"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding GatewayCheck.IsOnline}" Value="True">
+                                        <Setter Property="Foreground" Value="#2E7D32"/>
+                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
+                                            <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Foreground" Value="#7A2020"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <!-- Connector 2 → 3 -->
+            <Grid Grid.Column="3">
+                <Rectangle Height="1" Fill="#1a3040" VerticalAlignment="Center"/>
+                <Path Data="M 0,-4 L 7,0 L 0,4 Z" Fill="#1a3040"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            </Grid>
+
+            <!-- ── NODE 3: WAN ── -->
+            <Border Grid.Column="4" Height="148" Background="#080f14"
                     BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
                 <Border.Style>
                     <Style TargetType="Border">
@@ -243,124 +362,6 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </StackPanel>
-            </Border>
-
-            <!-- Connector 1 → 2 -->
-            <Grid Grid.Column="1">
-                <Rectangle Height="1" Fill="#1a3040" VerticalAlignment="Center"/>
-                <Path Data="M 0,-4 L 7,0 L 0,4 Z" Fill="#1a3040"
-                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
-            </Grid>
-
-            <!-- ── NODE 2: ROUTER ── -->
-            <Border Grid.Column="2" Height="148" Background="#080f14"
-                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <!-- Router icon -->
-                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
-                        <Canvas Width="32" Height="32">
-                            <!-- Router body -->
-                            <Rectangle Canvas.Left="3" Canvas.Top="14" Width="26" Height="11"
-                                       Stroke="#4fc3f7" StrokeThickness="1" Fill="Transparent"/>
-                            <!-- Left antenna -->
-                            <Line X1="9"  Y1="14" X2="8"  Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
-                            <Ellipse Canvas.Left="6"  Canvas.Top="2" Width="4" Height="4"
-                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
-                            <!-- Center antenna -->
-                            <Line X1="16" Y1="14" X2="16" Y2="2" Stroke="#4fc3f7" StrokeThickness="1"/>
-                            <Ellipse Canvas.Left="14" Canvas.Top="0" Width="4" Height="4"
-                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
-                            <!-- Right antenna -->
-                            <Line X1="23" Y1="14" X2="24" Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
-                            <Ellipse Canvas.Left="22" Canvas.Top="2" Width="4" Height="4"
-                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
-                            <!-- LED dots on body -->
-                            <Ellipse Canvas.Left="6"  Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.7"/>
-                            <Ellipse Canvas.Left="14" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.4"/>
-                            <Ellipse Canvas.Left="22" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.2"/>
-                        </Canvas>
-                    </Viewbox>
-                    <TextBlock Text="ROUTER" FontSize="9" FontWeight="Bold"
-                               Foreground="#4fc3f7" HorizontalAlignment="Center" Margin="0,0,0,3"/>
-                    <TextBlock Text="{Binding GatewayCheck.Host, FallbackValue='—'}"
-                               FontFamily="Consolas" FontSize="13" FontWeight="Bold"
-                               Foreground="White" HorizontalAlignment="Center"/>
-                    <TextBlock Text="{Binding GatewayCheck.LatencyDisplay, FallbackValue='—'}"
-                               FontSize="9" HorizontalAlignment="Center" Margin="0,2,0,0">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="#2A4060"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding GatewayCheck.IsOnline}" Value="True">
-                                        <Setter Property="Foreground" Value="#2E7D32"/>
-                                    </DataTrigger>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
-                                            <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Foreground" Value="#7A2020"/>
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </StackPanel>
-            </Border>
-
-            <!-- Connector 2 → 3 -->
-            <Grid Grid.Column="3">
-                <Rectangle Height="1" Fill="#1a3040" VerticalAlignment="Center"/>
-                <Path Data="M 0,-4 L 7,0 L 0,4 Z" Fill="#1a3040"
-                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
-            </Grid>
-
-            <!-- ── NODE 3: AKTIV ADAPTER ── -->
-            <Border Grid.Column="4" Height="148" Background="#080f14"
-                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="BorderBrush" Value="#1a3040"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding DefaultAdapter.IsDefaultRoute}" Value="True">
-                                <Setter Property="BorderBrush" Value="#1A4A30"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <!-- Monitor/adapter icon -->
-                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
-                        <Canvas Width="32" Height="32">
-                            <Rectangle Canvas.Left="2" Canvas.Top="2" Width="28" Height="19"
-                                       Stroke="#4CAF50" StrokeThickness="1" Fill="Transparent"/>
-                            <Rectangle Canvas.Left="5" Canvas.Top="5" Width="22" Height="13"
-                                       Fill="#071207"/>
-                            <!-- Signal bars -->
-                            <Rectangle Canvas.Left="10"   Canvas.Top="14" Width="3" Height="3" Fill="#4CAF50" Opacity="0.4"/>
-                            <Rectangle Canvas.Left="14.5" Canvas.Top="12" Width="3" Height="5" Fill="#4CAF50" Opacity="0.65"/>
-                            <Rectangle Canvas.Left="19"   Canvas.Top="10" Width="3" Height="7" Fill="#4CAF50" Opacity="0.9"/>
-                            <!-- Stand -->
-                            <Line X1="16" Y1="21" X2="16" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
-                            <!-- Base -->
-                            <Line X1="9" Y1="26" X2="23" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
-                        </Canvas>
-                    </Viewbox>
-                    <TextBlock Text="{Binding DefaultAdapter.Name, FallbackValue='ADAPTER'}"
-                               FontSize="9" FontWeight="Bold" Foreground="#4CAF50"
-                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               MaxWidth="190" Margin="0,0,0,3"/>
-                    <TextBlock Text="{Binding DefaultAdapter.IpAddress, FallbackValue='—'}"
-                               FontFamily="Consolas" FontSize="13" FontWeight="Bold"
-                               Foreground="White" HorizontalAlignment="Center"/>
-                    <TextBlock Text="{Binding DefaultAdapter.SubnetMask, FallbackValue='—'}"
-                               FontFamily="Consolas" FontSize="9" Foreground="#1E4A2A"
-                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                    <TextBlock Text="{Binding DefaultAdapter.Description, FallbackValue='—'}"
-                               FontSize="9" Foreground="#2A4A3A"
-                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               MaxWidth="190" Margin="6,1,6,0"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -502,10 +503,177 @@
         </Grid>
 
         <!-- ══════════════════════════════════════════════════════ -->
+        <!-- DIAGNOSTIK                                             -->
+        <!-- ══════════════════════════════════════════════════════ -->
+        <Button Grid.Row="3" HorizontalAlignment="Left" Background="Transparent"
+                BorderThickness="0" Padding="0,0,0,4" Cursor="Hand"
+                Command="{Binding ToggleDiagnosticsCommand}">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter/>
+                    </Border>
+                </ControlTemplate>
+            </Button.Template>
+            <TextBlock FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                       Foreground="#1565C0">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Text" Value="// Diagnostik  ▼"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DiagnosticsVisible}" Value="False">
+                                <Setter Property="Text" Value="// Diagnostik  ▶"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Button>
+        <WrapPanel Grid.Row="4">
+                <!-- DHCP-lease -->
+                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
+                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="DHCP-LEASE" FontFamily="Consolas" FontSize="9"
+                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <StackPanel Visibility="{Binding DhcpIsDhcp, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid Margin="0,1.5">
+                                <TextBlock Text="DHCP-server" FontSize="11" Foreground="#3A5A6A"/>
+                                <TextBlock Text="{Binding DhcpServerText}" FontFamily="Consolas" FontSize="11"
+                                           Foreground="#64B5F6" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,1.5">
+                                <TextBlock Text="Tildelt" FontSize="11" Foreground="#3A5A6A"/>
+                                <TextBlock Text="{Binding DhcpObtainedText}" FontFamily="Consolas" FontSize="11"
+                                           Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,1.5">
+                                <TextBlock Text="Udløber" FontSize="11" Foreground="#3A5A6A"/>
+                                <TextBlock Text="{Binding DhcpExpiresText}" FontFamily="Consolas" FontSize="11"
+                                           Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </StackPanel>
+                        <TextBlock Text="Statisk IP — ingen lease" FontSize="11" Foreground="#3A5A6A"
+                                   Visibility="{Binding DhcpIsDhcp, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- IPv6 + Captive portal -->
+                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
+                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="IPV6 + PORTAL" FontFamily="Consolas" FontSize="9"
+                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,1.5">
+                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="#5C5C2A"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Ipv6Ok}" Value="True">
+                                                <Setter Property="Fill" Value="#4CAF50"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock FontSize="11" Foreground="#5A8AAA">
+                                <Run Text="IPv6: "/><Run Text="{Binding Ipv6Text, Mode=OneWay}"/>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="#4CAF50"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding PortalWarning}" Value="True">
+                                                <Setter Property="Fill" Value="#FF9800"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="{Binding PortalText}" FontSize="11" Foreground="#5A8AAA"
+                                       TextWrapping="Wrap" MaxWidth="200"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Hastighedstest -->
+                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
+                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="HASTIGHEDSTEST" FontFamily="Consolas" FontSize="9"
+                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <WrapPanel Visibility="{Binding HasSpeedTestResult, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding SpeedTestDownText}" FontFamily="Consolas" FontSize="12"
+                                       FontWeight="Bold" Foreground="#4CAF50" Margin="0,0,10,0"/>
+                            <TextBlock Text="{Binding SpeedTestUpText}" FontFamily="Consolas" FontSize="12"
+                                       FontWeight="Bold" Foreground="#64B5F6"
+                                       ToolTip="Upload er et estimat — hele POST-requesten times"/>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding SpeedTestTimeText}" FontSize="9" Foreground="#2A3A4A"
+                                   Margin="0,2,0,4"
+                                   Visibility="{Binding HasSpeedTestResult, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <ProgressBar Height="3" Margin="0,2,0,4" Maximum="100"
+                                     Value="{Binding SpeedTestProgressPercent, Mode=OneWay}"
+                                     Foreground="#1565C0" Background="#0C1A2C" BorderThickness="0"
+                                     Visibility="{Binding IsSpeedTesting, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <TextBlock Text="{Binding SpeedTestPhaseText}" FontFamily="Consolas" FontSize="10"
+                                   Foreground="#5A8AAA" Margin="0,0,0,4"/>
+                        <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Height="24" Padding="10,0" HorizontalAlignment="Left"
+                                Command="{Binding TestSpeedCommand}"
+                                Content="{Binding SpeedTestButtonText}" FontSize="11"/>
+                    </StackPanel>
+                </Border>
+        </WrapPanel>
+
+        <!-- ══════════════════════════════════════════════════════ -->
+        <!-- GRAPH-HEADER (klikbar toggle)                          -->
+        <!-- ══════════════════════════════════════════════════════ -->
+        <Button Grid.Row="6" HorizontalAlignment="Left" Background="Transparent"
+                BorderThickness="0" Padding="0,0,0,4" Cursor="Hand"
+                Command="{Binding ToggleGraphsCommand}">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter/>
+                    </Border>
+                </ControlTemplate>
+            </Button.Template>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                           Foreground="#1565C0" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="// Graph  ▼"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding GraphsVisible}" Value="False">
+                                    <Setter Property="Text" Value="// Graph  ▶"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </Button>
+
+        <!-- ══════════════════════════════════════════════════════ -->
         <!-- FORBINDELSESKVALITET — LIVE SPARKLINES                 -->
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- Sparkline-grafer: start kompakt, træk ⋮ for bredde, ··· for højde -->
-        <Grid Grid.Row="4" VerticalAlignment="Stretch">
+        <Grid Grid.Row="7" VerticalAlignment="Stretch" MinHeight="60">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding GraphsVisible}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="240" MinWidth="120"/>  <!-- Gateway -->
                 <ColumnDefinition Width="8"/>                   <!-- splitter midt -->
@@ -627,9 +795,10 @@
         </Grid>
 
         <!-- Drag-håndtag: træk ned for større grafer -->
-        <GridSplitter Grid.Row="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+        <GridSplitter x:Name="GraphSplitter" Grid.Row="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
-                      Background="Transparent" Cursor="SizeNS" Height="8">
+                      Background="Transparent" Cursor="SizeNS" Height="8"
+                      Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
             <GridSplitter.Template>
                 <ControlTemplate TargetType="GridSplitter">
                     <Border Background="Transparent">
@@ -656,7 +825,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- MINE ADAPTERE                                          -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <StackPanel Grid.Row="8">
+        <StackPanel Grid.Row="9">
             <TextBlock Text="// MINE ADAPTERE" FontFamily="Consolas" FontSize="10"
                        Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
@@ -749,118 +918,9 @@
         </StackPanel>
 
         <!-- ══════════════════════════════════════════════════════ -->
-        <!-- DIAGNOSTIK                                             -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <StackPanel Grid.Row="6">
-            <TextBlock Text="// DIAGNOSTIK" FontFamily="Consolas" FontSize="10"
-                       Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
-            <WrapPanel>
-
-                <!-- DHCP-lease -->
-                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,10">
-                    <StackPanel>
-                        <TextBlock Text="DHCP-LEASE" FontFamily="Consolas" FontSize="9"
-                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <StackPanel Visibility="{Binding DhcpIsDhcp, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <Grid Margin="0,1.5">
-                                <TextBlock Text="DHCP-server" FontSize="11" Foreground="#3A5A6A"/>
-                                <TextBlock Text="{Binding DhcpServerText}" FontFamily="Consolas" FontSize="11"
-                                           Foreground="#64B5F6" HorizontalAlignment="Right"/>
-                            </Grid>
-                            <Grid Margin="0,1.5">
-                                <TextBlock Text="Tildelt" FontSize="11" Foreground="#3A5A6A"/>
-                                <TextBlock Text="{Binding DhcpObtainedText}" FontFamily="Consolas" FontSize="11"
-                                           Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                            </Grid>
-                            <Grid Margin="0,1.5">
-                                <TextBlock Text="Udløber" FontSize="11" Foreground="#3A5A6A"/>
-                                <TextBlock Text="{Binding DhcpExpiresText}" FontFamily="Consolas" FontSize="11"
-                                           Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                            </Grid>
-                        </StackPanel>
-                        <TextBlock Text="Statisk IP — ingen lease" FontSize="11" Foreground="#3A5A6A"
-                                   Visibility="{Binding DhcpIsDhcp, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- IPv6 + Captive portal -->
-                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,10">
-                    <StackPanel>
-                        <TextBlock Text="IPV6 + PORTAL" FontFamily="Consolas" FontSize="9"
-                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,1.5">
-                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#5C5C2A"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Ipv6Ok}" Value="True">
-                                                <Setter Property="Fill" Value="#4CAF50"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                            <TextBlock FontSize="11" Foreground="#5A8AAA">
-                                <Run Text="IPv6: "/><Run Text="{Binding Ipv6Text, Mode=OneWay}"/>
-                            </TextBlock>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#4CAF50"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding PortalWarning}" Value="True">
-                                                <Setter Property="Fill" Value="#FF9800"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                            <TextBlock Text="{Binding PortalText}" FontSize="11" Foreground="#5A8AAA"
-                                       TextWrapping="Wrap" MaxWidth="200"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- Hastighedstest -->
-                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,10">
-                    <StackPanel>
-                        <TextBlock Text="HASTIGHEDSTEST" FontFamily="Consolas" FontSize="9"
-                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <WrapPanel Visibility="{Binding HasSpeedTestResult, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock Text="{Binding SpeedTestDownText}" FontFamily="Consolas" FontSize="12"
-                                       FontWeight="Bold" Foreground="#4CAF50" Margin="0,0,10,0"/>
-                            <TextBlock Text="{Binding SpeedTestUpText}" FontFamily="Consolas" FontSize="12"
-                                       FontWeight="Bold" Foreground="#64B5F6"
-                                       ToolTip="Upload er et estimat — hele POST-requesten times"/>
-                        </WrapPanel>
-                        <TextBlock Text="{Binding SpeedTestTimeText}" FontSize="9" Foreground="#2A3A4A"
-                                   Margin="0,2,0,4"
-                                   Visibility="{Binding HasSpeedTestResult, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                        <ProgressBar Height="3" Margin="0,2,0,4" Maximum="100"
-                                     Value="{Binding SpeedTestProgressPercent, Mode=OneWay}"
-                                     Foreground="#1565C0" Background="#0C1A2C" BorderThickness="0"
-                                     Visibility="{Binding IsSpeedTesting, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                        <TextBlock Text="{Binding SpeedTestPhaseText}" FontFamily="Consolas" FontSize="10"
-                                   Foreground="#5A8AAA" Margin="0,0,0,4"/>
-                        <Button Style="{StaticResource MaterialDesignOutlinedButton}"
-                                Height="24" Padding="10,0" HorizontalAlignment="Left"
-                                Command="{Binding TestSpeedCommand}"
-                                Content="{Binding SpeedTestButtonText}" FontSize="11"/>
-                    </StackPanel>
-                </Border>
-            </WrapPanel>
-        </StackPanel>
-
-        <!-- ══════════════════════════════════════════════════════ -->
         <!-- NÆRLIGGENDE ENHEDER — GRUPPERT PER SUBNET             -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="12">
+        <Grid Grid.Row="13">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>

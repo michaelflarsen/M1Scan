@@ -401,12 +401,30 @@ namespace M1Scan.ViewModels
         public string SpeedTestUpText    => LastSpeedTest != null ? $"↑ {LastSpeedTest.uploadMbps:F0} Mbit/s (est.)" : "";
         public string SpeedTestTimeText  => LastSpeedTest != null ? $"Senest testet: {LastSpeedTest.timestamp:dd-MM-yyyy HH:mm}" : "";
 
+        // ── Graph-toggle ─────────────────────────────────────────────────────
+
+        private bool _graphsVisible = true;
+        public bool GraphsVisible
+        {
+            get => _graphsVisible;
+            set => SetProperty(ref _graphsVisible, value);
+        }
+
+        private bool _diagnosticsVisible = true;
+        public bool DiagnosticsVisible
+        {
+            get => _diagnosticsVisible;
+            set => SetProperty(ref _diagnosticsVisible, value);
+        }
+
         // ── Kommandoer ───────────────────────────────────────────────────────
 
         public RelayCommand RefreshCommand           { get; }
         public RelayCommand TestSpeedCommand         { get; }
         public RelayCommand AcknowledgeDeviceCommand { get; }
         public RelayCommand AcknowledgeAllCommand    { get; }
+        public RelayCommand ToggleGraphsCommand      { get; }
+        public RelayCommand ToggleDiagnosticsCommand { get; }
 
         public HomeViewModel()
         {
@@ -419,6 +437,8 @@ namespace M1Scan.ViewModels
 
             NetworkChange.NetworkAddressChanged += OnNetworkChanged;
 
+            ToggleGraphsCommand      = new RelayCommand(_ => GraphsVisible      = !GraphsVisible);
+            ToggleDiagnosticsCommand = new RelayCommand(_ => DiagnosticsVisible = !DiagnosticsVisible);
             RefreshCommand = new RelayCommand(_ => _ = LoadAsync());
 
             TestSpeedCommand = new RelayCommand(_ =>
