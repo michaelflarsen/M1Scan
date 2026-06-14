@@ -112,55 +112,52 @@ namespace M1Scan.Views
                 .ContainerFromItem(defaultAdapter) as FrameworkElement;
             if (container == null || container.ActualWidth == 0) return;
 
-            var start = WanChainNode1.TranslatePoint(
+            var topPoint = WanChainNode1.TranslatePoint(
                 new Point(WanChainNode1.ActualWidth / 2, WanChainNode1.ActualHeight),
                 ConnectorCanvas);
-            var end = container.TranslatePoint(
+            var botPoint = container.TranslatePoint(
                 new Point(container.ActualWidth / 2, 0),
                 ConnectorCanvas);
 
-            if (double.IsNaN(start.X) || double.IsNaN(end.X)) return;
-            if (end.Y <= start.Y + 2) return;  // adapter card not below node card
+            if (double.IsNaN(topPoint.X) || double.IsNaN(botPoint.X)) return;
+            if (botPoint.Y <= topPoint.Y + 2) return;
+
+            // Average the two card centers so the line is perfectly vertical
+            // even if the cards differ slightly in width or left offset.
+            double x    = (topPoint.X + botPoint.X) / 2;
+            double topY = topPoint.Y;
+            double botY = botPoint.Y;
 
             var accent = new SolidColorBrush(Color.FromRgb(0x4f, 0xc3, 0xf7));
 
-            // Dashed line (stop a few px before arrow tip)
-            var line = new Line
-            {
-                X1 = start.X, Y1 = start.Y,
-                X2 = end.X,   Y2 = end.Y - 8,
-                Stroke = accent, StrokeThickness = 1.5,
-                StrokeDashArray = new DoubleCollection { 4, 3 }
-            };
-            ConnectorCanvas.Children.Add(line);
-
-            // Circle at top end
-            AddCircle(start.X, start.Y, accent);
-
-            // Arrow pointing down at bottom end
+            // Arrow pointing UP at the top end (into the bottom of the topology card)
             var arrow = new Polygon
             {
                 Fill = accent,
                 Points = new PointCollection
                 {
-                    new Point(end.X,     end.Y),
-                    new Point(end.X - 5, end.Y - 8),
-                    new Point(end.X + 5, end.Y - 8)
+                    new Point(x,     topY),
+                    new Point(x - 5, topY + 8),
+                    new Point(x + 5, topY + 8)
                 }
             };
             ConnectorCanvas.Children.Add(arrow);
 
-            // Circle at bottom end
-            AddCircle(end.X, end.Y, accent);
-
-
-            void AddCircle(double cx, double cy, Brush fill)
+            // Dashed line from just below the arrow base down to the dot
+            var line = new Line
             {
-                var c = new Ellipse { Width = 6, Height = 6, Fill = fill };
-                Canvas.SetLeft(c, cx - 3);
-                Canvas.SetTop(c,  cy - 3);
-                ConnectorCanvas.Children.Add(c);
-            }
+                X1 = x, Y1 = topY + 8,
+                X2 = x, Y2 = botY,
+                Stroke = accent, StrokeThickness = 1.5,
+                StrokeDashArray = new DoubleCollection { 4, 3 }
+            };
+            ConnectorCanvas.Children.Add(line);
+
+            // Circle (dot) at the bottom end — top of the active adapter card
+            var c = new Ellipse { Width = 6, Height = 6, Fill = accent };
+            Canvas.SetLeft(c, x - 3);
+            Canvas.SetTop(c,  botY - 3);
+            ConnectorCanvas.Children.Add(c);
         }
     }
 }
