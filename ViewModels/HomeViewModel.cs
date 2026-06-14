@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using M1Scan.Models;
 using M1Scan.Services;
@@ -524,7 +525,7 @@ namespace M1Scan.ViewModels
                 if (Application.Current != null)
                     await LoadAsync();
             }
-            catch (ObjectDisposedException) { }
+            catch { }
         }
 
         // ── Live latency-sampler ─────────────────────────────────────────────
@@ -962,6 +963,7 @@ namespace M1Scan.ViewModels
             foreach (var g in NearbyGroups)
                 g.NewCount = g.Devices.Count(d => d.IsNew);
             NewDeviceCount = NearbyGroups.Sum(g => g.NewCount);
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private async Task FetchWanInfoAsync(Dispatcher dispatcher)
@@ -986,7 +988,8 @@ namespace M1Scan.ViewModels
             }
             catch
             {
-                await dispatcher.InvokeAsync(() => { Wan.Ip = "Ikke tilgængelig"; Wan.IsLoading = false; });
+                if (Application.Current != null)
+                    await dispatcher.InvokeAsync(() => { Wan.Ip = "Ikke tilgængelig"; Wan.IsLoading = false; });
             }
         }
 

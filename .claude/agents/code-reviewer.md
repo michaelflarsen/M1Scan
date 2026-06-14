@@ -31,6 +31,7 @@ Review checklist:
 - SemaphoreSlim used correctly for parallel scanning
 - No deadlocks from .Result or .Wait() on async methods
 - CancellationToken passed through the call chain
+- Fire-and-forget async calls (`_ = SomeAsync()`) inside RelayCommand lambdas must not silently swallow exceptions — verify the called method has its own try/catch or error logging
 
 ## Network scanning (domain-specific)
 - Socket/TcpClient disposed with using or try-finally
@@ -49,6 +50,11 @@ Review checklist:
 - Processes launched with a timeout and Kill() fallback — no indefinite hangs
 - SetProperty() return value checked before running side-effects in property setters
 - UI event handlers guard against redundant assignments (e.g. check current value before setting)
+
+## WPF layout (HomeView / Grid)
+- Grid RowDefinitions accessed by numeric index — verify the comment-documented row numbering matches actual XAML order after any row is added or removed
+- GridSplitter DragCompleted handlers must reference the correct row index for the resizable row, not an adjacent row
+- Rows that must never collapse visually should have a MinHeight — check that MinHeight is set on rows containing non-trivial content blocks
 
 ## Output format
 

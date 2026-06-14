@@ -32,7 +32,7 @@ namespace M1Scan.Views
             GraphSplitter.AddHandler(
                 Thumb.DragCompletedEvent,
                 new DragCompletedEventHandler((_, _) =>
-                    RootGrid.RowDefinitions[8].Height = GridLength.Auto));
+                    RootGrid.RowDefinitions[6].Height = GridLength.Auto));
         }
 
         private void SyncSampler() =>
@@ -65,9 +65,11 @@ namespace M1Scan.Views
                 ApplyDiagRows(vm.DiagnosticsVisible);
         }
 
-        // Tving Row 4 til 0 ved kollaps — mirror af ApplyGraphRows for Row 7.
-        private void ApplyDiagRows(bool visible) =>
+        private void ApplyDiagRows(bool visible)
+        {
             RootGrid.RowDefinitions[3].Height = visible ? GridLength.Auto : new GridLength(0);
+            RootGrid.RowDefinitions[4].Height = visible ? new GridLength(8) : new GridLength(0);
+        }
 
         private void ApplyGraphRows(bool visible)
         {
@@ -110,13 +112,11 @@ namespace M1Scan.Views
                 .ContainerFromItem(defaultAdapter) as FrameworkElement;
             if (container == null || container.ActualWidth == 0) return;
 
-            // Bottom-center of WAN chain Node 1 → top-center of adapter card
-            // Card has fixed Width=200, Margin="0,0,12,12" so visual center is at x=100
             var start = WanChainNode1.TranslatePoint(
                 new Point(WanChainNode1.ActualWidth / 2, WanChainNode1.ActualHeight),
                 ConnectorCanvas);
             var end = container.TranslatePoint(
-                new Point(100, 0),   // 100 = half of card Width="200"
+                new Point(container.ActualWidth / 2, 0),
                 ConnectorCanvas);
 
             if (double.IsNaN(start.X) || double.IsNaN(end.X)) return;
