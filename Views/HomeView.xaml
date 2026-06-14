@@ -197,14 +197,23 @@
             </Border>
 
             <!-- Connector 1 → 2 -->
-            <Canvas Grid.Column="1" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+            <Canvas Grid.Column="1" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                    Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
                 <Line X1="2" Y1="8" X2="31" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
                 <Polygon Points="31,2 44,8 31,14" Fill="#4fc3f7"/>
             </Canvas>
 
+            <!-- Connector direkte: Adapter → WAN (kun uden router) -->
+            <Canvas Grid.Column="1" Grid.ColumnSpan="3" Height="16" VerticalAlignment="Center"
+                    Visibility="{Binding HasGateway, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <Line X1="2" Y1="8" X2="275" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
+                <Polygon Points="263,2 276,8 263,14" Fill="#4fc3f7"/>
+            </Canvas>
+
             <!-- ── NODE 2: ROUTER ── -->
             <Border Grid.Column="2" Height="148" Background="#080f14"
-                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
+                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6"
+                    Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <!-- Router icon -->
                     <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
@@ -259,7 +268,8 @@
             </Border>
 
             <!-- Connector 2 → 3 -->
-            <Canvas Grid.Column="3" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+            <Canvas Grid.Column="3" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                    Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
                 <Line X1="2" Y1="8" X2="31" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
                 <Polygon Points="31,2 44,8 31,14" Fill="#4fc3f7"/>
             </Canvas>
