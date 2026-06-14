@@ -14,7 +14,7 @@
             <RowDefinition Height="0"/>     <!-- 5: spacer efter diagnostik -->
             <RowDefinition Height="Auto"/>  <!-- 6: graph-header (klikbar toggle) -->
             <RowDefinition Height="Auto"/>  <!-- 7: forbindelseskvalitet (resizable) -->
-            <RowDefinition Height="8"/>     <!-- 8: spacer efter graph -->
+            <RowDefinition Height="Auto"/>  <!-- 8: GraphSplitter (Auto → 0 når splitter Collapsed) -->
             <RowDefinition Height="Auto"/>  <!-- 9: adapter cards -->
             <RowDefinition Height="0"/>     <!-- 10: (ubrugt) -->
             <RowDefinition Height="0"/>     <!-- 11: (ubrugt) -->
@@ -505,8 +505,8 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- DIAGNOSTIK                                             -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Button Grid.Row="3" HorizontalAlignment="Left" Background="Transparent"
-                BorderThickness="0" Padding="0,0,0,4" Cursor="Hand"
+        <Button Grid.Row="3" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
+                BorderThickness="0" Padding="0" Margin="0" MinHeight="0" Height="16" Cursor="Hand"
                 Command="{Binding ToggleDiagnosticsCommand}">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
@@ -515,21 +515,32 @@
                     </Border>
                 </ControlTemplate>
             </Button.Template>
-            <TextBlock FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                       Foreground="#1565C0">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Text" Value="// Diagnostik  ▼"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding DiagnosticsVisible}" Value="False">
-                                <Setter Property="Text" Value="// Diagnostik  ▶"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                           Foreground="#1565C0" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="// Diagnostik  ▼"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DiagnosticsVisible}" Value="False">
+                                    <Setter Property="Text" Value="// Diagnostik  ▶"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
         </Button>
         <WrapPanel Grid.Row="4">
+            <WrapPanel.Style>
+                <Style TargetType="WrapPanel">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DiagnosticsVisible}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </WrapPanel.Style>
                 <!-- DHCP-lease -->
                 <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
                         BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,0">
@@ -621,9 +632,10 @@
                                      Foreground="#1565C0" Background="#0C1A2C" BorderThickness="0"
                                      Visibility="{Binding IsSpeedTesting, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         <TextBlock Text="{Binding SpeedTestPhaseText}" FontFamily="Consolas" FontSize="10"
-                                   Foreground="#5A8AAA" Margin="0,0,0,4"/>
+                                   Foreground="#5A8AAA" Margin="0,0,0,4"
+                                   Visibility="{Binding IsSpeedTesting, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         <Button Style="{StaticResource MaterialDesignOutlinedButton}"
-                                Height="24" Padding="10,0" HorizontalAlignment="Left"
+                                Height="24" Padding="10,0" Margin="0" HorizontalAlignment="Left"
                                 Command="{Binding TestSpeedCommand}"
                                 Content="{Binding SpeedTestButtonText}" FontSize="11"/>
                     </StackPanel>
@@ -633,8 +645,8 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- GRAPH-HEADER (klikbar toggle)                          -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Button Grid.Row="6" HorizontalAlignment="Left" Background="Transparent"
-                BorderThickness="0" Padding="0,0,0,4" Cursor="Hand"
+        <Button Grid.Row="6" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
+                BorderThickness="0" Padding="0" Margin="0" MinHeight="0" Height="16" Cursor="Hand"
                 Command="{Binding ToggleGraphsCommand}">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
@@ -825,7 +837,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- MINE ADAPTERE                                          -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <StackPanel Grid.Row="9">
+        <StackPanel Grid.Row="9" Margin="0">
             <TextBlock Text="// MINE ADAPTERE" FontFamily="Consolas" FontSize="10"
                        Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
 

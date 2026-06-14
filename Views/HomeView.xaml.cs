@@ -9,12 +9,13 @@ namespace M1Scan.Views
     public partial class HomeView : UserControl
     {
         // Row layout:
-        //  3 = diagnostik toggle  4 = diagnostik cards  5 = spacer (8px)
-        //  6 = graph header       7 = graph sparklines
-        //  8 = GraphSplitter      9 = adapter cards
+        //  3 = diagnostik toggle  4 = diagnostik cards  5 = spacer (0)
+        //  6 = graph header       7 = graph sparklines (resizable)
+        //  8 = GraphSplitter (Auto)  9 = adapter cards
+        // Begge sektioner tvinger deres indholds-række eksplicit til 0 ved kollaps
+        // (Auto-række + Collapsed-indhold efterlod en rest → uens afstand).
 
         private GridLength _savedGraphHeight = new GridLength(80);
-        private GridLength _savedDiagSpacer  = new GridLength(8);
         private HomeViewModel? _vm;
 
         public HomeView()
@@ -43,8 +44,8 @@ namespace M1Scan.Views
             if (_vm != null)
             {
                 _vm.PropertyChanged += OnVmPropertyChanged;
-                ApplyDiagRows(_vm.DiagnosticsVisible);
                 ApplyGraphRows(_vm.GraphsVisible);
+                ApplyDiagRows(_vm.DiagnosticsVisible);
             }
 
             SyncSampler();
@@ -52,28 +53,27 @@ namespace M1Scan.Views
 
         private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            switch (e.PropertyName)
-            {
-                case nameof(HomeViewModel.GraphsVisible):
-                    ApplyGraphRows(_vm!.GraphsVisible);
-                    break;
-                case nameof(HomeViewModel.DiagnosticsVisible):
-                    ApplyDiagRows(_vm!.DiagnosticsVisible);
-                    break;
-            }
+            if (e.PropertyName == nameof(HomeViewModel.GraphsVisible))
+                ApplyGraphRows(_vm!.GraphsVisible);
+            else if (e.PropertyName == nameof(HomeViewModel.DiagnosticsVisible))
+                ApplyDiagRows(_vm!.DiagnosticsVisible);
         }
 
+        // Tving Row 4 til 0 ved kollaps — mirror af ApplyGraphRows for Row 7.
+        private void ApplyDiagRows(bool visible) =>
+            RootGrid.RowDefinitions[4].Height = visible ? GridLength.Auto : new GridLength(0);
+
+        // Row 8 (GraphSplitter) er Auto og kollapser selv via splitterens Visibility.
+        // Diagnostik (Row 4) kollapser via WrapPanel-DataTrigger + Auto-række — ingen code-behind.
         private void ApplyGraphRows(bool visible)
         {
-            var rowGraph    = RootGrid.RowDefinitions[7];
-            var rowSplitter = RootGrid.RowDefinitions[8];
+            var rowGraph = RootGrid.RowDefinitions[7];
 
             if (visible)
             {
                 rowGraph.MinHeight = 60;
                 rowGraph.Height    = _savedGraphHeight.Value > 0
                     ? _savedGraphHeight : new GridLength(80);
-                rowSplitter.Height = new GridLength(8);
             }
             else
             {
@@ -81,26 +81,6 @@ namespace M1Scan.Views
                     _savedGraphHeight = rowGraph.Height;
                 rowGraph.MinHeight = 0;
                 rowGraph.Height    = new GridLength(0);
-                rowSplitter.Height = new GridLength(0);
-            }
-        }
-
-        private void ApplyDiagRows(bool visible)
-        {
-            var rowCards  = RootGrid.RowDefinitions[4];
-            var rowSpacer = RootGrid.RowDefinitions[5];
-
-            if (visible)
-            {
-                rowCards.Height  = GridLength.Auto;
-                rowSpacer.Height = _savedDiagSpacer;
-            }
-            else
-            {
-                if (rowSpacer.Height.Value > 0)
-                    _savedDiagSpacer = rowSpacer.Height;
-                rowCards.Height  = new GridLength(0);
-                rowSpacer.Height = new GridLength(0);
             }
         }
     }
