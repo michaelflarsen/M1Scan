@@ -14,7 +14,7 @@
             <RowDefinition Height="Auto"/>  <!-- 5: graph-header (klikbar toggle) -->
             <RowDefinition Height="Auto"/>  <!-- 6: forbindelseskvalitet (resizable) -->
             <RowDefinition Height="Auto"/>  <!-- 7: højde-splitter -->
-            <RowDefinition Height="Auto"/>  <!-- 8: WAN chain + score -->
+            <RowDefinition Height="Auto" MinHeight="172"/>  <!-- 8: WAN chain + score -->
             <RowDefinition Height="Auto"/>  <!-- 9: adapter cards -->
             <RowDefinition Height="0"/>     <!-- 10: (ubrugt) -->
             <RowDefinition Height="0"/>     <!-- 11: (ubrugt) -->

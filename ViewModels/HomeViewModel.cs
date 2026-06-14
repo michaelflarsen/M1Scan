@@ -454,6 +454,7 @@ namespace M1Scan.ViewModels
                 Health = HealthScore.Measuring;
                 OnPropertyChanged(nameof(HealthSubline));
                 OnPropertyChanged(nameof(HeaderScoreText));
+                _ = RunDiagnosticsAsync(Application.Current.Dispatcher);
             });
             RefreshCommand = new RelayCommand(_ => _ = LoadAsync());
 

@@ -32,7 +32,7 @@ namespace M1Scan.Views
             GraphSplitter.AddHandler(
                 Thumb.DragCompletedEvent,
                 new DragCompletedEventHandler((_, _) =>
-                    RootGrid.RowDefinitions[9].Height = GridLength.Auto));
+                    RootGrid.RowDefinitions[8].Height = GridLength.Auto));
         }
 
         private void SyncSampler() =>
