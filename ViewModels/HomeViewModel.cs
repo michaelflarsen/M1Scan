@@ -140,9 +140,15 @@ namespace M1Scan.ViewModels
 
         private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
 
+        private static readonly JsonSerializerOptions _jsonOpts = new() { WriteIndented = true };
+
         private static readonly string DashboardDataPath =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                          "M1Scan", "dashboard.json");
+
+        private static readonly string UiSettingsPath =
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                         "M1Scan", "ui_settings.json");
 
         private readonly INetworkService     _networkService;
         private readonly IDiagnosticsService _diagnosticsService;
@@ -403,18 +409,18 @@ namespace M1Scan.ViewModels
 
         // ── Graph-toggle ─────────────────────────────────────────────────────
 
-        private bool _graphsVisible = true;
+        private bool _graphsVisible = false;
         public bool GraphsVisible
         {
             get => _graphsVisible;
-            set => SetProperty(ref _graphsVisible, value);
+            set { if (SetProperty(ref _graphsVisible, value)) SaveUiSettings(); }
         }
 
-        private bool _diagnosticsVisible = true;
+        private bool _diagnosticsVisible = false;
         public bool DiagnosticsVisible
         {
             get => _diagnosticsVisible;
-            set => SetProperty(ref _diagnosticsVisible, value);
+            set { if (SetProperty(ref _diagnosticsVisible, value)) SaveUiSettings(); }
         }
 
         // ── Kommandoer ───────────────────────────────────────────────────────
@@ -425,6 +431,7 @@ namespace M1Scan.ViewModels
         public RelayCommand AcknowledgeAllCommand    { get; }
         public RelayCommand ToggleGraphsCommand      { get; }
         public RelayCommand ToggleDiagnosticsCommand { get; }
+        public RelayCommand ResetScoreCommand        { get; }
 
         public HomeViewModel()
         {
@@ -439,6 +446,15 @@ namespace M1Scan.ViewModels
 
             ToggleGraphsCommand      = new RelayCommand(_ => GraphsVisible      = !GraphsVisible);
             ToggleDiagnosticsCommand = new RelayCommand(_ => DiagnosticsVisible = !DiagnosticsVisible);
+            ResetScoreCommand = new RelayCommand(_ =>
+            {
+                GatewaySeries.Reset();
+                WanSeries.Reset();
+                _fastestDnsMs = null;
+                Health = HealthScore.Measuring;
+                OnPropertyChanged(nameof(HealthSubline));
+                OnPropertyChanged(nameof(HeaderScoreText));
+            });
             RefreshCommand = new RelayCommand(_ => _ = LoadAsync());
 
             TestSpeedCommand = new RelayCommand(_ =>
@@ -469,6 +485,7 @@ namespace M1Scan.ViewModels
             _sampleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _sampleTimer.Tick += OnSampleTick;
 
+            LoadUiSettings();
             LoadDashboardData();
             _ = LoadAsync();
         }
@@ -629,7 +646,12 @@ namespace M1Scan.ViewModels
                     }).ToList();
 
                 var best = displays.FirstOrDefault(a => a.Gateway != "—" && !string.IsNullOrEmpty(a.Gateway));
-                if (best != null) best.IsDefaultRoute = true;
+                if (best != null)
+                {
+                    best.IsDefaultRoute = true;
+                    displays.Remove(best);
+                    displays.Insert(0, best);
+                }
 
                 // IPv6 link-local gateways (fe80::...) kan ikke pinges pålideligt — brug kun IPv4
                 string? gatewayIp = (best?.Gateway != null && !best.Gateway.Contains(':'))
@@ -879,6 +901,34 @@ namespace M1Scan.ViewModels
             }
         }
 
+        // ── Persistens (ui_settings.json) ────────────────────────────────────
+
+        private void LoadUiSettings()
+        {
+            try
+            {
+                if (!File.Exists(UiSettingsPath)) return;
+                var json = File.ReadAllText(UiSettingsPath);
+                var s = JsonSerializer.Deserialize<UiSettings>(json);
+                if (s == null) return;
+                _graphsVisible      = s.graphsVisible;
+                _diagnosticsVisible = s.diagnosticsVisible;
+            }
+            catch { /* ignore corrupt file */ }
+        }
+
+        private void SaveUiSettings()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(UiSettingsPath)!);
+                var s = new UiSettings { graphsVisible = _graphsVisible, diagnosticsVisible = _diagnosticsVisible };
+                var json = JsonSerializer.Serialize(s, _jsonOpts);
+                File.WriteAllText(UiSettingsPath, json);
+            }
+            catch { /* ignore write errors */ }
+        }
+
         // ── Persistens (dashboard.json) ──────────────────────────────────────
 
         private void LoadDashboardData()
@@ -900,7 +950,7 @@ namespace M1Scan.ViewModels
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(DashboardDataPath)!);
                 var data = new DashboardData { lastSpeedTest = LastSpeedTest };
-                var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+                var json = JsonSerializer.Serialize(data, _jsonOpts);
                 File.WriteAllText(DashboardDataPath, json);
             }
             catch { /* ignore write errors */ }

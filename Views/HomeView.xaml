@@ -8,13 +8,13 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- 0: header -->
             <RowDefinition Height="10"/>    <!-- 1: spacer -->
-            <RowDefinition Height="Auto"/>  <!-- 2: WAN chain + score -->
-            <RowDefinition Height="Auto"/>  <!-- 3: diagnostik toggle -->
-            <RowDefinition Height="Auto"/>  <!-- 4: diagnostik cards -->
-            <RowDefinition Height="0"/>     <!-- 5: spacer efter diagnostik -->
-            <RowDefinition Height="Auto"/>  <!-- 6: graph-header (klikbar toggle) -->
-            <RowDefinition Height="Auto"/>  <!-- 7: forbindelseskvalitet (resizable) -->
-            <RowDefinition Height="Auto"/>  <!-- 8: GraphSplitter (Auto → 0 når splitter Collapsed) -->
+            <RowDefinition Height="Auto"/>  <!-- 2: diagnostik toggle -->
+            <RowDefinition Height="Auto"/>  <!-- 3: diagnostik cards -->
+            <RowDefinition Height="0"/>     <!-- 4: spacer efter diagnostik -->
+            <RowDefinition Height="Auto"/>  <!-- 5: graph-header (klikbar toggle) -->
+            <RowDefinition Height="Auto"/>  <!-- 6: forbindelseskvalitet (resizable) -->
+            <RowDefinition Height="Auto"/>  <!-- 7: højde-splitter -->
+            <RowDefinition Height="Auto"/>  <!-- 8: WAN chain + score -->
             <RowDefinition Height="Auto"/>  <!-- 9: adapter cards -->
             <RowDefinition Height="0"/>     <!-- 10: (ubrugt) -->
             <RowDefinition Height="0"/>     <!-- 11: (ubrugt) -->
@@ -32,8 +32,6 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                <TextBlock Text="// STATUS" FontFamily="Consolas" FontSize="10"
-                           Foreground="#1565C0" FontWeight="SemiBold"/>
                 <TextBlock Text="Netværksoverblik" FontSize="20" FontWeight="Bold"
                            Foreground="White" Margin="0,2,0,0"/>
             </StackPanel>
@@ -127,13 +125,21 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- WAN TOPOLOGY CHAIN + NETVÆRKSSCORE                     -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="8" Margin="0,0,0,24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>  <!-- header -->
+                <RowDefinition Height="Auto"/>  <!-- indhold -->
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/> <!-- topologikæde -->
                 <ColumnDefinition Width="Auto"/> <!-- netværksscore -->
             </Grid.ColumnDefinitions>
 
-        <Grid Grid.Column="0" HorizontalAlignment="Left">
+            <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
+                       Text="// TOPOLOGI" FontFamily="Consolas" FontSize="10"
+                       Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+        <Grid Grid.Row="1" Grid.Column="0" HorizontalAlignment="Left">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200"/> <!-- NODE 1: WAN -->
                 <ColumnDefinition Width="44"/>  <!-- Connector -->
@@ -143,7 +149,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- ── NODE 1: AKTIV ADAPTER ── -->
-            <Border Grid.Column="0" Height="148" Background="#080f14"
+            <Border x:Name="WanChainNode1" Grid.Column="0" Height="148" Background="#080f14"
                     BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
                 <Border.Style>
                     <Style TargetType="Border">
@@ -191,11 +197,10 @@
             </Border>
 
             <!-- Connector 1 → 2 -->
-            <Grid Grid.Column="1">
-                <Rectangle Height="1" Fill="#1a3040" VerticalAlignment="Center"/>
-                <Path Data="M 0,-4 L 7,0 L 0,4 Z" Fill="#1a3040"
-                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
-            </Grid>
+            <Canvas Grid.Column="1" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                <Line X1="2" Y1="8" X2="31" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
+                <Polygon Points="31,2 44,8 31,14" Fill="#4fc3f7"/>
+            </Canvas>
 
             <!-- ── NODE 2: ROUTER ── -->
             <Border Grid.Column="2" Height="148" Background="#080f14"
@@ -254,11 +259,10 @@
             </Border>
 
             <!-- Connector 2 → 3 -->
-            <Grid Grid.Column="3">
-                <Rectangle Height="1" Fill="#1a3040" VerticalAlignment="Center"/>
-                <Path Data="M 0,-4 L 7,0 L 0,4 Z" Fill="#1a3040"
-                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
-            </Grid>
+            <Canvas Grid.Column="3" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                <Line X1="2" Y1="8" X2="31" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
+                <Polygon Points="31,2 44,8 31,14" Fill="#4fc3f7"/>
+            </Canvas>
 
             <!-- ── NODE 3: WAN ── -->
             <Border Grid.Column="4" Height="148" Background="#080f14"
@@ -367,7 +371,7 @@
         </Grid>
 
             <!-- ── NETVÆRKSSCORE ── -->
-            <Border Grid.Column="1" Height="148" Margin="16,0,0,0"
+            <Border Grid.Row="1" Grid.Column="1" Height="148" Margin="16,0,0,0"
                     Background="#080f14" BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6"
                     ToolTipService.ShowDuration="30000" Cursor="Help">
                 <Border.ToolTip>
@@ -491,8 +495,32 @@
                     </Border>
 
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0">
-                        <TextBlock Text="// NETVÆRKSSCORE" FontFamily="Consolas" FontSize="9"
-                                   Foreground="#1565C0" FontWeight="SemiBold"/>
+                        <Grid>
+                            <TextBlock Text="// NETVÆRKSSCORE" FontFamily="Consolas" FontSize="9"
+                                       Foreground="#1565C0" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Background="Transparent" BorderThickness="0" Padding="2"
+                                    Cursor="Hand" Command="{Binding ResetScoreCommand}"
+                                    ToolTip="Nulstil målinger">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#1A2A3A"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <ContentPresenter/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <materialDesign:PackIcon Kind="Refresh" Width="13" Height="13" Foreground="#3A5A6A"/>
+                            </Button>
+                        </Grid>
                         <TextBlock Text="{Binding Health.Verdict}" FontSize="13" FontWeight="SemiBold"
                                    Foreground="White" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding HealthSubline}" FontFamily="Consolas" FontSize="10"
@@ -505,7 +533,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- DIAGNOSTIK                                             -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Button Grid.Row="3" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
+        <Button Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
                 BorderThickness="0" Padding="0" Margin="0" MinHeight="0" Height="16" Cursor="Hand"
                 Command="{Binding ToggleDiagnosticsCommand}">
             <Button.Template>
@@ -531,7 +559,7 @@
                 </TextBlock>
             </StackPanel>
         </Button>
-        <WrapPanel Grid.Row="4">
+        <WrapPanel Grid.Row="3">
             <WrapPanel.Style>
                 <Style TargetType="WrapPanel">
                     <Style.Triggers>
@@ -645,7 +673,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- GRAPH-HEADER (klikbar toggle)                          -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Button Grid.Row="6" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
+        <Button Grid.Row="5" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
                 BorderThickness="0" Padding="0" Margin="0" MinHeight="0" Height="16" Cursor="Hand"
                 Command="{Binding ToggleGraphsCommand}">
             <Button.Template>
@@ -675,8 +703,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- FORBINDELSESKVALITET — LIVE SPARKLINES                 -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <!-- Sparkline-grafer: start kompakt, træk ⋮ for bredde, ··· for højde -->
-        <Grid Grid.Row="7" VerticalAlignment="Stretch" MinHeight="60">
+        <Grid Grid.Row="6">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Style.Triggers>
@@ -687,16 +714,16 @@
                 </Style>
             </Grid.Style>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="240" MinWidth="120"/>  <!-- Gateway -->
-                <ColumnDefinition Width="8"/>                   <!-- splitter midt -->
-                <ColumnDefinition Width="240" MinWidth="120"/>  <!-- Internet -->
-                <ColumnDefinition Width="8"/>                   <!-- splitter højre -->
-                <ColumnDefinition Width="*" MinWidth="0"/>      <!-- slack -->
+                <ColumnDefinition Width="*" MinWidth="120"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="*" MinWidth="120"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="0" MinWidth="0"/>
             </Grid.ColumnDefinitions>
 
             <!-- Gateway-serien -->
             <Border Grid.Column="0" Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                    BorderThickness="0.5" Padding="12,8" Margin="0,0,4,0">
+                    BorderThickness="0.5" Padding="12,8">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -721,7 +748,7 @@
                 </Grid>
             </Border>
 
-            <!-- Splitter midt: bytter bredde mellem Gateway og Internet -->
+            <!-- Splitter midt (usynlig, cursor ↔) -->
             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                           Background="Transparent" Cursor="SizeWE">
@@ -732,17 +759,11 @@
                                 <Style TargetType="Border">
                                     <Style.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="#0D1E30"/>
+                                            <Setter Property="Background" Value="#1A2A3A"/>
                                         </Trigger>
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                                        Orientation="Vertical" Opacity="0.5">
-                                <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="0,2"/>
-                                <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="0,2"/>
-                                <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="0,2"/>
-                            </StackPanel>
                         </Border>
                     </ControlTemplate>
                 </GridSplitter.Template>
@@ -750,7 +771,7 @@
 
             <!-- WAN-serien -->
             <Border Grid.Column="2" Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                    BorderThickness="0.5" Padding="12,8" Margin="4,0,4,0">
+                    BorderThickness="0.5" Padding="12,8">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -775,7 +796,7 @@
                 </Grid>
             </Border>
 
-            <!-- Splitter højre: giver Internet mere plads fra slack -->
+            <!-- Splitter højre (usynlig, cursor ↔) — Internet kan gøres smallere -->
             <GridSplitter Grid.Column="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                           Background="Transparent" Cursor="SizeWE">
@@ -786,28 +807,21 @@
                                 <Style TargetType="Border">
                                     <Style.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="#0D1E30"/>
+                                            <Setter Property="Background" Value="#1A2A3A"/>
                                         </Trigger>
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                                        Orientation="Vertical" Opacity="0.5">
-                                <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="0,2"/>
-                                <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="0,2"/>
-                                <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="0,2"/>
-                            </StackPanel>
                         </Border>
                     </ControlTemplate>
                 </GridSplitter.Template>
             </GridSplitter>
 
-            <!-- Slack: absorberer resterende plads -->
             <Border Grid.Column="4" Background="Transparent"/>
         </Grid>
 
-        <!-- Drag-håndtag: træk ned for større grafer -->
-        <GridSplitter x:Name="GraphSplitter" Grid.Row="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+        <!-- Højde-splitter (usynlig, cursor ↕) -->
+        <GridSplitter x:Name="GraphSplitter" Grid.Row="7" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
                       Background="Transparent" Cursor="SizeNS" Height="8"
                       Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -818,17 +832,11 @@
                             <Style TargetType="Border">
                                 <Style.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#0D1E30"/>
+                                        <Setter Property="Background" Value="#1A2A3A"/>
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                                    Orientation="Horizontal" Opacity="0.5">
-                            <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="2,0"/>
-                            <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="2,0"/>
-                            <Ellipse Width="3" Height="3" Fill="#4fc3f7" Margin="2,0"/>
-                        </StackPanel>
                     </Border>
                 </ControlTemplate>
             </GridSplitter.Template>
@@ -841,7 +849,7 @@
             <TextBlock Text="// MINE ADAPTERE" FontFamily="Consolas" FontSize="10"
                        Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
-            <ItemsControl ItemsSource="{Binding ActiveAdapters}">
+            <ItemsControl x:Name="AdaptersItemsControl" ItemsSource="{Binding ActiveAdapters}">
                 <ItemsControl.Style>
                     <Style TargetType="ItemsControl">
                         <Setter Property="Visibility" Value="Visible"/>
@@ -1170,5 +1178,10 @@
                 </ItemsControl>
             </ScrollViewer>
         </Grid>
+        <!-- Connector overlay: WAN Node1 → aktiv adapter i MINE ADAPTERE -->
+        <Canvas x:Name="ConnectorCanvas" Grid.Row="8" Grid.RowSpan="2"
+                IsHitTestVisible="False" Panel.ZIndex="10"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
     </Grid>
 </UserControl>

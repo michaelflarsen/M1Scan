@@ -1,7 +1,12 @@
+using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Windows.Shapes;
+using System.Windows.Threading;
 using M1Scan.ViewModels;
 
 namespace M1Scan.Views
@@ -9,22 +14,21 @@ namespace M1Scan.Views
     public partial class HomeView : UserControl
     {
         // Row layout:
-        //  3 = diagnostik toggle  4 = diagnostik cards  5 = spacer (0)
-        //  6 = graph header       7 = graph sparklines (resizable)
-        //  8 = GraphSplitter (Auto)  9 = adapter cards
-        // Begge sektioner tvinger deres indholds-række eksplicit til 0 ved kollaps
-        // (Auto-række + Collapsed-indhold efterlod en rest → uens afstand).
+        //  2 = diagnostik toggle  3 = diagnostik cards  4 = spacer (0)
+        //  5 = graph header       6 = graph sparklines (resizable)
+        //  7 = højde-splitter     8 = WAN chain + score  9 = adapter cards
 
         private GridLength _savedGraphHeight = new GridLength(80);
         private HomeViewModel? _vm;
+        private bool _connectorUpdateQueued;
 
         public HomeView()
         {
             InitializeComponent();
             IsVisibleChanged   += (_, _) => SyncSampler();
             DataContextChanged += (_, _) => OnDataContextChanged();
+            RootGrid.LayoutUpdated += OnLayoutUpdated;
 
-            // After drag, reset adapters row to Auto so no surplus space accumulates.
             GraphSplitter.AddHandler(
                 Thumb.DragCompletedEvent,
                 new DragCompletedEventHandler((_, _) =>
@@ -53,34 +57,109 @@ namespace M1Scan.Views
 
         private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            var vm = _vm;
+            if (vm == null) return;
             if (e.PropertyName == nameof(HomeViewModel.GraphsVisible))
-                ApplyGraphRows(_vm!.GraphsVisible);
+                ApplyGraphRows(vm.GraphsVisible);
             else if (e.PropertyName == nameof(HomeViewModel.DiagnosticsVisible))
-                ApplyDiagRows(_vm!.DiagnosticsVisible);
+                ApplyDiagRows(vm.DiagnosticsVisible);
         }
 
         // Tving Row 4 til 0 ved kollaps — mirror af ApplyGraphRows for Row 7.
         private void ApplyDiagRows(bool visible) =>
-            RootGrid.RowDefinitions[4].Height = visible ? GridLength.Auto : new GridLength(0);
+            RootGrid.RowDefinitions[3].Height = visible ? GridLength.Auto : new GridLength(0);
 
-        // Row 8 (GraphSplitter) er Auto og kollapser selv via splitterens Visibility.
-        // Diagnostik (Row 4) kollapser via WrapPanel-DataTrigger + Auto-række — ingen code-behind.
         private void ApplyGraphRows(bool visible)
         {
-            var rowGraph = RootGrid.RowDefinitions[7];
-
+            var row = RootGrid.RowDefinitions[6];
             if (visible)
             {
-                rowGraph.MinHeight = 60;
-                rowGraph.Height    = _savedGraphHeight.Value > 0
-                    ? _savedGraphHeight : new GridLength(80);
+                row.MinHeight = 60;
+                row.Height    = _savedGraphHeight.Value > 0 ? _savedGraphHeight : new GridLength(80);
             }
             else
             {
-                if (rowGraph.Height.IsAbsolute && rowGraph.Height.Value > 0)
-                    _savedGraphHeight = rowGraph.Height;
-                rowGraph.MinHeight = 0;
-                rowGraph.Height    = new GridLength(0);
+                if (row.Height.IsAbsolute && row.Height.Value > 0)
+                    _savedGraphHeight = row.Height;
+                row.MinHeight = 0;
+                row.Height    = new GridLength(0);
+            }
+        }
+
+        private void OnLayoutUpdated(object? sender, EventArgs e)
+        {
+            if (_connectorUpdateQueued) return;
+            _connectorUpdateQueued = true;
+            Dispatcher.InvokeAsync(() =>
+            {
+                _connectorUpdateQueued = false;
+                UpdateConnector();
+            }, DispatcherPriority.Background);
+        }
+
+        private void UpdateConnector()
+        {
+            ConnectorCanvas.Children.Clear();
+
+            if (WanChainNode1.ActualWidth == 0 || WanChainNode1.ActualHeight == 0) return;
+
+            var defaultAdapter = _vm?.ActiveAdapters.FirstOrDefault(a => a.IsDefaultRoute);
+            if (defaultAdapter == null) return;
+
+            var container = AdaptersItemsControl.ItemContainerGenerator
+                .ContainerFromItem(defaultAdapter) as FrameworkElement;
+            if (container == null || container.ActualWidth == 0) return;
+
+            // Bottom-center of WAN chain Node 1 → top-center of adapter card
+            // Card has fixed Width=200, Margin="0,0,12,12" so visual center is at x=100
+            var start = WanChainNode1.TranslatePoint(
+                new Point(WanChainNode1.ActualWidth / 2, WanChainNode1.ActualHeight),
+                ConnectorCanvas);
+            var end = container.TranslatePoint(
+                new Point(100, 0),   // 100 = half of card Width="200"
+                ConnectorCanvas);
+
+            if (double.IsNaN(start.X) || double.IsNaN(end.X)) return;
+            if (end.Y <= start.Y + 2) return;  // adapter card not below node card
+
+            var accent = new SolidColorBrush(Color.FromRgb(0x4f, 0xc3, 0xf7));
+
+            // Dashed line (stop a few px before arrow tip)
+            var line = new Line
+            {
+                X1 = start.X, Y1 = start.Y,
+                X2 = end.X,   Y2 = end.Y - 8,
+                Stroke = accent, StrokeThickness = 1.5,
+                StrokeDashArray = new DoubleCollection { 4, 3 }
+            };
+            ConnectorCanvas.Children.Add(line);
+
+            // Circle at top end
+            AddCircle(start.X, start.Y, accent);
+
+            // Arrow pointing down at bottom end
+            var arrow = new Polygon
+            {
+                Fill = accent,
+                Points = new PointCollection
+                {
+                    new Point(end.X,     end.Y),
+                    new Point(end.X - 5, end.Y - 8),
+                    new Point(end.X + 5, end.Y - 8)
+                }
+            };
+            ConnectorCanvas.Children.Add(arrow);
+
+            // Circle at bottom end
+            AddCircle(end.X, end.Y, accent);
+
+
+            void AddCircle(double cx, double cy, Brush fill)
+            {
+                var c = new Ellipse { Width = 6, Height = 6, Fill = fill };
+                Canvas.SetLeft(c, cx - 3);
+                Canvas.SetTop(c,  cy - 3);
+                ConnectorCanvas.Children.Add(c);
             }
         }
     }

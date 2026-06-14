@@ -44,6 +44,23 @@ namespace M1Scan.Models
         public string JitterDisplay  => SampleCount > 0 ? $"{JitterMs:F1} ms" : "—";
         public string LossDisplay    => SampleCount > 0 ? $"{LossPercent:F0}%" : "—";
 
+        public void Reset()
+        {
+            _samples.Clear();
+            Current     = null;
+            Avg         = 0;
+            Max         = 0;
+            JitterMs    = 0;
+            LossPercent = 0;
+            Values      = Array.Empty<double?>();
+            OnPropertyChanged(nameof(SampleCount));
+            OnPropertyChanged(nameof(CurrentDisplay));
+            OnPropertyChanged(nameof(AvgDisplay));
+            OnPropertyChanged(nameof(MaxDisplay));
+            OnPropertyChanged(nameof(JitterDisplay));
+            OnPropertyChanged(nameof(LossDisplay));
+        }
+
         public void Add(double? latencyMs)
         {
             if (_samples.Count >= Capacity)
@@ -105,6 +122,13 @@ namespace M1Scan.Models
     {
         public int version { get; set; } = 1;
         public SpeedTestResult? lastSpeedTest { get; set; }
+    }
+
+    public class UiSettings
+    {
+        public int  version            { get; set; } = 1;
+        public bool graphsVisible      { get; set; } = false;
+        public bool diagnosticsVisible { get; set; } = false;
     }
 
     public enum SpeedTestPhase { Download, Upload }
