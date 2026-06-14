@@ -12,50 +12,12 @@ Avanceret Windows-netværksværktøj med live overvågning, topologivisualiserin
 
 ## Funktioner
 
-### Dashboard
-Det centrale overblik over dit netværk i realtid.
-
-- **// TOPOLOGI** — Visuel kæde der viser din aktive adapter → router → WAN med IP-adresser, latenstid og ISP-info. Forbindelseslinje fra aktiv adapter til topologikortet.
-- **// GRAPH** — Live latency-sparklines for gateway og internet (1.1.1.1) med rullebuffer (~5 min historik). Viser aktuel ping, gennemsnit, maks, jitter og pakketab. Kan kollapses og husker tilstand.
-- **Netværksscore** — Score 0–100 med karakter A–F baseret på latenstid, jitter, pakketab, DNS-svartid og gateway-stabilitet. Reset-knap og detaljeret forklaring i tooltip.
-- **// DIAGNOSTIK** — Fire kompakte kort der kører automatisk ved opstart:
-  - **DNS-svartider** — Måler alle dine DNS-servere + 8.8.8.8 + 1.1.1.1 parallelt
-  - **DHCP-lease** — Server, tildelt tidspunkt og udløbstidspunkt (eller "Statisk IP")
-  - **IPv6 + Captive portal** — Global IPv6-adresse og om der er en fangeportal i vejen
-  - **Hastighedstest** — Download + upload via Cloudflare, gemmer seneste resultat
-- **// MINE ADAPTERE** — Alle aktive netværksadaptere sorteret med internet-adapteren øverst
-- **Ping-bar** — Realtidsstatus for 8.8.8.8, 1.1.1.1 og 8.8.4.4
-- **Kendte enheder** — ARP-baseret oversigt over enheder på netværket med "NY"-badges for nye enheder siden sidst
-
-### Netværksscanning
-- Ping-sweep af hele subnettet eller enkelt host
-- ARP-opslag: MAC-adresse, vendoroplysninger, NetBIOS-navn
-- TTL-baseret OS-gæt (Windows / Linux / Cisco)
-- Port 80-tjek
-
-### Enhedssporing (Follow)
-- Overvåg en enkelt enhed og hold øje med om den forsvinder fra netværket
-
-### Netværksadaptere
-- Vis alle systemets netværksgrænseflader med detaljer
-- Nulstil adapter
-
-### IP-konfiguration
-- Skift mellem DHCP og statisk IP via netsh
-- Angiv IP-adresse, subnetmaske og gateway
-- Flush DNS-cache med ét klik
-
----
-
-## Persistens
-
-Brugerpræferencer og data gemmes i `%APPDATA%\M1Scan\`:
-
-| Fil | Indhold |
-|---|---|
-| `ui_settings.json` | Graph og Diagnostik kollapset/udfoldet tilstand |
-| `dashboard.json` | Seneste hastighedstestresultat |
-| `known_devices.json` | Kendte enheder og ny-enheds-status |
+- **Live netværksovervågning** — Se latenstid, jitter og pakketab i realtid med historiske grafer for både gateway og internet. En samlet netværksscore (0–100, karakter A–F) giver et øjebliksbillede af forbindelseskvaliteten.
+- **Netværkstopologi** — Visuel oversigt over stien fra din aktive adapter til routeren og videre ud på internettet, med IP-adresser og statusindikatorer.
+- **Diagnostik** — Automatisk måling af DNS-svartider, DHCP-leaseinfo, IPv6-tilgængelighed, captive portal-detektion og on-demand hastighedstest.
+- **Netværksscanning** — Ping/ARP-sweep af subnet eller enkelt host med MAC-adresse, vendoroplysninger, NetBIOS-navn og TTL-baseret OS-gæt.
+- **Enhedssporing** — Hold øje med kendte enheder på netværket og få besked om nye enheder siden sidst.
+- **IP-konfiguration** — Skift mellem DHCP og statisk IP, sæt gateway og subnet, flush DNS-cache.
 
 ---
 
