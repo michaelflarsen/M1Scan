@@ -23,7 +23,8 @@
       "Read(//c/Users/gimig/AppData/Local/Temp/**)",
       "PowerShell(Start-Process powershell -Verb RunAs -ArgumentList \"-NoProfile -Command `\"cd 'c:\\\\VS_Code_projekt\\\\M1Scan'; dotnet run`\"\")",
       "PowerShell(Stop-Process -Name \"M1Scan\" -Force -ErrorAction SilentlyContinue)",
-      "PowerShell(& \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\run.ps1\")"
+      "PowerShell(& \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\run.ps1\")",
+      "PowerShell(& \"c:\\\\VS_Code\\\\M1SCAN\\\\run.ps1\")"
     ]
   }
 }

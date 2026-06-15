@@ -136,7 +136,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
-                       Text="// TOPOLOGI" FontFamily="Consolas" FontSize="10"
+                       Text="// Topologi" FontFamily="Consolas" FontSize="10"
                        Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
         <Grid Grid.Row="1" Grid.Column="0" HorizontalAlignment="Left">
