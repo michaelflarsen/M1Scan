@@ -21,6 +21,8 @@ namespace M1Scan.Views
         private GridLength _savedGraphHeight = new GridLength(80);
         private HomeViewModel? _vm;
         private bool _connectorUpdateQueued;
+        private double _lastSyncedTopoWidth;
+        private bool _userAdjustedGraphColumns;
 
         public HomeView()
         {
@@ -32,7 +34,19 @@ namespace M1Scan.Views
             GraphSplitter.AddHandler(
                 Thumb.DragCompletedEvent,
                 new DragCompletedEventHandler((_, _) =>
-                    RootGrid.RowDefinitions[6].Height = GridLength.Auto));
+                {
+                    var row = RootGrid.RowDefinitions[6];
+                    if (row.Height.IsAbsolute && row.Height.Value > 0)
+                        _savedGraphHeight = row.Height;
+                }));
+
+            GraphMidSplitter.AddHandler(
+                Thumb.DragCompletedEvent,
+                new DragCompletedEventHandler((_, _) => _userAdjustedGraphColumns = true));
+
+            GraphRightSplitter.AddHandler(
+                Thumb.DragCompletedEvent,
+                new DragCompletedEventHandler((_, _) => _userAdjustedGraphColumns = true));
         }
 
         private void SyncSampler() =>
@@ -95,8 +109,23 @@ namespace M1Scan.Views
             Dispatcher.InvokeAsync(() =>
             {
                 _connectorUpdateQueued = false;
+                SyncGraphWidth();
                 UpdateConnector();
             }, DispatcherPriority.Background);
+        }
+
+        private void SyncGraphWidth()
+        {
+            if (_userAdjustedGraphColumns) return;
+            var w = TopologyGrid.ActualWidth;
+            if (w > 0 && Math.Abs(w - _lastSyncedTopoWidth) > 0.5)
+            {
+                _lastSyncedTopoWidth = w;
+                double half = Math.Max((w - 6) / 2, 120);
+                GraphSparklineGrid.ColumnDefinitions[0].Width = new GridLength(half);
+                GraphSparklineGrid.ColumnDefinitions[2].Width = new GridLength(half);
+                GraphSparklineGrid.ColumnDefinitions[4].Width = new GridLength(400);
+            }
         }
 
         private void UpdateConnector()

@@ -339,7 +339,7 @@
                                      GroupName="SideNav"
                                      Tag="DeviceFollow" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ViewDashboard" Width="18" Height="18"
+                                <materialDesign:PackIcon Kind="CursorDefaultClick" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                          VerticalAlignment="Center"/>
                                 <TextBlock Text="Device Follow" Margin="10,0,0,0" VerticalAlignment="Center"

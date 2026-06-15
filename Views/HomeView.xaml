@@ -125,7 +125,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- WAN TOPOLOGY CHAIN + NETVÆRKSSCORE                     -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="8" Margin="0,0,0,24">
+        <Grid x:Name="TopologyGrid" Grid.Row="8" Margin="0,0,0,24" HorizontalAlignment="Left">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>  <!-- header -->
                 <RowDefinition Height="Auto"/>  <!-- indhold -->
@@ -713,7 +713,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- FORBINDELSESKVALITET — LIVE SPARKLINES                 -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="6">
+        <Grid x:Name="GraphSparklineGrid" Grid.Row="6" HorizontalAlignment="Left">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Style.Triggers>
@@ -759,7 +759,7 @@
             </Border>
 
             <!-- Splitter midt (usynlig, cursor ↔) -->
-            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            <GridSplitter x:Name="GraphMidSplitter" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                           Background="Transparent" Cursor="SizeWE">
                 <GridSplitter.Template>
@@ -806,8 +806,8 @@
                 </Grid>
             </Border>
 
-            <!-- Splitter højre (usynlig, cursor ↔) — Internet kan gøres smallere -->
-            <GridSplitter Grid.Column="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            <!-- Right splitter — træk højre kant på Internet for at gøre den større/mindre -->
+            <GridSplitter x:Name="GraphRightSplitter" Grid.Column="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                           Background="Transparent" Cursor="SizeWE">
                 <GridSplitter.Template>
@@ -827,7 +827,9 @@
                 </GridSplitter.Template>
             </GridSplitter>
 
+            <!-- Usynlig buffer-kolonne — Internet kan vokse ud i denne -->
             <Border Grid.Column="4" Background="Transparent"/>
+
         </Grid>
 
         <!-- Højde-splitter (usynlig, cursor ↕) -->
