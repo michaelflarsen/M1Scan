@@ -27,7 +27,8 @@
       "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs; Start-Sleep -Seconds 8; echo \"Klar\")",
       "Bash(rtk grep *)",
       "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs; Start-Sleep -Seconds 8)",
-      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs; Start-Sleep -Seconds 9)"
+      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs; Start-Sleep -Seconds 9)",
+      "mcp__claude_ai_Context7__query-docs"
     ],
     "additionalDirectories": [
       "c:\\VS_Code_projekt"

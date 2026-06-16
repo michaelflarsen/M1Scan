@@ -162,7 +162,8 @@ namespace M1Scan.Services
                         MacAddress = intf.GetPhysicalAddress().ToString(),
                         IsDhcpEnabled = TryGetDhcpEnabled(intf),
                         Status = intf.OperationalStatus == OperationalStatus.Up ? "Tilsluttet" : "Inaktiv",
-                        IsConnected = intf.OperationalStatus == OperationalStatus.Up
+                        IsConnected = intf.OperationalStatus == OperationalStatus.Up,
+                        SpeedBitsPerSec = TryGetSpeed(intf)
                     };
 
                     var ipprops = intf.GetIPProperties();
@@ -191,6 +192,12 @@ namespace M1Scan.Services
 
                 return adapters;
             });
+        }
+
+        private static long TryGetSpeed(NetworkInterface intf)
+        {
+            try { return intf.Speed; }
+            catch { return -1; }
         }
 
         private static bool TryGetDhcpEnabled(NetworkInterface intf)

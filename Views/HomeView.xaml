@@ -189,6 +189,9 @@
                     <TextBlock Text="{Binding DefaultAdapter.SubnetMask, FallbackValue='—'}"
                                FontFamily="Consolas" FontSize="9" Foreground="#1E4A2A"
                                HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding DefaultAdapter.SpeedText, FallbackValue='—'}"
+                               FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="#4CAF50"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
                     <TextBlock Text="{Binding DefaultAdapter.Description, FallbackValue='—'}"
                                FontSize="9" Foreground="#2A4A3A"
                                HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
@@ -911,6 +914,11 @@
                                     <TextBlock Text="GW " FontFamily="Consolas" FontSize="11" Foreground="#2A3A4A"/>
                                     <TextBlock Text="{Binding Gateway}"
                                                FontFamily="Consolas" FontSize="11" Foreground="#6AAA8A"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="Link " FontFamily="Consolas" FontSize="11" Foreground="#2A3A4A"/>
+                                    <TextBlock Text="{Binding SpeedText}"
+                                               FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="#4CAF50"/>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Description}" FontSize="10"
                                            Foreground="#2A3A4A" TextTrimming="CharacterEllipsis"
