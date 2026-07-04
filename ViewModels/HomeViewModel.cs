@@ -441,10 +441,10 @@ namespace M1Scan.ViewModels
         public RelayCommand ToggleDiagnosticsCommand { get; }
         public RelayCommand ResetScoreCommand        { get; }
 
-        public HomeViewModel()
+        public HomeViewModel(INetworkService networkService, IDiagnosticsService diagnosticsService)
         {
-            _networkService     = new NetworkService();
-            _diagnosticsService = new DiagnosticsService();
+            _networkService     = networkService;
+            _diagnosticsService = diagnosticsService;
             _knownDevices       = new KnownDevicesStore();
 
             foreach (var (host, label) in InternetHosts)

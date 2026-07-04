@@ -18,6 +18,7 @@ namespace M1Scan.ViewModels
     public class NetworkScanViewModel : ObservableObject, IDisposable
     {
         private readonly INetworkService _networkService;
+        private readonly IExportService _exportService;
         private readonly DispatcherTimer _autoRefreshTimer;
 
         private ObservableCollection<HostInfo> _discoveredHosts = new();
@@ -164,10 +165,12 @@ namespace M1Scan.ViewModels
         public RelayCommand OpenInBrowserCommand { get; }
         public RelayCommand CopyIpCommand { get; }
         public RelayCommand PingHostCommand { get; }
+        public RelayCommand ExportCommand { get; }
 
-        public NetworkScanViewModel()
+        public NetworkScanViewModel(INetworkService networkService, IExportService exportService)
         {
-            _networkService = new NetworkService();
+            _networkService = networkService;
+            _exportService = exportService;
 
             _autoRefreshTimer = new DispatcherTimer();
             _autoRefreshTimer.Tick += async (_, _) => await ScanNetworkAsync(merge: true);
@@ -205,10 +208,34 @@ namespace M1Scan.ViewModels
                     }
                 },
                 _ => !IsScanning);
+            ExportCommand = new RelayCommand(
+                async _ => await ExportAsync(),
+                _ => DiscoveredHosts.Count > 0);
 
             _ = RefreshAdaptersAsync();
 
             NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
+        }
+
+        private async Task ExportAsync()
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "CSV-fil (*.csv)|*.csv|JSON-fil (*.json)|*.json",
+                FileName = $"m1scan-scan-{DateTime.Now:yyyy-MM-dd_HHmm}.csv"
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            try
+            {
+                var hosts = DiscoveredHosts.ToList();
+                await _exportService.ExportHostsAsync(hosts, dialog.FileName);
+                StatusMessage = $"Eksporterede {hosts.Count} enheder til {System.IO.Path.GetFileName(dialog.FileName)}";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Eksport fejlede: {ex.Message}";
+            }
         }
 
         private async void OnNetworkAddressChanged(object? sender, EventArgs e)

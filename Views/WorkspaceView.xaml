@@ -167,6 +167,11 @@
                         Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
                         ToolTip="Ryd hele watch list"
                         Command="{Binding ClearAllCommand}"/>
+                <Button Content="Eksportér" Margin="4,0,0,0"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
+                        ToolTip="Eksportér watch list til CSV eller JSON"
+                        Command="{Binding ExportCommand}"/>
             </StackPanel>
 
             <!-- Interval control -->

@@ -64,15 +64,21 @@ namespace M1Scan.ViewModels
         public RelayCommand RefreshAdaptersCommand { get; }
         public RelayCommand ResetAdapterCommand { get; }
 
+        // Composition root: appens eneste service-instanser oprettes her og
+        // sendes ned til hver ViewModel via constructor-injection (se CLAUDE.md
+        // "Dependency injection"). Ingen DI-container — bevidst valg for et
+        // værktøj af denne størrelse; alle services er stateless og sikre at dele.
         public MainViewModel()
         {
             _networkService = new NetworkService();
             _ipConfigService = new IpConfigService();
+            IDiagnosticsService diagnosticsService = new DiagnosticsService();
+            IExportService exportService = new ExportService();
 
-            HomeVm        = new HomeViewModel();
-            NetworkScanVm = new NetworkScanViewModel();
-            IpConfigVm    = new IpConfigViewModel();
-            WorkspaceVm   = new WorkspaceViewModel(_ipConfigService);
+            HomeVm        = new HomeViewModel(_networkService, diagnosticsService);
+            NetworkScanVm = new NetworkScanViewModel(_networkService, exportService);
+            IpConfigVm    = new IpConfigViewModel(_ipConfigService, _networkService);
+            WorkspaceVm   = new WorkspaceViewModel(_ipConfigService, exportService);
 
             RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
             ResetAdapterCommand = new RelayCommand(async _ => await ResetAdapterAsync(), _ => SelectedAdapter != null);
