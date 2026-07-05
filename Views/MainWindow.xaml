@@ -339,7 +339,7 @@
                                      GroupName="SideNav"
                                      Tag="DeviceFollow" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ViewDashboard" Width="18" Height="18"
+                                <materialDesign:PackIcon Kind="CursorDefaultClick" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                          VerticalAlignment="Center"/>
                                 <TextBlock Text="Device Follow" Margin="10,0,0,0" VerticalAlignment="Center"
@@ -622,6 +622,8 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
                             <Button x:Name="DevicesAdapterDropdownButton"
@@ -690,6 +692,18 @@
                                     <materialDesign:PackIcon Kind="Cancel" Width="15" Height="15"
                                                              VerticalAlignment="Center" Margin="0,0,5,0"/>
                                     <TextBlock Text="Annuller" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button Grid.Column="5"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Height="30" VerticalAlignment="Center"
+                                    ToolTip="Eksportér enhederne i listen til CSV eller JSON"
+                                    Command="{Binding ExportCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Export" Width="15" Height="15"
+                                                             VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <TextBlock Text="Eksportér" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </Grid>

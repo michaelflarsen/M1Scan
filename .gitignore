@@ -45,3 +45,9 @@ temp/
 debug/
 */obj/
 publish/
+
+## Playwright / Claude screenshots
+.playwright-mcp/
+*.png
+links.md
+link

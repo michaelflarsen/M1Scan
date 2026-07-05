@@ -125,7 +125,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- WAN TOPOLOGY CHAIN + NETVÆRKSSCORE                     -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="8" Margin="0,0,0,24">
+        <Grid x:Name="TopologyGrid" Grid.Row="8" Margin="0,0,0,24" HorizontalAlignment="Left">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>  <!-- header -->
                 <RowDefinition Height="Auto"/>  <!-- indhold -->
@@ -136,7 +136,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
-                       Text="// TOPOLOGI" FontFamily="Consolas" FontSize="10"
+                       Text="// Topologi" FontFamily="Consolas" FontSize="10"
                        Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
         <Grid Grid.Row="1" Grid.Column="0" HorizontalAlignment="Left">
@@ -188,6 +188,9 @@
                                Foreground="White" HorizontalAlignment="Center"/>
                     <TextBlock Text="{Binding DefaultAdapter.SubnetMask, FallbackValue='—'}"
                                FontFamily="Consolas" FontSize="9" Foreground="#1E4A2A"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding DefaultAdapter.SpeedText, FallbackValue='—'}"
+                               FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="#4CAF50"
                                HorizontalAlignment="Center" Margin="0,2,0,0"/>
                     <TextBlock Text="{Binding DefaultAdapter.Description, FallbackValue='—'}"
                                FontSize="9" Foreground="#2A4A3A"
@@ -713,7 +716,7 @@
         <!-- ══════════════════════════════════════════════════════ -->
         <!-- FORBINDELSESKVALITET — LIVE SPARKLINES                 -->
         <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="6">
+        <Grid x:Name="GraphSparklineGrid" Grid.Row="6" HorizontalAlignment="Left">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Style.Triggers>
@@ -759,7 +762,7 @@
             </Border>
 
             <!-- Splitter midt (usynlig, cursor ↔) -->
-            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            <GridSplitter x:Name="GraphMidSplitter" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                           Background="Transparent" Cursor="SizeWE">
                 <GridSplitter.Template>
@@ -806,8 +809,8 @@
                 </Grid>
             </Border>
 
-            <!-- Splitter højre (usynlig, cursor ↔) — Internet kan gøres smallere -->
-            <GridSplitter Grid.Column="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            <!-- Right splitter — træk højre kant på Internet for at gøre den større/mindre -->
+            <GridSplitter x:Name="GraphRightSplitter" Grid.Column="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                           Background="Transparent" Cursor="SizeWE">
                 <GridSplitter.Template>
@@ -827,7 +830,9 @@
                 </GridSplitter.Template>
             </GridSplitter>
 
+            <!-- Usynlig buffer-kolonne — Internet kan vokse ud i denne -->
             <Border Grid.Column="4" Background="Transparent"/>
+
         </Grid>
 
         <!-- Højde-splitter (usynlig, cursor ↕) -->
@@ -909,6 +914,11 @@
                                     <TextBlock Text="GW " FontFamily="Consolas" FontSize="11" Foreground="#2A3A4A"/>
                                     <TextBlock Text="{Binding Gateway}"
                                                FontFamily="Consolas" FontSize="11" Foreground="#6AAA8A"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="Link " FontFamily="Consolas" FontSize="11" Foreground="#2A3A4A"/>
+                                    <TextBlock Text="{Binding SpeedText}"
+                                               FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="#4CAF50"/>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Description}" FontSize="10"
                                            Foreground="#2A3A4A" TextTrimming="CharacterEllipsis"

@@ -25,6 +25,13 @@ namespace M1Scan.ViewModels
         public string SubnetMask  { get; init; } = string.Empty;
         public string Gateway     { get; init; } = string.Empty;
         public bool   IsUp        { get; init; }
+        public long   SpeedBitsPerSec { get; init; } = -1;
+
+        public string SpeedText => SpeedBitsPerSec <= 0
+            ? "—"
+            : SpeedBitsPerSec >= 1_000_000_000
+                ? $"{SpeedBitsPerSec / 1_000_000_000d:0.#} Gbit/s"
+                : $"{SpeedBitsPerSec / 1_000_000} Mbit/s";
 
         private bool _isDefaultRoute;
         public bool IsDefaultRoute
@@ -434,10 +441,10 @@ namespace M1Scan.ViewModels
         public RelayCommand ToggleDiagnosticsCommand { get; }
         public RelayCommand ResetScoreCommand        { get; }
 
-        public HomeViewModel()
+        public HomeViewModel(INetworkService networkService, IDiagnosticsService diagnosticsService)
         {
-            _networkService     = new NetworkService();
-            _diagnosticsService = new DiagnosticsService();
+            _networkService     = networkService;
+            _diagnosticsService = diagnosticsService;
             _knownDevices       = new KnownDevicesStore();
 
             foreach (var (host, label) in InternetHosts)
@@ -644,7 +651,8 @@ namespace M1Scan.ViewModels
                         IpAddress   = a.IpAddresses[0],
                         SubnetMask  = a.SubnetMask  ?? "—",
                         Gateway     = a.Gateway     ?? "—",
-                        IsUp        = a.IsConnected
+                        IsUp        = a.IsConnected,
+                        SpeedBitsPerSec = a.SpeedBitsPerSec
                     }).ToList();
 
                 var best = displays.FirstOrDefault(a => a.Gateway != "—" && !string.IsNullOrEmpty(a.Gateway));

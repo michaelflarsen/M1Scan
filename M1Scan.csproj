@@ -7,7 +7,7 @@
     <UseWindowsForms>false</UseWindowsForms>
     <RootNamespace>M1Scan</RootNamespace>
     <AssemblyName>M1Scan</AssemblyName>
-    <Version>1.3.23</Version>
+    <Version>1.3.28</Version>
     <Authors>Michael Larsen</Authors>
     <Description>Advanced Windows Network Utility - Network Scanning, IP Management, ARP/Ping</Description>
     <LangVersion>latest</LangVersion>
@@ -28,6 +28,13 @@
     <Resource Include="Resources\m1scan-logo.jpg" />
     <Resource Include="Resources\m1scan-logo-small.jpg" />
     <Resource Include="Resources\logo.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- IEEE MA-L OUI-tabel (~39.700 vendor-præfikser), gzip-komprimeret, indlejret i
+         assemblyen så vendor-opslag altid virker uden en separat fil eller download.
+         Se Utils/OuiLookup.cs. Regenerér med scripts/update-oui.py ved behov. -->
+    <EmbeddedResource Include="Resources\Data\oui.txt.gz" LogicalName="M1Scan.Resources.Data.oui.txt.gz" />
   </ItemGroup>
 
 </Project>

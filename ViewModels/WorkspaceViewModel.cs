@@ -23,6 +23,7 @@ namespace M1Scan.ViewModels
     public class WorkspaceViewModel : ObservableObject, IDisposable
     {
         private readonly IIpConfigService _ipConfigService;
+        private readonly IExportService _exportService;
         private readonly DispatcherTimer _pingTimer;
         private readonly DispatcherTimer _adapterTimer;
 
@@ -177,12 +178,14 @@ namespace M1Scan.ViewModels
         public RelayCommand RemoveOnlineCommand  { get; }
         public RelayCommand ClearAllCommand      { get; }
         public RelayCommand SetDhcpCommand       { get; }
+        public RelayCommand ExportCommand        { get; }
 
         // ── Constructor ──────────────────────────────────────────────────────
 
-        public WorkspaceViewModel(IIpConfigService ipConfigService)
+        public WorkspaceViewModel(IIpConfigService ipConfigService, IExportService exportService)
         {
             _ipConfigService = ipConfigService;
+            _exportService = exportService;
 
             _pingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_pingIntervalSeconds) };
             _pingTimer.Tick += async (_, _) => await PingAllAsync();
@@ -299,10 +302,35 @@ namespace M1Scan.ViewModels
                 },
                 _ => WatchList.Count > 0);
 
+            ExportCommand = new RelayCommand(
+                async _ => await ExportAsync(),
+                _ => WatchList.Count > 0);
+
             NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
 
             LoadWatchList();
             RefreshMyIp();
+        }
+
+        private async Task ExportAsync()
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "CSV-fil (*.csv)|*.csv|JSON-fil (*.json)|*.json",
+                FileName = $"m1scan-watchlist-{DateTime.Now:yyyy-MM-dd_HHmm}.csv"
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            try
+            {
+                var entries = WatchList.ToList();
+                await _exportService.ExportWatchListAsync(entries, dialog.FileName);
+                StatusMessage = $"Eksporterede {entries.Count} enheder til {Path.GetFileName(dialog.FileName)}";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Eksport fejlede: {ex.Message}";
+            }
         }
 
         // ── Private methods ──────────────────────────────────────────────────

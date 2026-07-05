@@ -80,10 +80,10 @@ namespace M1Scan.ViewModels
         public RelayCommand FlushDnsCommand { get; }
         public RelayCommand RefreshAdaptersCommand { get; }
 
-        public IpConfigViewModel()
+        public IpConfigViewModel(IIpConfigService ipConfigService, INetworkService networkService)
         {
-            _ipConfigService = new IpConfigService();
-            _networkService = new NetworkService();
+            _ipConfigService = ipConfigService;
+            _networkService = networkService;
 
             ApplyStaticIpCommand = new RelayCommand(async _ => await ApplyStaticIpAsync(), _ => !IsConfiguring && !IsDhcp && SelectedAdapter != null);
             ApplyDhcpCommand = new RelayCommand(async _ => await ApplyDhcpAsync(), _ => !IsConfiguring && SelectedAdapter != null);

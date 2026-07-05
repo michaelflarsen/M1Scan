@@ -38,12 +38,12 @@ M1Scan is a WPF desktop utility (net8.0-windows) for Windows network management.
 - `INetworkService` / `NetworkService` — async ping, ARP, NetBIOS, and port checks. All scan operations run on background threads; results are marshalled back via `ObservableCollection` on the UI thread.
 - `IIpConfigService` / `IpConfigService` — shells out to `netsh` via `System.Diagnostics.Process` for IP changes and DNS flush.
 - `HostInfo` includes TTL-based OS guessing and sorts by IP octets.
-- `OuiLookup` is a static in-memory dictionary — no external lookup at runtime.
+- `OuiLookup` reads the full IEEE MA-L OUI registry (~39,700 vendor prefixes) from a gzip-compressed text file embedded as an assembly resource (`Resources/Data/oui.txt.gz`), lazily decompressed into an in-memory dictionary on first lookup — no external/network lookup at runtime. Regenerate with `scripts/update-oui.py`.
 - Dark theme defined in `Resources/Themes/DarkTheme.xaml` and merged in `App.xaml`.
 
 ### Dependency injection
 
-Services are instantiated manually in the ViewModels (no DI container). If adding new services, follow the existing constructor-injection pattern used in `NetworkScanViewModel` and `IpConfigViewModel`.
+No DI container — `MainViewModel` is the composition root: it creates the single shared `NetworkService`/`IpConfigService`/`DiagnosticsService` instances and passes them into `HomeViewModel`, `NetworkScanViewModel`, `IpConfigViewModel`, and `WorkspaceViewModel` via constructor parameters (all typed against their interfaces — `INetworkService`, `IIpConfigService`, `IDiagnosticsService`). If adding a new ViewModel that needs a service, accept it as a constructor parameter and wire it up in `MainViewModel`'s constructor — never `new` a service directly inside a ViewModel.
 
 
 ## Documentation — always use Context7
