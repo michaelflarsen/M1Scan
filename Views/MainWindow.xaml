@@ -235,6 +235,32 @@
                                    FontSize="9" Foreground="#444444"
                                    HorizontalAlignment="Center"/>
 
+                        <!-- Update available badge — skjult indtil UpdateVm.IsUpdateAvailable -->
+                        <Border Margin="10,8,10,0" Padding="8,6"
+                                Background="#1A0E22" CornerRadius="4"
+                                BorderBrush="#e0337a" BorderThickness="1"
+                                Visibility="{Binding UpdateVm.IsUpdateAvailable, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding UpdateVm.StatusText}"
+                                           FontSize="10" Foreground="#f06ab0"
+                                           HorizontalAlignment="Center" TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+
+                                <ProgressBar Height="4" Minimum="0" Maximum="100"
+                                             Value="{Binding UpdateVm.DownloadProgressPercent, Mode=OneWay}"
+                                             Foreground="#4fc3f7" Background="#0C1420" BorderThickness="0"
+                                             Margin="0,0,0,5"
+                                             Visibility="{Binding UpdateVm.IsDownloading, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                <Button Content="Update now"
+                                        Command="{Binding UpdateVm.UpdateNowCommand}"
+                                        Style="{StaticResource AdapterDropdownStyle}"
+                                        Foreground="#e0337a" FontSize="10" FontWeight="SemiBold"
+                                        Padding="6,4" HorizontalContentAlignment="Center"
+                                        Visibility="{Binding UpdateVm.IsDownloading, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </Border>
 
