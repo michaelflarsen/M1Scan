@@ -12,10 +12,18 @@ You maintain the agent definitions in .claude/agents/ for the
 M1Scan project. Your job is to keep them in sync with the
 codebase as new features are added.
 
+The agents you maintain:
+- security-reviewer: .claude/agents/security-reviewer.md (this project)
+- code-reviewer: the M1Scan project no longer has its own code-reviewer.
+  M1Scan-specific review items live in the GLOBAL reviewer at
+  C:\Users\MichaelLarsenNtechAp\.claude\agents\code-reviewer.md, in the section
+  "M1Scan-specific (WPF network scanner)". Add M1Scan code-review items ONLY
+  inside that section — never elsewhere in the global file.
+
 When invoked:
 1. Run `git diff HEAD~1 --stat` to see what changed
 2. Read the changed files to understand the new feature
-3. Read ALL files in .claude/agents/ (except yourself)
+3. Read the agent files listed above (except yourself)
 4. Decide which agents need new checklist items
 5. Edit only the relevant sections — never rewrite entire files
 
