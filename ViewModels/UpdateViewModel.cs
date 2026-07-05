@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using M1Scan.Services;
 using M1Scan.Utils;
@@ -98,7 +99,8 @@ namespace M1Scan.ViewModels
                     StatusText = $"Downloader {p:0}%";
                 });
 
-                await _updateService.DownloadUpdateAsync(_pendingDownloadUrl, destPath, progress);
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+                await _updateService.DownloadUpdateAsync(_pendingDownloadUrl, destPath, progress, cts.Token);
 
                 StatusText = "Genstarter...";
                 _updateService.LaunchUpdaterAndRestart(destPath);

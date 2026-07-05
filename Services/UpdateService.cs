@@ -30,12 +30,22 @@ namespace M1Scan.Services
         private const string RepoName = "M1Scan";
         private const string AssetName = "M1Scan.exe";
 
-        private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(8) };
+        // API-kaldet er en lille JSON-respons — 8s timeout er rigelig.
+        private static readonly HttpClient _apiHttp = new() { Timeout = TimeSpan.FromSeconds(8) };
+
+        // HttpClient.Timeout gælder hele request-levetiden, også response-body-læsning,
+        // selv med ResponseHeadersRead. Den self-contained exe er ~166 MB, så et
+        // klient-timeout her ville afbryde downloadet på enhver almindelig forbindelse.
+        // Kald-stedet styrer i stedet den reelle deadline via CancellationToken.
+        private static readonly HttpClient _downloadHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
 
         static UpdateService()
         {
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("M1Scan-UpdateChecker");
-            _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            foreach (var client in new[] { _apiHttp, _downloadHttp })
+            {
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("M1Scan-UpdateChecker");
+                client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            }
         }
 
         private sealed record GitHubRelease(
@@ -55,7 +65,7 @@ namespace M1Scan.Services
                 string url = Environment.GetEnvironmentVariable("M1SCAN_UPDATE_CHECK_URL")
                              ?? $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
 
-                var json = await _http.GetStringAsync(url, ct);
+                var json = await _apiHttp.GetStringAsync(url, ct);
                 var release = System.Text.Json.JsonSerializer.Deserialize<GitHubRelease>(json);
                 if (release?.TagName is null) return null;
 
@@ -66,32 +76,39 @@ namespace M1Scan.Services
                     string.Equals(a.Name, AssetName, StringComparison.OrdinalIgnoreCase));
                 if (asset is null) return null;
 
-                // "1.3.29" parses with Revision = -1, mens assembly-versionen fra csproj
-                // ("1.3.28.0") har Revision = 0 — uden normalisering til 3 felter ville
-                // -1 < 0 altid gøre den parsede tag-version "mindre" end den faktisk er.
-                var current = Version.Parse(
-                    Assembly.GetExecutingAssembly().GetName().Version!.ToString(3));
-                var latestNormalized = Version.Parse(latest.ToString(3));
+                // "1.3.29" parses med Build/Revision = -1 hvis tagget har færre end 4
+                // led, mens assembly-versionen fra csproj ("1.3.28.0") altid har alle
+                // felter udfyldt af MSBuild — uden normalisering ville -1 < 0 altid
+                // gøre den parsede tag-version "mindre" end den faktisk er, selv ved
+                // ens versioner. Normaliser manuelt i stedet for .ToString(3), som
+                // kaster hvis Build/Revision ikke er sat (fx et fremtidigt "v2.0"-tag).
+                var current = Normalize(Assembly.GetExecutingAssembly().GetName().Version!);
+                var latestNormalized = Normalize(latest);
 
                 if (latestNormalized.CompareTo(current) <= 0) return null;
 
                 return new UpdateCheckResult(latestNormalized, release.TagName, asset.BrowserDownloadUrl,
                     $"https://github.com/{RepoOwner}/{RepoName}/releases/tag/{release.TagName}");
             }
-            catch
+            catch (Exception ex)
             {
                 // Stille fejl ved opstartstjek: offline / GitHub nede / rate-limited /
-                // uventet JSON — må aldrig forsinke eller crashe appen.
+                // uventet JSON — må aldrig forsinke eller crashe appen. Debug.WriteLine
+                // er no-op i release-builds uden debugger, så det er gratis diagnostik.
+                Debug.WriteLine($"UpdateService.CheckForUpdateAsync fejlede: {ex}");
                 return null;
             }
         }
+
+        private static Version Normalize(Version v) =>
+            new(v.Major, Math.Max(v.Minor, 0), Math.Max(v.Build, 0));
 
         public async Task DownloadUpdateAsync(string downloadUrl, string destinationPath,
             IProgress<double> progress, CancellationToken ct = default)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
 
-            using var resp = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var resp = await _downloadHttp.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
             resp.EnsureSuccessStatusCode();
 
             long? total = resp.Content.Headers.ContentLength;
@@ -123,14 +140,29 @@ namespace M1Scan.Services
             var psi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden " +
-                            $"-File \"{scriptPath}\" -ProcId {Environment.ProcessId} " +
-                            $"-OldExe \"{oldExePath}\" -NewExe \"{newExePath}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             };
-            Process.Start(psi);
+            // ArgumentList undgår manuel citat-escaping af stier (fremfor en
+            // interpoleret Arguments-streng) — konsistent med projektets
+            // konvention for at undgå shell-injection i Process.Start-kald.
+            psi.ArgumentList.Add("-NoProfile");
+            psi.ArgumentList.Add("-NonInteractive");
+            psi.ArgumentList.Add("-ExecutionPolicy");
+            psi.ArgumentList.Add("Bypass");
+            psi.ArgumentList.Add("-WindowStyle");
+            psi.ArgumentList.Add("Hidden");
+            psi.ArgumentList.Add("-File");
+            psi.ArgumentList.Add(scriptPath);
+            psi.ArgumentList.Add("-ProcId");
+            psi.ArgumentList.Add(Environment.ProcessId.ToString());
+            psi.ArgumentList.Add("-OldExe");
+            psi.ArgumentList.Add(oldExePath);
+            psi.ArgumentList.Add("-NewExe");
+            psi.ArgumentList.Add(newExePath);
+
+            using var process = Process.Start(psi);
         }
 
         private const string UpdaterScript = """
