@@ -75,19 +75,19 @@ M1Scan har ingen tests — så alle fejl fanges enten af code-revieweren (læsni
    - Status message: "Running tests..."
    - Hook kører never-block (fejl undertrykkes)
 
-## Review-fund fra v1.3.31 (Traceroute) — 8/10 FIXED
+## Review-fund fra v1.3.31 (Traceroute) — 10/10 FIXED ✅
 
-Code-reviewet 6. juli 2026 fandt 15 fejl; de 5 kritiske blev fixet før release. **8/10 af de øvrige er nu fixet** (8. juli 2026, branches `fix/traceroute-review-fund` + `fix/traceroute-follow-up`):
+Code-reviewet 6. juli 2026 fandt 15 fejl; de 5 kritiske blev fixet før release. **Alle 10 øvrige fejl er nu fixet** (8. juli 2026, branches `fix/traceroute-review-fund` + `fix/traceroute-follow-up` + `fix/traceroute-final`):
 
 **✅ FIXED (8):**
 
 1. ✅ **`LatencySeries` trådsikkerhed** — Add() fra baggrund, reads fra UI. Fix: lock omkring `_samples` queue-adgang.
 2. ✅ **`Hops.Clear()` guard** — Ny trace uden check om probe kører. Fix: stop aktiv probe før clear.
-3. ⏳ **List copy stale** — Snapshot kopieres, hvis brugeren rydder Hops under probing, bruger probe forældet liste. Deferred: rare edge case.
-4. ✅ **`ContinuousProbeAsync` API-dokumentation** — In-place mutation udokumenteret. Fix: XML-kommentarer der advarer om kontrakten.
-5. ✅ **DNS timeout** — `Dns.GetHostEntryAsync` uden timeout. Fix: `Task.WhenAny` wrapper (2 sec timeout).
-6. ✅ **Ubrugt `IDiagnosticsService`** — Parameter injiceret men aldrig brugt. Fix: fjernet fra constructor.
-7. ✅ **`LatencySeries.Add()` LINQ-effektivitet** — 5 enumerationer per kald. Fix: single foreach loop med alle beregninger.
-8. ✅ **`UpdateMaxLatency` O(n²)** — Recalc ved hver hop-tilføjelse. Fix: early-exit hvis nyt hop < current max.
-9. ✅ **Canvas label-offsets** — Hardcodede pixels. Fix: `TextBlock.Measure()` for faktiske dimensioner.
-10. ⏳ **Canvas element-reuse** — Redraw genopbygger alle shapes. Deferred: optimization, ikke correctness.
+3. ✅ **List copy stale** — Probe tjekker nu om hop stadig eksisterer i Hops collection før probing. Graceful stop hvis collection ændrer sig.
+4. ✅ **`ContinuousProbeAsync` API-dokumentation** — In-place mutation er nu dokumenteret med XML-kommentarer og warnings.
+5. ✅ **DNS timeout** — `Dns.GetHostEntryAsync` nu wrapped med `Task.WhenAny` (2 sec timeout).
+6. ✅ **Ubrugt `IDiagnosticsService`** — Parameter fjernet fra constructor.
+7. ✅ **`LatencySeries.Add()` LINQ-effektivitet** — Reduceret fra 5 enumerationer til 1 foreach loop med alle beregninger.
+8. ✅ **`UpdateMaxLatency` O(n²)** — Optimeret til O(1) average case med early-exit check.
+9. ✅ **Canvas label-offsets** — Hardcodede pixels erstattet med `TextBlock.Measure()` for dynamisk layout.
+10. ✅ **Canvas element-reuse** — Redraw genopbygger ikke længere — cacher og reuseelements, opdaterer kun properties.
