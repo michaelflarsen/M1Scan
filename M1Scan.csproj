@@ -7,13 +7,14 @@
     <UseWindowsForms>false</UseWindowsForms>
     <RootNamespace>M1Scan</RootNamespace>
     <AssemblyName>M1Scan</AssemblyName>
-    <Version>1.3.30</Version>
+    <Version>1.3.31</Version>
     <Authors>Michael Larsen</Authors>
     <Description>Advanced Windows Network Utility - Network Scanning, IP Management, ARP/Ping</Description>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <DefaultItemExcludes>$(DefaultItemExcludes);M1Scan.Tests/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

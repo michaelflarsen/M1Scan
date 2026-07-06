@@ -386,6 +386,20 @@
                             </StackPanel>
                         </RadioButton>
 
+                        <RadioButton x:Name="TracerouteNavBtn"
+                                     Style="{StaticResource SideNavStyle}"
+                                     GroupName="SideNav"
+                                     Click="SideNav_Click"
+                                     Tag="Traceroute">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Sitemap" Width="18" Height="18"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                                         VerticalAlignment="Center"/>
+                                <TextBlock Text="Traceroute" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            </StackPanel>
+                        </RadioButton>
+
                         <RadioButton Style="{StaticResource SideNavStyle}" IsEnabled="False"
                                      GroupName="SideNav">
                             <StackPanel Orientation="Horizontal">
@@ -415,17 +429,6 @@
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                          VerticalAlignment="Center"/>
                                 <TextBlock Text="Fingerprints" Margin="10,0,0,0" VerticalAlignment="Center"
-                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton Style="{StaticResource SideNavStyle}" IsEnabled="False"
-                                     GroupName="SideNav">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="DatabaseSearch" Width="18" Height="18"
-                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                                                         VerticalAlignment="Center"/>
-                                <TextBlock Text="OUI Lookup" Margin="10,0,0,0" VerticalAlignment="Center"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                             </StackPanel>
                         </RadioButton>
@@ -477,6 +480,9 @@
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Settings">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Traceroute">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -1284,6 +1290,12 @@
                 <!-- ===================================================== -->
                 <views:WorkspaceView x:Name="WorkspacePanel" Visibility="Collapsed"
                                      DataContext="{Binding WorkspaceVm}"/>
+
+                <!-- ===================================================== -->
+                <!--  TRACEROUTE PANEL                                       -->
+                <!-- ===================================================== -->
+                <views:TracerouteView x:Name="TraceroutePanel" Visibility="Collapsed"
+                                      DataContext="{Binding TracerouteVm}"/>
 
             </Grid>
             <!-- end content panels -->
