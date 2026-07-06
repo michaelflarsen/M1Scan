@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -206,6 +207,15 @@ namespace M1Scan.ViewModels
                 {
                     if (_traceCts.Token.IsCancellationRequested)
                         break;
+
+                    // Check if hop still exists in Hops collection (handles case where user clears hops during probing)
+                    var hopStillValid = Hops.Any(h => h.HopNumber == hop.HopNumber && h.IpAddress == hop.IpAddress);
+                    if (!hopStillValid)
+                    {
+                        // Hops collection was cleared or modified — stop probing gracefully
+                        StatusMessage = "Probe stoppet (rute blev ændret)";
+                        break;
+                    }
 
                     // Marshal MaxLatency update to UI thread
                     await Application.Current.Dispatcher.InvokeAsync(() => UpdateMaxLatency());

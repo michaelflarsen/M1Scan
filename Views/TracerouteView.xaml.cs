@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -15,6 +17,11 @@ namespace M1Scan.Views
         private TracerouteViewModel? _oldVm;
         private NotifyCollectionChangedEventHandler? _collectionChangedHandler;
         private System.ComponentModel.PropertyChangedEventHandler? _propertyChangedHandler;
+
+        // Cache canvas elements to avoid recreating on every redraw
+        private readonly Dictionary<int, Rectangle> _barRectangles = new(); // hopNumber -> Rectangle
+        private readonly Dictionary<int, TextBlock> _lossLabels = new();    // hopNumber -> loss% label
+        private readonly Dictionary<int, TextBlock> _hopLabels = new();     // hopNumber -> hop# label
 
         public TracerouteView()
         {
@@ -59,10 +66,13 @@ namespace M1Scan.Views
             if (DataContext is not TracerouteViewModel vm || vm.Hops.Count == 0)
             {
                 HopGraphCanvas.Children.Clear();
+                _barRectangles.Clear();
+                _lossLabels.Clear();
+                _hopLabels.Clear();
                 return;
             }
 
-            HopGraphCanvas.Children.Clear();
+            // Don't clear — reuse elements instead (avoids recreation overhead on every redraw)
 
             double w = HopGraphCanvas.ActualWidth;
             double h = HopGraphCanvas.ActualHeight;
@@ -81,7 +91,7 @@ namespace M1Scan.Views
             // Tegn gridlines + Y-akse
             DrawYAxis(h, graphHeight, maxLatency, yScale);
 
-            // Tegn søjler
+            // Tegn søjler (reuse elements to avoid recreation overhead)
             for (int i = 0; i < hopCount; i++)
             {
                 var hop = vm.Hops[i];
@@ -101,48 +111,77 @@ namespace M1Scan.Views
                     _ => Color.FromRgb(0x4f, 0xc3, 0xf7)       // cyan #4fc3f7
                 };
 
-                // Tegn søjle
-                var rect = new Rectangle
+                // Reuse or create bar rectangle
+                Rectangle rect;
+                if (_barRectangles.ContainsKey(hop.HopNumber))
                 {
-                    Width = barWidth,
-                    Height = barHeight,
-                    Fill = new SolidColorBrush(barColor),
-                    Opacity = 0.85
-                };
+                    rect = _barRectangles[hop.HopNumber];
+                }
+                else
+                {
+                    rect = new Rectangle { Opacity = 0.85 };
+                    _barRectangles[hop.HopNumber] = rect;
+                    HopGraphCanvas.Children.Add(rect);
+                }
+                rect.Width = barWidth;
+                rect.Height = barHeight;
+                rect.Fill = new SolidColorBrush(barColor);
                 Canvas.SetLeft(rect, x);
                 Canvas.SetTop(rect, y);
-                HopGraphCanvas.Children.Add(rect);
 
-                // Tegn tab%-label over søjle hvis > 0
+                // Reuse or create loss% label
                 if (hopLoss > 0)
                 {
-                    var label = new TextBlock
+                    TextBlock label;
+                    if (_lossLabels.ContainsKey(hop.HopNumber))
                     {
-                        Text = $"{hopLoss:F0}%",
-                        Foreground = new SolidColorBrush(Colors.White),
-                        FontSize = 9,
-                        FontFamily = new FontFamily("JetBrains Mono, Consolas, Courier New"),
-                        TextAlignment = TextAlignment.Center
-                    };
+                        label = _lossLabels[hop.HopNumber];
+                    }
+                    else
+                    {
+                        label = new TextBlock
+                        {
+                            Foreground = new SolidColorBrush(Colors.White),
+                            FontSize = 9,
+                            FontFamily = new FontFamily("JetBrains Mono, Consolas, Courier New"),
+                            TextAlignment = TextAlignment.Center
+                        };
+                        _lossLabels[hop.HopNumber] = label;
+                        HopGraphCanvas.Children.Add(label);
+                    }
+                    label.Text = $"{hopLoss:F0}%";
                     label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                     Canvas.SetLeft(label, x + barWidth / 2 - label.DesiredSize.Width / 2);
                     Canvas.SetTop(label, y - label.DesiredSize.Height - 4);
-                    HopGraphCanvas.Children.Add(label);
+                }
+                else if (_lossLabels.ContainsKey(hop.HopNumber))
+                {
+                    HopGraphCanvas.Children.Remove(_lossLabels[hop.HopNumber]);
+                    _lossLabels.Remove(hop.HopNumber);
                 }
 
-                // Tegn hop-nummer under
-                var hopLabel = new TextBlock
+                // Reuse or create hop-number label
+                TextBlock hopLabel;
+                if (_hopLabels.ContainsKey(hop.HopNumber))
                 {
-                    Text = hop.HopNumber.ToString(),
-                    Foreground = new SolidColorBrush(Color.FromRgb(0x90, 0xca, 0xf9)),
-                    FontSize = 10,
-                    FontFamily = new FontFamily("JetBrains Mono, Consolas, Courier New"),
-                    TextAlignment = TextAlignment.Center
-                };
+                    hopLabel = _hopLabels[hop.HopNumber];
+                }
+                else
+                {
+                    hopLabel = new TextBlock
+                    {
+                        Foreground = new SolidColorBrush(Color.FromRgb(0x90, 0xca, 0xf9)),
+                        FontSize = 10,
+                        FontFamily = new FontFamily("JetBrains Mono, Consolas, Courier New"),
+                        TextAlignment = TextAlignment.Center
+                    };
+                    _hopLabels[hop.HopNumber] = hopLabel;
+                    HopGraphCanvas.Children.Add(hopLabel);
+                }
+                hopLabel.Text = hop.HopNumber.ToString();
                 hopLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 Canvas.SetLeft(hopLabel, x + barWidth / 2 - hopLabel.DesiredSize.Width / 2);
                 Canvas.SetTop(hopLabel, CanvasPadding + graphHeight + 4);
-                HopGraphCanvas.Children.Add(hopLabel);
             }
         }
 
