@@ -61,6 +61,7 @@ namespace M1Scan.ViewModels
         public IpConfigViewModel    IpConfigVm    { get; }
         public WorkspaceViewModel   WorkspaceVm   { get; }
         public UpdateViewModel      UpdateVm      { get; }
+        public TracerouteViewModel  TracerouteVm  { get; }
 
         public RelayCommand RefreshAdaptersCommand { get; }
         public RelayCommand ResetAdapterCommand { get; }
@@ -76,12 +77,14 @@ namespace M1Scan.ViewModels
             IDiagnosticsService diagnosticsService = new DiagnosticsService();
             IExportService exportService = new ExportService();
             IUpdateService updateService = new UpdateService();
+            ITracerouteService tracerouteService = new TracerouteService();
 
             HomeVm        = new HomeViewModel(_networkService, diagnosticsService);
             NetworkScanVm = new NetworkScanViewModel(_networkService, exportService);
             IpConfigVm    = new IpConfigViewModel(_ipConfigService, _networkService);
             WorkspaceVm   = new WorkspaceViewModel(_ipConfigService, exportService);
             UpdateVm      = new UpdateViewModel(updateService);
+            TracerouteVm  = new TracerouteViewModel(tracerouteService);
 
             RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
             ResetAdapterCommand = new RelayCommand(async _ => await ResetAdapterAsync(), _ => SelectedAdapter != null);

@@ -7,31 +7,17 @@
       "Bash(start \"\" \"bin/Debug/net8.0-windows/M1Scan.exe\")",
       "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" -ErrorAction SilentlyContinue; Get-ChildItem \"C:\\\\Program Files \\(x86\\)\\\\dotnet\\\\dotnet.exe\" -ErrorAction SilentlyContinue; Test-Path \"$env:ProgramFiles\\\\dotnet\\\\dotnet.exe\")",
       "PowerShell($env:PATH)",
-      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); Start-Process \"c:\\\\VS_Code\\\\M1SCAN\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\")",
-      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); dotnet build 2>&1)",
       "Bash(rtk dotnet *)",
-      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs)",
-      "Read(//c/Users/gimig/AppData/Local/Temp/m1scan_ico_gen/**)",
       "Bash(rtk git *)",
-      "PowerShell(Get-ChildItem \"$env:APPDATA\\\\M1Scan\" | Select-Object Name, Length, LastWriteTime)",
-      "PowerShell(Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile', '-Command', 'cd ''c:\\\\VS_Code_projekt\\\\M1Scan''; dotnet run' -WindowStyle Normal; Start-Sleep 12; Add-Type -AssemblyName System.Windows.Forms; $bmp = New-Object System.Drawing.Bitmap\\([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height\\); $g = [System.Drawing.Graphics]::FromImage\\($bmp\\); $g.CopyFromScreen\\(0,0,0,0,$bmp.Size\\); $path = \"C:\\\\Users\\\\gimig\\\\AppData\\\\Local\\\\Temp\\\\m1scan_clean.png\"; $bmp.Save\\($path\\); $g.Dispose\\(\\); $bmp.Dispose\\(\\); \"saved\")",
-      "PowerShell(Get-Process M1Scan -ErrorAction SilentlyContinue)",
-      "PowerShell(Stop-Process -Force)",
-      "PowerShell(\"stopped\")",
-      "PowerShell(Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile', '-Command', 'cd ''c:\\\\VS_Code_projekt\\\\M1Scan''; dotnet run' -WindowStyle Normal; Start-Sleep 12; Add-Type -AssemblyName System.Windows.Forms; $bmp = New-Object System.Drawing.Bitmap\\([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height\\); $g = [System.Drawing.Graphics]::FromImage\\($bmp\\); $g.CopyFromScreen\\(0,0,0,0,$bmp.Size\\); $path = \"C:\\\\Users\\\\gimig\\\\AppData\\\\Local\\\\Temp\\\\m1scan_layout.png\"; $bmp.Save\\($path\\); $g.Dispose\\(\\); $bmp.Dispose\\(\\); \"saved\")",
-      "PowerShell(cd \"c:\\\\VS_Code_projekt\\\\M1Scan\"; .\\\\run.ps1; Start-Sleep 13; Add-Type -AssemblyName System.Windows.Forms; $bmp = New-Object System.Drawing.Bitmap\\([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height\\); $g = [System.Drawing.Graphics]::FromImage\\($bmp\\); $g.CopyFromScreen\\(0,0,0,0,$bmp.Size\\); $path = \"C:\\\\Users\\\\gimig\\\\AppData\\\\Local\\\\Temp\\\\m1scan_tt2.png\"; $bmp.Save\\($path\\); $g.Dispose\\(\\); $bmp.Dispose\\(\\); \"saved\")",
-      "Read(//c/Users/gimig/AppData/Local/Temp/**)",
-      "PowerShell(Start-Process powershell -Verb RunAs -ArgumentList \"-NoProfile -Command `\"cd 'c:\\\\VS_Code_projekt\\\\M1Scan'; dotnet run`\"\")",
-      "PowerShell(Stop-Process -Name \"M1Scan\" -Force -ErrorAction SilentlyContinue)",
-      "PowerShell(& \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\run.ps1\")",
-      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs; Start-Sleep -Seconds 8; echo \"Klar\")",
       "Bash(rtk grep *)",
-      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs; Start-Sleep -Seconds 8)",
-      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs; Start-Sleep -Seconds 9)",
-      "mcp__claude_ai_Context7__query-docs"
-    ],
-    "additionalDirectories": [
-      "c:\\VS_Code_projekt"
+      "PowerShell(Get-ChildItem \"$env:APPDATA\\\\M1Scan\" | Select-Object Name, Length, LastWriteTime)",
+      "PowerShell(Get-Process M1Scan -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Name \"M1Scan\" -Force -ErrorAction SilentlyContinue)",
+      "mcp__claude_ai_Context7__query-docs",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Read(//c/Users/MichaelLarsenNtechAp/.claude/**)",
+      "Bash(dotnet test *)"
     ]
   }
 }

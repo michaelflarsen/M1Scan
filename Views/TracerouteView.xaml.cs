@@ -124,8 +124,9 @@ namespace M1Scan.Views
                         FontFamily = new FontFamily("JetBrains Mono, Consolas, Courier New"),
                         TextAlignment = TextAlignment.Center
                     };
-                    Canvas.SetLeft(label, x + barWidth / 2 - 12);
-                    Canvas.SetTop(label, y - 16);
+                    label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    Canvas.SetLeft(label, x + barWidth / 2 - label.DesiredSize.Width / 2);
+                    Canvas.SetTop(label, y - label.DesiredSize.Height - 4);
                     HopGraphCanvas.Children.Add(label);
                 }
 
@@ -138,8 +139,9 @@ namespace M1Scan.Views
                     FontFamily = new FontFamily("JetBrains Mono, Consolas, Courier New"),
                     TextAlignment = TextAlignment.Center
                 };
-                Canvas.SetLeft(hopLabel, x + barWidth / 2 - 8);
-                Canvas.SetTop(hopLabel, CanvasPadding + graphHeight + 5);
+                hopLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                Canvas.SetLeft(hopLabel, x + barWidth / 2 - hopLabel.DesiredSize.Width / 2);
+                Canvas.SetTop(hopLabel, CanvasPadding + graphHeight + 4);
                 HopGraphCanvas.Children.Add(hopLabel);
             }
         }

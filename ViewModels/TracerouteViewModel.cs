@@ -151,6 +151,15 @@ namespace M1Scan.ViewModels
                 return;
             }
 
+            // Only recalc if the last hop might exceed current max
+            double currentMax = MaxLatency / 1.2; // Back out the 20% padding
+            double lastHopAvg = Hops[Hops.Count - 1].LatencySeries.Avg;
+
+            // If last hop is lower, max hasn't changed
+            if (lastHopAvg <= currentMax && MaxLatency >= 100)
+                return;
+
+            // Recalc max across all hops
             double max = 0;
             foreach (var hop in Hops)
             {

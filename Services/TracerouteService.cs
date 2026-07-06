@@ -20,12 +20,10 @@ namespace M1Scan.Services
 
     public class TracerouteService : ITracerouteService
     {
-        private readonly IDiagnosticsService _diagnosticsService;
         private const int PingsPerHop = 3; // Match Windows tracert: 3 forsøg per hop
 
-        public TracerouteService(IDiagnosticsService diagnosticsService)
+        public TracerouteService()
         {
-            _diagnosticsService = diagnosticsService;
         }
 
         /// <summary>
@@ -119,13 +117,21 @@ namespace M1Scan.Services
                         await Task.Delay(30, ct);
                 }
 
-                // DNS reverse lookup for hostname
+                // DNS reverse lookup for hostname (with 2-second timeout)
                 if (!string.IsNullOrEmpty(hopInfo.IpAddress))
                 {
                     try
                     {
-                        var hostEntry = await Dns.GetHostEntryAsync(hopInfo.IpAddress);
-                        hopInfo.HostName = hostEntry.HostName;
+                        var dnsTask = Dns.GetHostEntryAsync(hopInfo.IpAddress);
+                        var delayTask = Task.Delay(2000, ct);
+                        var completed = await Task.WhenAny(dnsTask, delayTask);
+
+                        if (completed == dnsTask)
+                        {
+                            var hostEntry = await dnsTask;
+                            hopInfo.HostName = hostEntry.HostName;
+                        }
+                        // If delay task completed first, timeout — skip hostname
                     }
                     catch
                     {

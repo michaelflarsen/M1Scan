@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(taskkill /F /IM M1Scan.exe)",
+      "PowerShell(Get-Process M1Scan -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Name \"M1Scan\" -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Start-Process \"c:\\\\VS Code projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\")"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | { read -r f; if [[ \"$f\" == *.cs ]]; then cd \"c:\\VS Code projekt\\M1Scan\" && dotnet test --logger=console -v minimal 2>/dev/null; fi; } || true",
+            "statusMessage": "Running tests..."
+          }
+        ]
+      }
+    ]
+  }
+}

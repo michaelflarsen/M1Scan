@@ -67,14 +67,37 @@ namespace M1Scan.Models
                 _samples.Dequeue();
             _samples.Enqueue(latencyMs);
 
-            var ok = _samples.Where(s => s.HasValue).Select(s => s!.Value).ToList();
+            // Single enumeration: collect valid samples and compute all stats at once
+            var validSamples = new List<double>();
+            int lossCount = 0;
+
+            foreach (var sample in _samples)
+            {
+                if (sample.HasValue)
+                    validSamples.Add(sample.Value);
+                else
+                    lossCount++;
+            }
 
             Current = latencyMs;
-            Avg     = ok.Count > 0 ? ok.Average() : 0;
-            Max     = ok.Count > 0 ? ok.Max()     : 0;
-            JitterMs = ok.Count > 1 ? ok.Average(v => Math.Abs(v - Avg)) : 0;
+
+            if (validSamples.Count > 0)
+            {
+                Avg = validSamples.Average();
+                Max = validSamples.Max();
+                JitterMs = validSamples.Count > 1
+                    ? validSamples.Average(v => Math.Abs(v - Avg))
+                    : 0;
+            }
+            else
+            {
+                Avg = 0;
+                Max = 0;
+                JitterMs = 0;
+            }
+
             LossPercent = _samples.Count > 0
-                ? 100.0 * _samples.Count(s => !s.HasValue) / _samples.Count
+                ? 100.0 * lossCount / _samples.Count
                 : 0;
 
             Values = _samples.ToArray();
@@ -169,6 +192,19 @@ namespace M1Scan.Models
 
     public enum Ipv6Status { Unknown, Connected, NotAvailable }
     public enum CaptivePortalStatus { Unknown, None, PortalDetected, NoResponse }
+
+    /// <summary>Én hop i en traceroute (IP, hostname, latency over tid).</summary>
+    public class TraceHopInfo
+    {
+        public int HopNumber { get; set; }
+        public string? IpAddress { get; set; }
+        public string? HostName { get; set; }
+        public string? Country { get; set; }
+        public string? Asn { get; set; }
+        public LatencySeries LatencySeries { get; set; } = new LatencySeries { Label = "" };
+        public bool IsReachable { get; set; }
+        public bool IsTimeout { get; set; }
+    }
 
     /// <summary>Samlet netværks-sundhedsscore 0-100 med karakter og dansk verdict.</summary>
     public class HealthScore

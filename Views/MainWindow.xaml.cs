@@ -163,6 +163,7 @@ namespace M1Scan.Views
             if (DevicesPanel   != null) DevicesPanel.Visibility   = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
             if (AdaptersPanel  != null) AdaptersPanel.Visibility  = _selectedPage == "Adapters"     ? Visibility.Visible : Visibility.Collapsed;
             if (IpConfigPanel  != null) IpConfigPanel.Visibility  = _selectedPage == "Settings"     ? Visibility.Visible : Visibility.Collapsed;
+            if (TraceroutePanel != null) TraceroutePanel.Visibility = _selectedPage == "Traceroute"  ? Visibility.Visible : Visibility.Collapsed;
             if (StatsRow       != null) StatsRow.Visibility       = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
         }
 
