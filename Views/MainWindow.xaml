@@ -878,7 +878,7 @@
                             </DataGridTextColumn>
 
                             <!-- MAC address -->
-                            <DataGridTextColumn Header="MAC address" Binding="{Binding MacAddress}" Width="140">
+                            <DataGridTextColumn Header="MAC address" Binding="{Binding MacAddress}" Width="170">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground"     Value="#888888"/>
@@ -890,7 +890,7 @@
                             </DataGridTextColumn>
 
                             <!-- Vendor -->
-                            <DataGridTemplateColumn Header="Vendor" Width="90" SortMemberPath="Vendor">
+                            <DataGridTemplateColumn Header="Vendor" Width="210" SortMemberPath="Vendor">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock x:Name="vnd" Text="{Binding Vendor}"
@@ -908,7 +908,7 @@
                             </DataGridTemplateColumn>
 
                             <!-- :80 chip -->
-                            <DataGridTemplateColumn Header=":80" Width="48" CanUserSort="False" CanUserResize="False">
+                            <DataGridTemplateColumn Header=":80" Width="40" CanUserSort="False" CanUserResize="False">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Width="40" HorizontalAlignment="Center"
