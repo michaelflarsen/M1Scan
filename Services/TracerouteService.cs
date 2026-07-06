@@ -151,6 +151,12 @@ namespace M1Scan.Services
         /// <summary>
         /// Continuous probe: re-probes all hops in a loop, updating rolling averages.
         /// Yields each hop with updated latency stats as probe data arrives.
+        ///
+        /// IMPORTANT: This method mutates the hop objects in-place (modifies LatencySeries.Add).
+        /// The caller must NOT clear or replace the original hops list during probing — the probe
+        /// will continue using the stale references and results won't reach the UI.
+        ///
+        /// Thread-safety: Probe runs on background thread. Caller must marshal UI updates to UI thread.
         /// </summary>
         public async IAsyncEnumerable<TraceHopInfo> ContinuousProbeAsync(
             List<TraceHopInfo> hops,

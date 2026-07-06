@@ -93,6 +93,13 @@ namespace M1Scan.ViewModels
                 return;
             }
 
+            // Stop any active probe before starting new trace
+            if (IsProbing)
+            {
+                _traceCts?.Cancel();
+                await Task.Delay(100); // Brief delay to allow probe cancellation
+            }
+
             IsTracing = true;
             IsTraceComplete = false;
             TraceProgress = 0;

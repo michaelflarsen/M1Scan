@@ -14,6 +14,7 @@ namespace M1Scan.Models
         public const int Capacity = 150;
 
         private readonly Queue<double?> _samples = new(Capacity);
+        private readonly object _lockObj = new(); // Thread-safe access during continuous probing
 
         private double? _current;
         private double  _avg;
@@ -63,44 +64,48 @@ namespace M1Scan.Models
 
         public void Add(double? latencyMs)
         {
-            if (_samples.Count >= Capacity)
-                _samples.Dequeue();
-            _samples.Enqueue(latencyMs);
-
-            // Single enumeration: collect valid samples and compute all stats at once
-            var validSamples = new List<double>();
-            int lossCount = 0;
-
-            foreach (var sample in _samples)
+            lock (_lockObj)
             {
-                if (sample.HasValue)
-                    validSamples.Add(sample.Value);
+                if (_samples.Count >= Capacity)
+                    _samples.Dequeue();
+                _samples.Enqueue(latencyMs);
+
+                // Single enumeration: collect valid samples and compute all stats at once
+                var validSamples = new List<double>();
+                int lossCount = 0;
+
+                foreach (var sample in _samples)
+                {
+                    if (sample.HasValue)
+                        validSamples.Add(sample.Value);
+                    else
+                        lossCount++;
+                }
+
+                Current = latencyMs;
+
+                if (validSamples.Count > 0)
+                {
+                    Avg = validSamples.Average();
+                    Max = validSamples.Max();
+                    JitterMs = validSamples.Count > 1
+                        ? validSamples.Average(v => Math.Abs(v - Avg))
+                        : 0;
+                }
                 else
-                    lossCount++;
-            }
+                {
+                    Avg = 0;
+                    Max = 0;
+                    JitterMs = 0;
+                }
 
-            Current = latencyMs;
-
-            if (validSamples.Count > 0)
-            {
-                Avg = validSamples.Average();
-                Max = validSamples.Max();
-                JitterMs = validSamples.Count > 1
-                    ? validSamples.Average(v => Math.Abs(v - Avg))
+                LossPercent = _samples.Count > 0
+                    ? 100.0 * lossCount / _samples.Count
                     : 0;
-            }
-            else
-            {
-                Avg = 0;
-                Max = 0;
-                JitterMs = 0;
+
+                Values = _samples.ToArray();
             }
 
-            LossPercent = _samples.Count > 0
-                ? 100.0 * lossCount / _samples.Count
-                : 0;
-
-            Values = _samples.ToArray();
             OnPropertyChanged(nameof(SampleCount));
 
             // Display-props afhænger af SampleCount — skal altid re-evalueres,
