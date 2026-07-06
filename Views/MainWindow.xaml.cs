@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
@@ -8,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Markup;
 using System.Windows.Media;
@@ -162,21 +164,42 @@ namespace M1Scan.Views
             if (WorkspacePanel != null) WorkspacePanel.Visibility = _selectedPage == "DeviceFollow" ? Visibility.Visible : Visibility.Collapsed;
             if (DevicesPanel   != null) DevicesPanel.Visibility   = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
             if (AdaptersPanel  != null) AdaptersPanel.Visibility  = _selectedPage == "Adapters"     ? Visibility.Visible : Visibility.Collapsed;
-            if (IpConfigPanel  != null) IpConfigPanel.Visibility  = _selectedPage == "Settings"     ? Visibility.Visible : Visibility.Collapsed;
+            if (IpConfigPanel  != null) IpConfigPanel.Visibility  = _selectedPage == "IpSkift"      ? Visibility.Visible : Visibility.Collapsed;
             if (TraceroutePanel != null) TraceroutePanel.Visibility = _selectedPage == "Traceroute"  ? Visibility.Visible : Visibility.Collapsed;
             if (StatsRow       != null) StatsRow.Visibility       = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void AdapterDropdownButton_Click(object sender, RoutedEventArgs e)
         {
-            var btn = (Button)sender;
             var vm = _vm.NetworkScanVm;
+            ShowAdapterPickerMenu((Button)sender, vm.AvailableAdapters, vm.SelectedAdapter,
+                a => vm.SelectedAdapter = a, vm.RefreshAdaptersCommand);
+        }
 
+        private void IpConfigAdapterDropdownButton_Click(object sender, RoutedEventArgs e)
+        {
+            var vm = _vm.IpConfigVm;
+            ShowAdapterPickerMenu((Button)sender, vm.NetworkAdapters, vm.SelectedAdapter,
+                a => vm.SelectedAdapter = a, vm.RefreshAdaptersCommand);
+        }
+
+        /// <summary>
+        /// ContextMenu-baseret adapter-picker — bruges i stedet for en almindelig ComboBox,
+        /// da en tidligere custom ComboBox-styling (DarkComboBoxStyle) havde en Popup/StaysOpen-fejl
+        /// der forhindrede item-selection (dropdown lukkede uden at vælge noget).
+        /// </summary>
+        private void ShowAdapterPickerMenu(
+            Button anchor,
+            IEnumerable<NetworkAdapter> adapters,
+            NetworkAdapter? selectedAdapter,
+            Action<NetworkAdapter> onSelect,
+            ICommand? refreshCommand)
+        {
             var menu = new ContextMenu();
-            menu.PlacementTarget = btn;
+            menu.PlacementTarget = anchor;
             menu.Placement = PlacementMode.Bottom;
 
-            foreach (var adapter in vm.AvailableAdapters)
+            foreach (var adapter in adapters)
             {
                 var ip = adapter.IpAddresses.Length > 0 ? adapter.IpAddresses[0] : "";
                 var label = string.IsNullOrEmpty(ip) ? adapter.Description : $"{adapter.Description} — {ip}";
@@ -211,7 +234,7 @@ namespace M1Scan.Views
                     VerticalAlignment = VerticalAlignment.Center
                 });
 
-                if (adapter == vm.SelectedAdapter)
+                if (adapter == selectedAdapter)
                 {
                     panel.Children.Add(new TextBlock
                     {
@@ -229,14 +252,14 @@ namespace M1Scan.Views
                     Background = new SolidColorBrush(Color.FromRgb(0x2D, 0x2D, 0x2D))
                 };
                 var captured = adapter;
-                item.Click += (_, _) => vm.SelectedAdapter = captured;
+                item.Click += (_, _) => onSelect(captured);
                 menu.Items.Add(item);
             }
 
             menu.Items.Add(new Separator());
 
             var refreshItem = new MenuItem { Header = "Refresh adapters" };
-            refreshItem.Click += (_, _) => vm.RefreshAdaptersCommand.Execute(null);
+            refreshItem.Click += (_, _) => refreshCommand?.Execute(null);
             menu.Items.Add(refreshItem);
 
             menu.IsOpen = true;

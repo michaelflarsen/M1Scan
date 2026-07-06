@@ -32,10 +32,24 @@ namespace M1Scan.ViewModels
             get => _selectedAdapter;
             set
             {
-                if (SetProperty(ref _selectedAdapter, value) && value != null)
+                if (SetProperty(ref _selectedAdapter, value))
                 {
-                    LoadAdapterConfig();
+                    OnPropertyChanged(nameof(SelectedAdapterLabel));
+                    if (value != null)
+                        LoadAdapterConfig();
                 }
+            }
+        }
+
+        public string SelectedAdapterLabel
+        {
+            get
+            {
+                if (_selectedAdapter == null) return "Vælg adapter";
+                var ip = _selectedAdapter.IpAddresses.Length > 0 ? _selectedAdapter.IpAddresses[0] : "";
+                return string.IsNullOrEmpty(ip)
+                    ? _selectedAdapter.Description
+                    : $"{_selectedAdapter.Description} — {ip}";
             }
         }
 

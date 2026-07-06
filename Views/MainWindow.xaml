@@ -264,7 +264,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Bottom buttons: Zoom + Adapters + Settings -->
+                <!-- Bottom buttons: Zoom + Adapters -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,10">
 
                     <!-- Zoom widget -->
@@ -329,18 +329,6 @@
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                         </StackPanel>
                     </RadioButton>
-
-                    <RadioButton x:Name="IpConfigNavBtn"
-                                 Style="{StaticResource SideNavStyle}"
-                                 GroupName="SideNav" Tag="Settings" Click="SideNav_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Cog" Width="18" Height="18"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                                                     VerticalAlignment="Center"/>
-                            <TextBlock Text="Settings" Margin="10,0,0,0" VerticalAlignment="Center"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                        </StackPanel>
-                    </RadioButton>
                 </StackPanel>
 
                 <!-- Scrollable nav -->
@@ -396,6 +384,18 @@
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                          VerticalAlignment="Center"/>
                                 <TextBlock Text="Traceroute" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="IpConfigNavBtn"
+                                     Style="{StaticResource SideNavStyle}"
+                                     GroupName="SideNav" Tag="IpSkift" Click="SideNav_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="IpNetworkOutline" Width="18" Height="18"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                                         VerticalAlignment="Center"/>
+                                <TextBlock Text="IP-skift" Margin="10,0,0,0" VerticalAlignment="Center"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                             </StackPanel>
                         </RadioButton>
@@ -479,7 +479,7 @@
                             <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Adapters">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Settings">
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="IpSkift">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Traceroute">
@@ -1203,11 +1203,27 @@
                             <TextBlock Text="Select Network Adapter:" FontWeight="Bold"
                                        Foreground="{StaticResource DarkForegroundBrush}"
                                        VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <ComboBox Style="{StaticResource DarkComboBoxStyle}"
-                                      Width="300" Height="30"
-                                      ItemsSource="{Binding NetworkAdapters}"
-                                      SelectedItem="{Binding SelectedAdapter}"
-                                      DisplayMemberPath="Description"/>
+                            <Button x:Name="IpConfigAdapterDropdownButton"
+                                    Style="{StaticResource AdapterDropdownStyle}"
+                                    Width="300" Height="30"
+                                    Click="IpConfigAdapterDropdownButton_Click">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding SelectedAdapterLabel}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               Margin="10,0,4,0"/>
+                                    <TextBlock Grid.Column="1" Text="▾"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,8,0"
+                                               Foreground="#666666" FontSize="12"/>
+                                </Grid>
+                            </Button>
                             <Button Content="Refresh" Style="{StaticResource DarkButtonStyle}"
                                     Margin="10,0,0,0" Width="80"
                                     Command="{Binding RefreshAdaptersCommand}"/>
