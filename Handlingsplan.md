@@ -75,24 +75,19 @@ M1Scan har ingen tests — så alle fejl fanges enten af code-revieweren (læsni
    - Status message: "Running tests..."
    - Hook kører never-block (fejl undertrykkes)
 
-## Udestående review-fund fra v1.3.31 (Traceroute)
+## Review-fund fra v1.3.31 (Traceroute) — 8/10 FIXED
 
-Code-reviewet 6. juli 2026 fandt 15 fejl; de 5 kritiske blev fixet før release. Disse 10 er ikke release-blokkere, men bør tages ved næste lejlighed (evt. som `fix/traceroute-review-fund`-branch):
+Code-reviewet 6. juli 2026 fandt 15 fejl; de 5 kritiske blev fixet før release. **8/10 af de øvrige er nu fixet** (8. juli 2026, branches `fix/traceroute-review-fund` + `fix/traceroute-follow-up`):
 
-**Trådsikkerhed / robusthed:**
-1. `TracerouteService.ContinuousProbeAsync` — `hop.LatencySeries.Add()` kaldes fra baggrundstråd mens UI-tråden læser `Avg`/`LossPercent` i `RedrawGraph`. Virker i praksis (ingen bindings direkte på collection), men er teoretisk race. Fix: marshal Add til Dispatcher eller gør LatencySeries trådsikker.
-2. `TracerouteViewModel` — `Hops.Clear()` ved ny trace uden guard mod at en kørende probe stadig bruger listen.
-3. `ToggleProbingAsync` — kopierer `Hops` til en `List<>`; hvis brugeren rydder/erstatter `Hops` under probing, opdaterer proben en forældet liste som UI'et ikke viser.
+**✅ FIXED (8):**
 
-**API-kontrakt / arkitektur:**
-4. `ContinuousProbeAsync` muterer de indsendte `TraceHopInfo`-objekter in-place uden at dokumentere det — utydelig kontrakt, inviterer til misbrug.
-5. DNS reverse lookup bruger bare `Dns.GetHostEntryAsync` uden timeout — kan hænge længe ved træg DNS. Genbrug timeout-wrapper-mønstret fra `NetworkService`.
-6. `TracerouteService` får `IDiagnosticsService` injiceret men bruger den aldrig — fjern parameteren eller tag den i brug.
-
-**Ydelse:**
-7. `LatencySeries.Add()` (DashboardModels.cs) enumererer samples-køen 5+ gange pr. kald (Where+ToList, Average, Max, Count) — mærkbart ved kontinuerlig probing hvert 2. sekund. Fix: én gennemløbning eller inkrementelle aggregater.
-8. `UpdateMaxLatency` gennemløber alle hops ved hver enkelt hop-opdatering (O(n²) over en trace) — kunne blot sammenligne det nye hops Avg mod nuværende max.
-
-**UI-finish:**
-9. `TracerouteView.xaml.cs` — labelplacering på canvas bruger hardcodede pixel-offsets (12, 16, 8, 5) i stedet for faktiske tekstmål; skæv ved lange labels/andre DPI.
-10. Graf-tegnekoden genskaber alle Rectangle/TextBlock-elementer ved hver redraw i stedet for at genbruge — OK nu, men spild ved live-probing hvor der redrawes hvert 2. sekund.
+1. ✅ **`LatencySeries` trådsikkerhed** — Add() fra baggrund, reads fra UI. Fix: lock omkring `_samples` queue-adgang.
+2. ✅ **`Hops.Clear()` guard** — Ny trace uden check om probe kører. Fix: stop aktiv probe før clear.
+3. ⏳ **List copy stale** — Snapshot kopieres, hvis brugeren rydder Hops under probing, bruger probe forældet liste. Deferred: rare edge case.
+4. ✅ **`ContinuousProbeAsync` API-dokumentation** — In-place mutation udokumenteret. Fix: XML-kommentarer der advarer om kontrakten.
+5. ✅ **DNS timeout** — `Dns.GetHostEntryAsync` uden timeout. Fix: `Task.WhenAny` wrapper (2 sec timeout).
+6. ✅ **Ubrugt `IDiagnosticsService`** — Parameter injiceret men aldrig brugt. Fix: fjernet fra constructor.
+7. ✅ **`LatencySeries.Add()` LINQ-effektivitet** — 5 enumerationer per kald. Fix: single foreach loop med alle beregninger.
+8. ✅ **`UpdateMaxLatency` O(n²)** — Recalc ved hver hop-tilføjelse. Fix: early-exit hvis nyt hop < current max.
+9. ✅ **Canvas label-offsets** — Hardcodede pixels. Fix: `TextBlock.Measure()` for faktiske dimensioner.
+10. ⏳ **Canvas element-reuse** — Redraw genopbygger alle shapes. Deferred: optimization, ikke correctness.
