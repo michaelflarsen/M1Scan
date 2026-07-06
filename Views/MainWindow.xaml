@@ -400,13 +400,14 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <RadioButton Style="{StaticResource SideNavStyle}" IsEnabled="False"
-                                     GroupName="SideNav">
+                        <RadioButton x:Name="FindIpNavBtn"
+                                     Style="{StaticResource SideNavStyle}"
+                                     GroupName="SideNav" Tag="FindIp" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Ethernet" Width="18" Height="18"
+                                <materialDesign:PackIcon Kind="Radar" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                          VerticalAlignment="Center"/>
-                                <TextBlock Text="Ports" Margin="10,0,0,0" VerticalAlignment="Center"
+                                <TextBlock Text="Find IP" Margin="10,0,0,0" VerticalAlignment="Center"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                             </StackPanel>
                         </RadioButton>
@@ -483,6 +484,9 @@
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Traceroute">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="FindIp">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -1312,6 +1316,12 @@
                 <!-- ===================================================== -->
                 <views:TracerouteView x:Name="TraceroutePanel" Visibility="Collapsed"
                                       DataContext="{Binding TracerouteVm}"/>
+
+                <!-- ===================================================== -->
+                <!--  FIND IP PANEL                                          -->
+                <!-- ===================================================== -->
+                <views:FindIpView x:Name="FindIpPanel" Visibility="Collapsed"
+                                  DataContext="{Binding FindIpVm}"/>
 
             </Grid>
             <!-- end content panels -->
