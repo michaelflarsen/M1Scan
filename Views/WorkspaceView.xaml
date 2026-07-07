@@ -5,12 +5,67 @@
              xmlns:utils="clr-namespace:M1Scan.Utils"
              xmlns:models="clr-namespace:M1Scan.Models">
 
+    <UserControl.Resources>
+        <!-- Flad chip-knap der integreres i kortet i stedet for at svæve som en outline-knap -->
+        <Style x:Key="WsChipButton" TargetType="Button">
+            <Setter Property="Height"          Value="26"/>
+            <Setter Property="Padding"         Value="11,0"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Foreground"      Value="#9DB0C6"/>
+            <Setter Property="Background"      Value="#212C3D"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2B394D"/>
+                                <Setter Property="Foreground" Value="#D5E0EC"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#324056"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Primær accent-knap (Add) — samme flade look men i blå accent -->
+        <Style x:Key="WsAccentButton" TargetType="Button" BasedOn="{StaticResource WsChipButton}">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#1565C0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1B72D4"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#0E4E99"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Grid Margin="20,12,20,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- MY IP card -->
-            <RowDefinition Height="Auto"/> <!-- Controls card -->
-            <RowDefinition Height="Auto"/> <!-- Add entry card -->
-            <RowDefinition Height="Auto"/> <!-- Bulk add card -->
+            <RowDefinition Height="Auto"/> <!-- Samlet toolbar card -->
             <RowDefinition Height="*"/>    <!-- DataGrid -->
             <RowDefinition Height="Auto"/> <!-- Status message -->
         </Grid.RowDefinitions>
@@ -137,175 +192,184 @@
             </Grid>
         </materialDesign:Card>
 
-        <!-- ===== CONTROLS CARD (Liste-management) ===== -->
-        <materialDesign:Card Grid.Row="1" Margin="0,0,0,12" Padding="12,10"
+        <!-- ===== SAMLET TOOLBAR CARD ===== -->
+        <materialDesign:Card Grid.Row="1" Margin="0,0,0,12" Padding="14,12"
                              Background="#1C2535"
                              materialDesign:ElevationAssist.Elevation="Dp2">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <StackPanel>
 
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Height="28">
-                <materialDesign:PackIcon Kind="Pulse" Width="14" Height="14"
-                                         Foreground="#1565C0" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                <TextBlock Text="Watch List" FontSize="12" FontWeight="SemiBold"
-                           Foreground="White" Margin="7,0,0,0" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding WatchList.Count, StringFormat='({0})'}"
-                           FontSize="11" Foreground="#555555"
-                           Margin="5,0,0,0" VerticalAlignment="Center"/>
-                <Button Content="Fjern timeout" Margin="8,0,0,0"
-                        Style="{StaticResource MaterialDesignOutlinedButton}"
-                        Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
-                        ToolTip="Fjern alle IP-adresser med timeout"
-                        Command="{Binding RemoveTimeoutCommand}"/>
-                <Button Content="Fjern online" Margin="4,0,0,0"
-                        Style="{StaticResource MaterialDesignOutlinedButton}"
-                        Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
-                        ToolTip="Fjern alle IP-adresser der er online"
-                        Command="{Binding RemoveOnlineCommand}"/>
-                <Button Content="{Binding ClearAllLabel}" Margin="4,0,0,0"
-                        Style="{StaticResource MaterialDesignOutlinedButton}"
-                        Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
-                        ToolTip="Ryd hele watch list"
-                        Command="{Binding ClearAllCommand}"/>
-                <Button Content="Eksportér" Margin="4,0,0,0"
-                        Style="{StaticResource MaterialDesignOutlinedButton}"
-                        Height="24" Padding="6,0" FontSize="11" VerticalAlignment="Center"
-                        ToolTip="Eksportér watch list til CSV eller JSON"
-                        Command="{Binding ExportCommand}"/>
+                <!-- Række A: titel + liste-handlinger + interval -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Titel -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="Pulse" Width="15" Height="15"
+                                                 Foreground="#1565C0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Watch List" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding WatchList.Count, StringFormat='({0})'}"
+                                   FontSize="12" Foreground="#5f7392"
+                                   Margin="6,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Liste-handlinger (flade chips) -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                HorizontalAlignment="Left" VerticalAlignment="Center" Margin="20,0,0,0">
+                        <Button Content="Fjern timeout" Style="{StaticResource WsChipButton}"
+                                ToolTip="Fjern alle IP-adresser med timeout"
+                                Command="{Binding RemoveTimeoutCommand}"/>
+                        <Button Content="Fjern online" Style="{StaticResource WsChipButton}" Margin="6,0,0,0"
+                                ToolTip="Fjern alle IP-adresser der er online"
+                                Command="{Binding RemoveOnlineCommand}"/>
+                        <Button Content="{Binding ClearAllLabel}" Style="{StaticResource WsChipButton}" Margin="6,0,0,0"
+                                ToolTip="Ryd hele watch list"
+                                Command="{Binding ClearAllCommand}"/>
+                        <Button Style="{StaticResource WsChipButton}" Margin="6,0,0,0"
+                                ToolTip="Eksportér watch list til CSV eller JSON"
+                                Command="{Binding ExportCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Export" Width="13" Height="13"
+                                                         VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="Eksportér" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Interval (inline, ingen kontrast-boks) -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Interval" FontSize="11" Foreground="#8fa3bf"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Style="{StaticResource DarkTextBoxStyle}"
+                                 Width="42" Height="26" FontFamily="Consolas" FontSize="12"
+                                 TextAlignment="Center"
+                                 Text="{Binding PingIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="sek" FontSize="11" Foreground="#8fa3bf"
+                                   VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Diskret skillelinje -->
+                <Border Height="1" Background="#2A3548" Margin="0,12,0,12"/>
+
+                <!-- Række B: tilføj enkelt enhed -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Text="Tilføj" FontSize="11" Foreground="#8fa3bf"
+                               VerticalAlignment="Center" Margin="0,0,10,0" Width="56"/>
+
+                    <TextBox Grid.Column="1"
+                             Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                             FontFamily="Consolas"
+                             materialDesign:HintAssist.Hint="IP-adresse"
+                             materialDesign:HintAssist.Foreground="#4a5a6f"
+                             Text="{Binding NewIpInput, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="IP address">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+
+                    <TextBox Grid.Column="3"
+                             Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                             materialDesign:HintAssist.Hint="Beskrivelse (valgfri)"
+                             materialDesign:HintAssist.Foreground="#4a5a6f"
+                             Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Description (optional)">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+
+                    <Button Grid.Column="5"
+                            Style="{StaticResource WsAccentButton}"
+                            Height="28" Padding="14,0"
+                            Command="{Binding AddEntryCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Plus" Width="14" Height="14"
+                                                     VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBlock Text="Add" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <!-- Række C: bulk-tilføjelse -->
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>  <!-- "Bulk" -->
+                        <ColumnDefinition Width="150"/>   <!-- Base -->
+                        <ColumnDefinition Width="14"/>    <!-- "." -->
+                        <ColumnDefinition Width="46"/>    <!-- Start -->
+                        <ColumnDefinition Width="14"/>    <!-- "–" -->
+                        <ColumnDefinition Width="46"/>    <!-- End -->
+                        <ColumnDefinition Width="*"/>     <!-- Preview -->
+                        <ColumnDefinition Width="Auto"/>  <!-- Button -->
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Text="Bulk" FontSize="11" Foreground="#8fa3bf"
+                               VerticalAlignment="Center" Margin="0,0,10,0" Width="56"/>
+
+                    <TextBox Grid.Column="1"
+                             Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                             FontFamily="Consolas"
+                             Text="{Binding BulkBase, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Subnet base (e.g. 192.168.1)"/>
+
+                    <TextBlock Grid.Column="2" Text="."
+                               Foreground="#888888" FontSize="13"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                    <TextBox Grid.Column="3"
+                             Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                             FontFamily="Consolas" TextAlignment="Center"
+                             Text="{Binding BulkStart, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Start octet"/>
+
+                    <TextBlock Grid.Column="4" Text="–"
+                               Foreground="#888888" FontSize="13"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                    <TextBox Grid.Column="5"
+                             Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                             FontFamily="Consolas" TextAlignment="Center"
+                             Text="{Binding BulkEnd, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="End octet"/>
+
+                    <TextBlock Grid.Column="6"
+                               Text="{Binding BulkPreview}"
+                               Foreground="#5f7392" FontFamily="Consolas" FontSize="11"
+                               VerticalAlignment="Center" Margin="12,0,6,0"
+                               TextTrimming="CharacterEllipsis"/>
+
+                    <Button Grid.Column="7"
+                            Style="{StaticResource WsChipButton}"
+                            Height="28" Padding="12,0"
+                            Command="{Binding BulkAddCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
+                                                     VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBlock Text="Add all" FontSize="11" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
             </StackPanel>
-
-            <!-- Interval control -->
-            <Border Grid.Column="1" Background="#151E2C" Height="28" Padding="10,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Interval:" FontSize="11" Foreground="#888888"
-                               VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <TextBox Style="{StaticResource DarkTextBoxStyle}"
-                             Width="40" Height="22" FontFamily="Consolas" FontSize="12"
-                             TextAlignment="Center"
-                             Text="{Binding PingIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"/>
-                    <TextBlock Text="sec" FontSize="11" Foreground="#888888"
-                               VerticalAlignment="Center" Margin="5,0,0,0"/>
-                </StackPanel>
-            </Border>
-            </Grid>
-        </materialDesign:Card>
-
-        <!-- ===== ADD ENTRY CARD ===== -->
-        <materialDesign:Card Grid.Row="2" Margin="0,0,0,12" Padding="12,10"
-                             Background="#1C2535"
-                             materialDesign:ElevationAssist.Elevation="Dp2">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="130"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBox Grid.Column="0"
-                         Style="{StaticResource DarkTextBoxStyle}" Height="28"
-                         FontFamily="Consolas"
-                         Text="{Binding NewIpInput, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="IP address">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
-                    </TextBox.InputBindings>
-                </TextBox>
-
-                <TextBox Grid.Column="2"
-                         Style="{StaticResource DarkTextBoxStyle}" Height="28"
-                         Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Description (optional)">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
-                    </TextBox.InputBindings>
-                </TextBox>
-
-                <Button Grid.Column="4"
-                        Style="{StaticResource MaterialDesignRaisedButton}"
-                        Background="#1565C0" BorderBrush="#1565C0"
-                        Height="28" Padding="12,0"
-                        Command="{Binding AddEntryCommand}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Plus" Width="14" Height="14"
-                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
-                        <TextBlock Text="Add" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-            </Grid>
-        </materialDesign:Card>
-
-        <!-- ===== BULK ADD CARD ===== -->
-        <materialDesign:Card Grid.Row="3" Margin="0,0,0,12" Padding="12,10"
-                             Background="#1C2535"
-                             materialDesign:ElevationAssist.Elevation="Dp2">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>  <!-- "Bulk add:" -->
-                    <ColumnDefinition Width="120"/>   <!-- Base -->
-                    <ColumnDefinition Width="14"/>    <!-- "." -->
-                    <ColumnDefinition Width="46"/>    <!-- Start -->
-                    <ColumnDefinition Width="14"/>    <!-- "–" -->
-                    <ColumnDefinition Width="46"/>    <!-- End -->
-                    <ColumnDefinition Width="*"/>     <!-- Preview -->
-                    <ColumnDefinition Width="Auto"/>  <!-- Button -->
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0" Text="Bulk add:"
-                           Foreground="#888888" FontSize="11"
-                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-
-                <TextBox Grid.Column="1"
-                         Style="{StaticResource DarkTextBoxStyle}" Height="26"
-                         FontFamily="Consolas"
-                         Text="{Binding BulkBase, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Subnet base (e.g. 192.168.1)"/>
-
-                <TextBlock Grid.Column="2" Text="."
-                           Foreground="#888888" FontSize="13"
-                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-                <TextBox Grid.Column="3"
-                         Style="{StaticResource DarkTextBoxStyle}" Height="26"
-                         FontFamily="Consolas" TextAlignment="Center"
-                         Text="{Binding BulkStart, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Start octet"/>
-
-                <TextBlock Grid.Column="4" Text="–"
-                           Foreground="#888888" FontSize="13"
-                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-                <TextBox Grid.Column="5"
-                         Style="{StaticResource DarkTextBoxStyle}" Height="26"
-                         FontFamily="Consolas" TextAlignment="Center"
-                         Text="{Binding BulkEnd, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="End octet"/>
-
-                <TextBlock Grid.Column="6"
-                           Text="{Binding BulkPreview}"
-                           Foreground="#555555" FontFamily="Consolas" FontSize="11"
-                           VerticalAlignment="Center" Margin="10,0,6,0"
-                           TextTrimming="CharacterEllipsis"/>
-
-                <Button Grid.Column="7"
-                        Style="{StaticResource MaterialDesignOutlinedButton}"
-                        Height="26" Padding="10,0"
-                        Command="{Binding BulkAddCommand}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
-                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
-                        <TextBlock Text="Add all" FontSize="11" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-            </Grid>
         </materialDesign:Card>
 
         <!-- ===== WATCH LIST DATAGRID ===== -->
-        <DataGrid Grid.Row="4"
+        <DataGrid Grid.Row="2"
                   ItemsSource="{Binding WatchList}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
@@ -743,7 +807,7 @@
         </DataGrid>
 
         <!-- ===== STATUS MESSAGE ===== -->
-        <TextBlock Grid.Row="5"
+        <TextBlock Grid.Row="3"
                    Text="{Binding StatusMessage}"
                    Foreground="#555555" FontSize="11"
                    Margin="0,12,0,0"/>
