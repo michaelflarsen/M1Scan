@@ -35,13 +35,13 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-        <Grid Margin="20,12,20,10">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+    <Grid Margin="20,12,20,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
         <!-- HEADER CARD -->
         <materialDesign:Card Grid.Row="0" Margin="0,0,0,12" Padding="16,12"
@@ -121,7 +121,7 @@
         </materialDesign:Card>
 
         <!-- Enhedsliste CARD -->
-        <materialDesign:Card Grid.Row="1" Margin="0,12,0,0" Padding="0"
+        <materialDesign:Card Grid.Row="1" Margin="0,0,0,0" Padding="0"
                              Background="#1C2535"
                              materialDesign:ElevationAssist.Elevation="Dp2">
                 <DataGrid
@@ -214,6 +214,5 @@
         <!-- Fodnote -->
         <TextBlock Grid.Row="2" Foreground="#5f7392" FontSize="10" Margin="0,12,0,0" TextWrapping="Wrap"
                    Text="Bemærk: uden en dedikeret pakke-driver (Npcap) begrænser switchen synlig unicast-trafik, så listen fanger primært broadcast/multicast. MAC/vendor resolves via ARP og virker på tværs af subnets på samme fysiske segment."/>
-        </Grid>
-    </ScrollViewer>
+    </Grid>
 </UserControl>
