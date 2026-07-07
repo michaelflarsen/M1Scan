@@ -43,6 +43,19 @@ Fra en forhøjet terminal, eller via `run.ps1` som anmoder om elevation automati
 
 ---
 
+## Sikkerhed & Tillid
+
+**Åben kildekode** — Al kode er tilgængelig på GitHub for inspektion. M1Scan indsamler eller sender ingen data uden for din pc.
+
+**Administratorrettigheder** — Appen kræver elevation udelukkende til netværksoperationer:
+- ARP-lookups og netscan via Windows API
+- IP-konfiguration via `netsh` systemkald
+- Raw-socket promiscuous mode til Find IP
+
+**Windows SmartScreen** — Første gang appen køres, kan Windows vise en SmartScreen-advarsel (app ikke signeret af kendt udsteder). Det er normalt for mindre open source-projekter. Koden er fuldt transparent på GitHub — du kan inspicere præcis hvad appen gør før du kører den.
+
+---
+
 ## Forfatter
 
 Michael Larsen — mm@nice1.dk
