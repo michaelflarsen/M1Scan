@@ -2,7 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             Background="#1a2332">
+             Background="#141c28">
     <UserControl.Resources>
         <!-- Lokal kopi af sidebar-adapterknappens stil (AdapterDropdownStyle i MainWindow
              er kun synlig i Window-scope, ikke fra denne UserControl). -->
@@ -35,30 +35,32 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-    <Grid Margin="20">
+    <Grid Margin="20,12,20,10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Titel + forklaring -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,14">
-            <StackPanel Orientation="Horizontal">
-                <materialDesign:PackIcon Kind="Radar" Width="26" Height="26"
-                                         Foreground="#4a90e2" VerticalAlignment="Center"/>
-                <TextBlock Text="Find IP — passiv segment-sniffer" FontSize="24" FontWeight="Bold"
-                           Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
-            <TextBlock Foreground="#8fa3bf" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="Lytter passivt på det fysiske netværkssegment (samme switch) og opdager enheder ud fra deres broadcast/multicast &quot;wakeup calls&quot; — DHCP, mDNS, SSDP, NetBIOS m.fl. Enheder med en IP uden for dit eget subnet fremhæves, så du kan fange en ukendt enhed der f.eks. sidder på 172.10.1.5 mens du selv er på 192.168.1.x."/>
-        </StackPanel>
+        <!-- HEADER CARD -->
+        <materialDesign:Card Grid.Row="0" Margin="0,0,0,12" Padding="16,12"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <StackPanel>
+                <!-- Titel + forklaring -->
+                <StackPanel Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Radar" Width="26" Height="26"
+                                             Foreground="#4a90e2" VerticalAlignment="Center"/>
+                    <TextBlock Text="Find IP — passiv segment-sniffer" FontSize="24" FontWeight="Bold"
+                               Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Foreground="#8fa3bf" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="Lytter passivt på det fysiske netværkssegment (samme switch) og opdager enheder ud fra deres broadcast/multicast &quot;wakeup calls&quot; — DHCP, mDNS, SSDP, NetBIOS m.fl. Enheder med en IP uden for dit eget subnet fremhæves, så du kan fange en ukendt enhed der f.eks. sidder på 172.10.1.5 mens du selv er på 192.168.1.x."/>
 
-        <!-- Kontroller -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                <!-- Kontroller -->
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,10">
             <TextBlock Text="Adapter:" Foreground="#b0b0b0" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <Button x:Name="FindIpAdapterDropdownButton"
                     Style="{StaticResource AdapterDropdownStyle}"
@@ -92,38 +94,44 @@
                       Margin="12,0,0,0" Foreground="#e0e0e0" Content="Kun fremmede på mit segment"/>
         </StackPanel>
 
-        <!-- Status -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
-            <Ellipse Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,8,0">
-                <Ellipse.Style>
-                    <Style TargetType="Ellipse">
-                        <Setter Property="Fill" Value="#666666"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsCapturing}" Value="True">
-                                <Setter Property="Fill" Value="#4CAF50"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Ellipse.Style>
-            </Ellipse>
-            <TextBlock Text="{Binding StatusMessage}" Foreground="#90caf9" FontSize="12" VerticalAlignment="Center"/>
-            <TextBlock Foreground="#8fa3bf" FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0"
-                       Text="{Binding TotalPackets, StringFormat='Pakker: {0}'}"/>
-        </StackPanel>
+                <!-- Status -->
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <Ellipse Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="#666666"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                        <Setter Property="Fill" Value="#4CAF50"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="#90caf9" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock Foreground="#8fa3bf" FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0"
+                               Text="{Binding TotalPackets, StringFormat='Pakker: {0}'}"/>
+                </StackPanel>
 
-        <!-- Kolonneoverskrift-hint -->
-        <TextBlock Grid.Row="3" Foreground="#5f7392" FontSize="11" Margin="0,0,0,4" TextWrapping="Wrap"
-                   Text="Orange = fremmed enhed bekræftet på dit eget segment (det du leder efter: IP uden for dit subnet, men på samme switch). Violet = ISP'ens CGNAT-lag (100.64.0.0/10, RFC 6598) — infrastruktur mellem dig og internettet, ikke en enhed på dit LAN. Øvrige rækker uden for subnet er typisk WAN-endepunkter din trafik går til."/>
+                <!-- Kolonneoverskrift-hint -->
+                <TextBlock Foreground="#5f7392" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"
+                           Text="Orange = fremmed enhed bekræftet på dit eget segment (det du leder efter: IP uden for dit subnet, men på samme switch). Violet = ISP'ens CGNAT-lag (100.64.0.0/10, RFC 6598) — infrastruktur mellem dig og internettet, ikke en enhed på dit LAN. Øvrige rækker uden for subnet er typisk WAN-endepunkter din trafik går til."/>
+                </StackPanel>
+            </StackPanel>
+        </materialDesign:Card>
 
-        <!-- Enhedsliste -->
-        <DataGrid Grid.Row="4"
-                  ItemsSource="{Binding DevicesView}"
-                  AutoGenerateColumns="False" IsReadOnly="True"
-                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                  Background="#141c28"
-                  Foreground="#e0e0e0" BorderBrush="#2a3f5f" BorderThickness="1"
-                  HorizontalGridLinesBrush="#243347"
-                  CanUserResizeRows="False" CanUserAddRows="False">
+        <!-- Enhedsliste CARD -->
+        <materialDesign:Card Grid.Row="1" Margin="0,0,0,0" Padding="0"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+                <DataGrid
+                      ItemsSource="{Binding DevicesView}"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      Background="#141c28"
+                      Foreground="#e0e0e0" BorderBrush="#2a3f5f" BorderThickness="0"
+                      HorizontalGridLinesBrush="#243347"
+                      CanUserResizeRows="False" CanUserAddRows="False">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Setter Property="Background" Value="#1c2636"/>
@@ -186,10 +194,11 @@
                 <DataGridTextColumn Header="Sidst set" Binding="{Binding LastSeenFormatted}" Width="90"/>
                 <DataGridTextColumn Header="Bemærkning" Binding="{Binding Note}" Width="*" MinWidth="200"/>
             </DataGrid.Columns>
-        </DataGrid>
+            </DataGrid>
+        </materialDesign:Card>
 
         <!-- Fodnote -->
-        <TextBlock Grid.Row="5" Foreground="#5f7392" FontSize="10" Margin="0,8,0,0" TextWrapping="Wrap"
+        <TextBlock Grid.Row="2" Foreground="#5f7392" FontSize="10" Margin="0,12,0,0" TextWrapping="Wrap"
                    Text="Bemærk: uden en dedikeret pakke-driver (Npcap) begrænser switchen synlig unicast-trafik, så listen fanger primært broadcast/multicast. MAC/vendor resolves via ARP og virker på tværs af subnets på samme fysiske segment."/>
     </Grid>
 </UserControl>

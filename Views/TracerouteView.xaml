@@ -1,12 +1,18 @@
 <UserControl x:Class="M1Scan.Views.TracerouteView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#1a2332">
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Background="#141c28">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="20">
-            <TextBlock Text="Visuel Traceroute" FontSize="24" FontWeight="Bold" Foreground="#e0e0e0" Margin="0,0,0,20"/>
+        <StackPanel Margin="20,12,20,10">
+            <!-- HEADER CARD -->
+            <materialDesign:Card Margin="0,0,0,12" Padding="16,12"
+                                 Background="#1C2535"
+                                 materialDesign:ElevationAssist.Elevation="Dp2">
+                <StackPanel>
+                    <TextBlock Text="Visuel Traceroute" FontSize="24" FontWeight="Bold" Foreground="#e0e0e0" Margin="0,0,0,12"/>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                 <TextBlock Text="Værtsnavn eller IP:" Foreground="#b0b0b0" VerticalAlignment="Center" Width="150"/>
                 <TextBox Text="{Binding TargetInput, UpdateSourceTrigger=PropertyChanged}"
                          Background="#2a3f5f" Foreground="#e0e0e0" Padding="10,8" Width="300"
@@ -58,19 +64,30 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
-            </StackPanel>
+                </StackPanel>
 
-            <ProgressBar Height="5" Value="{Binding TraceProgress}" Maximum="100"
-                         Background="#2a3f5f" Foreground="#4a90e2" Margin="0,0,0,15"/>
+                    <ProgressBar Height="5" Value="{Binding TraceProgress}" Maximum="100"
+                                 Background="#2a3f5f" Foreground="#4a90e2" Margin="0,12,0,0"/>
+                </StackPanel>
+            </materialDesign:Card>
 
-            <!-- Hop-graf (søjler med farvekodet tab%) -->
-            <TextBlock Text="Latency pr. hop" Foreground="#e0337a" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
-            <Canvas x:Name="HopGraphCanvas" Height="250" Background="#0d0812"
-                    Margin="0,0,0,15" SizeChanged="HopGraphCanvas_SizeChanged"/>
+            <!-- Hop-graf CARD -->
+            <materialDesign:Card Margin="0,0,0,12" Padding="16,12"
+                                 Background="#1C2535"
+                                 materialDesign:ElevationAssist.Elevation="Dp2">
+                <StackPanel>
+                    <TextBlock Text="Latency pr. hop" Foreground="#e0337a" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <Canvas x:Name="HopGraphCanvas" Height="250" Background="#0d0812"
+                            Margin="0,0,0,0" SizeChanged="HopGraphCanvas_SizeChanged"/>
+                </StackPanel>
+            </materialDesign:Card>
 
-            <!-- Detalje-tabel under grafen -->
-            <DataGrid ItemsSource="{Binding Hops}" Background="#1a2332" Foreground="#e0e0e0"
-                      HeadersVisibility="Column" AutoGenerateColumns="False" ColumnWidth="*">
+            <!-- DETALJE-TABEL CARD -->
+            <materialDesign:Card Margin="0,0,0,0" Padding="0"
+                                 Background="#1C2535"
+                                 materialDesign:ElevationAssist.Elevation="Dp2">
+                <DataGrid ItemsSource="{Binding Hops}" Background="#141c28" Foreground="#e0e0e0"
+                          HeadersVisibility="Column" AutoGenerateColumns="False" ColumnWidth="*" BorderThickness="0">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
                         <Setter Property="Background" Value="#1a2332"/>
@@ -98,7 +115,8 @@
                     <DataGridTextColumn Header="Jitter (ms)" Binding="{Binding LatencySeries.JitterDisplay}" Width="100"/>
                     <DataGridTextColumn Header="Tab %" Binding="{Binding LatencySeries.LossDisplay}" Width="80"/>
                 </DataGrid.Columns>
-            </DataGrid>
+                </DataGrid>
+            </materialDesign:Card>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

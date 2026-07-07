@@ -5,7 +5,7 @@
              xmlns:utils="clr-namespace:M1Scan.Utils"
              xmlns:models="clr-namespace:M1Scan.Models">
 
-    <Grid Margin="20,10,20,10">
+    <Grid Margin="20,12,20,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- MY IP card -->
             <RowDefinition Height="Auto"/> <!-- Table header -->

@@ -1201,9 +1201,17 @@
                 <!-- ===================================================== -->
                 <Grid x:Name="IpConfigPanel" Visibility="Collapsed"
                       DataContext="{Binding IpConfigVm}"
-                      Margin="20,10,20,10">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                      Margin="20,12,20,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- ADAPTER SELECTION CARD -->
+                    <materialDesign:Card Grid.Row="0" Margin="0,0,0,12" Padding="16,12"
+                                         Background="#1C2535"
+                                         materialDesign:ElevationAssist.Elevation="Dp2">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
                             <TextBlock Text="Select Network Adapter:" FontWeight="Bold"
                                        Foreground="{StaticResource DarkForegroundBrush}"
                                        VerticalAlignment="Center" Margin="0,0,10,0"/>
@@ -1232,9 +1240,15 @@
                                     Margin="10,0,0,0" Width="80"
                                     Command="{Binding RefreshAdaptersCommand}"/>
                         </StackPanel>
+                    </materialDesign:Card>
 
-                        <TextBlock Text="IP Configuration" FontWeight="Bold"
-                                   Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
+                    <!-- IP CONFIGURATION CARD -->
+                    <materialDesign:Card Grid.Row="1" Margin="0,0,0,0" Padding="16,12"
+                                         Background="#1C2535"
+                                         materialDesign:ElevationAssist.Elevation="Dp2">
+                        <StackPanel>
+                            <TextBlock Text="IP Configuration" FontWeight="Bold"
+                                       Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
 
                         <Grid Margin="0,0,0,15">
                             <Grid.ColumnDefinitions>
@@ -1294,16 +1308,17 @@
                         <TextBlock Text="{Binding StatusMessage}"
                                    Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
 
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Apply DHCP"      Style="{StaticResource DarkButtonStyle}"
-                                    Width="120" Margin="0,0,10,0" Command="{Binding ApplyDhcpCommand}"/>
-                            <Button Content="Apply Static IP" Style="{StaticResource DarkButtonStyle}"
-                                    Width="120" Margin="0,0,10,0" Command="{Binding ApplyStaticIpCommand}"/>
-                            <Button Content="Flush DNS"       Style="{StaticResource DarkButtonStyle}"
-                                    Width="120"               Command="{Binding FlushDnsCommand}"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Apply DHCP"      Style="{StaticResource DarkButtonStyle}"
+                                        Width="120" Margin="0,0,10,0" Command="{Binding ApplyDhcpCommand}"/>
+                                <Button Content="Apply Static IP" Style="{StaticResource DarkButtonStyle}"
+                                        Width="120" Margin="0,0,10,0" Command="{Binding ApplyStaticIpCommand}"/>
+                                <Button Content="Flush DNS"       Style="{StaticResource DarkButtonStyle}"
+                                        Width="120"               Command="{Binding FlushDnsCommand}"/>
+                            </StackPanel>
                         </StackPanel>
-                    </StackPanel>
-                </Grid>
+                    </materialDesign:Card>
+                    </Grid>
 
                 <!-- ===================================================== -->
                 <!--  WORKSPACE PANEL                                       -->
