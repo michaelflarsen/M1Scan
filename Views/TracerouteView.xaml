@@ -71,6 +71,23 @@
             <!-- Detalje-tabel under grafen -->
             <DataGrid ItemsSource="{Binding Hops}" Background="#1a2332" Foreground="#e0e0e0"
                       HeadersVisibility="Column" AutoGenerateColumns="False" ColumnWidth="*">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="#1a2332"/>
+                        <Setter Property="Foreground" Value="#e0e0e0"/>
+                        <Style.Triggers>
+                            <!-- Hover effect — synlig når musen er over raden -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#2d3d4d"/>
+                            </Trigger>
+                            <!-- Selected effect — synlig når raden er valgt -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#1565C0"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Hop" Binding="{Binding HopNumber}" Width="50"/>
                     <DataGridTextColumn Header="IP-adresse" Binding="{Binding IpAddress}" Width="150"/>
