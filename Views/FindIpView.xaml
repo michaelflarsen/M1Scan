@@ -142,7 +142,7 @@
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="" Width="34">
+                <DataGridTemplateColumn Header="" Width="50">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <materialDesign:PackIcon Width="16" Height="16"
