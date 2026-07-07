@@ -124,7 +124,7 @@
         <materialDesign:Card Grid.Row="1" Margin="0,0,0,0" Padding="0"
                              Background="#1C2535"
                              materialDesign:ElevationAssist.Elevation="Dp2"
-                             MaxHeight="500">
+                             MaxHeight="600">
                 <DataGrid
                       ItemsSource="{Binding DevicesView}"
                       AutoGenerateColumns="False" IsReadOnly="True"

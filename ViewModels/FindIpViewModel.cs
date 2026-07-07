@@ -155,9 +155,16 @@ namespace M1Scan.ViewModels
 
                 // Find IP skal bruge default route adapter (som Scan-fanen gør)
                 // — undgår VPN, Tailscale tunnels osv. og bruger systemets primary connection
-                // Adapter med Gateway = default route (fysisk netværk, ikke tunnel)
-                var defaultAdapter = connected.FirstOrDefault(a => !string.IsNullOrEmpty(a.Gateway)) ?? connected.FirstOrDefault();
-                SelectedAdapter = defaultAdapter;
+                // Filter: adapter med Gateway + ikke-VPN description
+                var vpnKeywords = new[] { "Tailscale", "Hamachi", "OpenVPN", "WireGuard", "NordVPN", "ExpressVPN", "ProtonVPN", "Cisco" };
+                var physicalAdapters = connected.Where(a =>
+                    !string.IsNullOrEmpty(a.Gateway) &&
+                    !vpnKeywords.Any(kw => a.Description?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false)
+                ).ToList();
+
+                var defaultAdapter = physicalAdapters.FirstOrDefault() ?? connected.FirstOrDefault();
+                // Only set if not already selected (preserve user's choice across refresh)
+                SelectedAdapter ??= defaultAdapter;
             }
             catch (Exception ex)
             {
