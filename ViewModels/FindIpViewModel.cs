@@ -152,7 +152,12 @@ namespace M1Scan.ViewModels
                 var adapters = await _networkService.GetNetworkAdaptersAsync();
                 var connected = adapters.Where(a => a.IsConnected && a.IpAddresses.Length > 0).ToList();
                 AvailableAdapters = new ObservableCollection<NetworkAdapter>(connected);
-                SelectedAdapter ??= connected.FirstOrDefault();
+
+                // Find IP skal bruge default route adapter (som Scan-fanen gør)
+                // — undgår VPN, Tailscale tunnels osv. og bruger systemets primary connection
+                // Adapter med Gateway = default route (fysisk netværk, ikke tunnel)
+                var defaultAdapter = connected.FirstOrDefault(a => !string.IsNullOrEmpty(a.Gateway)) ?? connected.FirstOrDefault();
+                SelectedAdapter = defaultAdapter;
             }
             catch (Exception ex)
             {
