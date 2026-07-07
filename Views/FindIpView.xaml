@@ -123,7 +123,8 @@
         <!-- Enhedsliste CARD -->
         <materialDesign:Card Grid.Row="1" Margin="0,0,0,0" Padding="0"
                              Background="#1C2535"
-                             materialDesign:ElevationAssist.Elevation="Dp2">
+                             materialDesign:ElevationAssist.Elevation="Dp2"
+                             MaxHeight="500">
                 <DataGrid
                       ItemsSource="{Binding DevicesView}"
                       AutoGenerateColumns="False" IsReadOnly="True"
@@ -131,7 +132,9 @@
                       Background="#141c28"
                       Foreground="#e0e0e0" BorderBrush="#2a3f5f" BorderThickness="0"
                       HorizontalGridLinesBrush="#243347"
-                      CanUserResizeRows="False" CanUserAddRows="False">
+                      CanUserResizeRows="False" CanUserAddRows="False"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Setter Property="Background" Value="#1c2636"/>
