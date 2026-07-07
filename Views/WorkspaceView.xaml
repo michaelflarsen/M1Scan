@@ -8,7 +8,7 @@
     <Grid Margin="20,12,20,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- MY IP card -->
-            <RowDefinition Height="Auto"/> <!-- Table header -->
+            <RowDefinition Height="Auto"/> <!-- Table header + buttons -->
             <RowDefinition Height="*"/>    <!-- DataGrid -->
             <RowDefinition Height="Auto"/> <!-- Add row -->
             <RowDefinition Height="Auto"/> <!-- Bulk add + status -->
@@ -136,15 +136,17 @@
             </Grid>
         </materialDesign:Card>
 
-        <!-- ===== TABLE HEADER ===== -->
-        <Grid Grid.Row="1" Margin="0,0,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+        <!-- ===== CONTROLS CARD (Liste-management) ===== -->
+        <materialDesign:Card Grid.Row="1" Margin="0,0,0,12" Padding="12,10"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
-                        Background="#151E2C" Height="28">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Height="28">
                 <materialDesign:PackIcon Kind="Pulse" Width="14" Height="14"
                                          Foreground="#1565C0" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 <TextBlock Text="Watch List" FontSize="12" FontWeight="SemiBold"
@@ -187,7 +189,8 @@
                                VerticalAlignment="Center" Margin="5,0,0,0"/>
                 </StackPanel>
             </Border>
-        </Grid>
+            </Grid>
+        </materialDesign:Card>
 
         <!-- ===== WATCH LIST DATAGRID ===== -->
         <DataGrid Grid.Row="2"
