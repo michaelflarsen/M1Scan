@@ -138,6 +138,15 @@
                         <DataTrigger Binding="{Binding IsForeignOnSegment}" Value="True">
                             <Setter Property="Background" Value="#3a2a12"/>
                         </DataTrigger>
+                        <!-- Hover effect — synlig når musen er over raden -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#2d3d4d"/>
+                        </Trigger>
+                        <!-- Selected effect — synlig når raden er valgt -->
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#1565C0"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
                     </Style.Triggers>
                 </Style>
             </DataGrid.RowStyle>
