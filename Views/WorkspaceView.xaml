@@ -8,10 +8,11 @@
     <Grid Margin="20,12,20,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- MY IP card -->
-            <RowDefinition Height="Auto"/> <!-- Table header + buttons -->
+            <RowDefinition Height="Auto"/> <!-- Controls card -->
+            <RowDefinition Height="Auto"/> <!-- Add entry card -->
+            <RowDefinition Height="Auto"/> <!-- Bulk add card -->
             <RowDefinition Height="*"/>    <!-- DataGrid -->
-            <RowDefinition Height="Auto"/> <!-- Add row -->
-            <RowDefinition Height="Auto"/> <!-- Bulk add + status -->
+            <RowDefinition Height="Auto"/> <!-- Status message -->
         </Grid.RowDefinitions>
 
         <!-- ===== MY IP CARD ===== -->
@@ -192,8 +193,119 @@
             </Grid>
         </materialDesign:Card>
 
+        <!-- ===== ADD ENTRY CARD ===== -->
+        <materialDesign:Card Grid.Row="2" Margin="0,0,0,12" Padding="12,10"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0"
+                         Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                         FontFamily="Consolas"
+                         Text="{Binding NewIpInput, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="IP address">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <TextBox Grid.Column="2"
+                         Style="{StaticResource DarkTextBoxStyle}" Height="28"
+                         Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Description (optional)">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <Button Grid.Column="4"
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Background="#1565C0" BorderBrush="#1565C0"
+                        Height="28" Padding="12,0"
+                        Command="{Binding AddEntryCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Plus" Width="14" Height="14"
+                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="Add" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- ===== BULK ADD CARD ===== -->
+        <materialDesign:Card Grid.Row="3" Margin="0,0,0,12" Padding="12,10"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>  <!-- "Bulk add:" -->
+                    <ColumnDefinition Width="120"/>   <!-- Base -->
+                    <ColumnDefinition Width="14"/>    <!-- "." -->
+                    <ColumnDefinition Width="46"/>    <!-- Start -->
+                    <ColumnDefinition Width="14"/>    <!-- "–" -->
+                    <ColumnDefinition Width="46"/>    <!-- End -->
+                    <ColumnDefinition Width="*"/>     <!-- Preview -->
+                    <ColumnDefinition Width="Auto"/>  <!-- Button -->
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="Bulk add:"
+                           Foreground="#888888" FontSize="11"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+                <TextBox Grid.Column="1"
+                         Style="{StaticResource DarkTextBoxStyle}" Height="26"
+                         FontFamily="Consolas"
+                         Text="{Binding BulkBase, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Subnet base (e.g. 192.168.1)"/>
+
+                <TextBlock Grid.Column="2" Text="."
+                           Foreground="#888888" FontSize="13"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                <TextBox Grid.Column="3"
+                         Style="{StaticResource DarkTextBoxStyle}" Height="26"
+                         FontFamily="Consolas" TextAlignment="Center"
+                         Text="{Binding BulkStart, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Start octet"/>
+
+                <TextBlock Grid.Column="4" Text="–"
+                           Foreground="#888888" FontSize="13"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                <TextBox Grid.Column="5"
+                         Style="{StaticResource DarkTextBoxStyle}" Height="26"
+                         FontFamily="Consolas" TextAlignment="Center"
+                         Text="{Binding BulkEnd, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="End octet"/>
+
+                <TextBlock Grid.Column="6"
+                           Text="{Binding BulkPreview}"
+                           Foreground="#555555" FontFamily="Consolas" FontSize="11"
+                           VerticalAlignment="Center" Margin="10,0,6,0"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <Button Grid.Column="7"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Height="26" Padding="10,0"
+                        Command="{Binding BulkAddCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
+                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="Add all" FontSize="11" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </materialDesign:Card>
+
         <!-- ===== WATCH LIST DATAGRID ===== -->
-        <DataGrid Grid.Row="2"
+        <DataGrid Grid.Row="4"
                   ItemsSource="{Binding WatchList}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
@@ -630,131 +742,11 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- ===== ADD ROW ===== -->
-        <Border Grid.Row="3"
-                Background="#131C29"
-                BorderBrush="{StaticResource ControlBorderBrush}"
-                BorderThickness="1,0,1,1"
-                Padding="8,7">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="130"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBox Grid.Column="0"
-                         Style="{StaticResource DarkTextBoxStyle}" Height="28"
-                         FontFamily="Consolas"
-                         Text="{Binding NewIpInput, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="IP address">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
-                    </TextBox.InputBindings>
-                </TextBox>
-
-                <TextBox Grid.Column="2"
-                         Style="{StaticResource DarkTextBoxStyle}" Height="28"
-                         Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Description (optional)">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Return" Command="{Binding AddEntryCommand}"/>
-                    </TextBox.InputBindings>
-                </TextBox>
-
-                <Button Grid.Column="4"
-                        Style="{StaticResource MaterialDesignRaisedButton}"
-                        Background="#1565C0" BorderBrush="#1565C0"
-                        Height="28" Padding="12,0"
-                        Command="{Binding AddEntryCommand}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Plus" Width="14" Height="14"
-                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
-                        <TextBlock Text="Add" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-            </Grid>
-        </Border>
-
-        <!-- ===== BULK ADD + STATUS ===== -->
-        <Grid Grid.Row="4" Margin="0,10,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <Border Grid.Row="0"
-                    Background="#0D1520"
-                    BorderBrush="{StaticResource ControlBorderBrush}"
-                    BorderThickness="1" Padding="10,7">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>  <!-- "Bulk add:" -->
-                        <ColumnDefinition Width="120"/>   <!-- Base -->
-                        <ColumnDefinition Width="14"/>    <!-- "." -->
-                        <ColumnDefinition Width="46"/>    <!-- Start -->
-                        <ColumnDefinition Width="14"/>    <!-- "–" -->
-                        <ColumnDefinition Width="46"/>    <!-- End -->
-                        <ColumnDefinition Width="*"/>     <!-- Preview -->
-                        <ColumnDefinition Width="Auto"/>  <!-- Button -->
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Column="0" Text="Bulk add:"
-                               Foreground="#888888" FontSize="11"
-                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-
-                    <TextBox Grid.Column="1"
-                             Style="{StaticResource DarkTextBoxStyle}" Height="26"
-                             FontFamily="Consolas"
-                             Text="{Binding BulkBase, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Subnet base (e.g. 192.168.1)"/>
-
-                    <TextBlock Grid.Column="2" Text="."
-                               Foreground="#888888" FontSize="13"
-                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-                    <TextBox Grid.Column="3"
-                             Style="{StaticResource DarkTextBoxStyle}" Height="26"
-                             FontFamily="Consolas" TextAlignment="Center"
-                             Text="{Binding BulkStart, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Start octet"/>
-
-                    <TextBlock Grid.Column="4" Text="–"
-                               Foreground="#888888" FontSize="13"
-                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-                    <TextBox Grid.Column="5"
-                             Style="{StaticResource DarkTextBoxStyle}" Height="26"
-                             FontFamily="Consolas" TextAlignment="Center"
-                             Text="{Binding BulkEnd, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="End octet"/>
-
-                    <TextBlock Grid.Column="6"
-                               Text="{Binding BulkPreview}"
-                               Foreground="#555555" FontFamily="Consolas" FontSize="11"
-                               VerticalAlignment="Center" Margin="10,0,6,0"
-                               TextTrimming="CharacterEllipsis"/>
-
-                    <Button Grid.Column="7"
-                            Style="{StaticResource MaterialDesignOutlinedButton}"
-                            Height="26" Padding="10,0"
-                            Command="{Binding BulkAddCommand}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
-                                                     VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBlock Text="Add all" FontSize="11" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </Grid>
-            </Border>
-
-            <TextBlock Grid.Row="1"
-                       Text="{Binding StatusMessage}"
-                       Foreground="#555555" FontSize="11"
-                       Margin="2,5,0,0"/>
-        </Grid>
+        <!-- ===== STATUS MESSAGE ===== -->
+        <TextBlock Grid.Row="5"
+                   Text="{Binding StatusMessage}"
+                   Foreground="#555555" FontSize="11"
+                   Margin="0,12,0,0"/>
 
     </Grid>
 </UserControl>
