@@ -137,6 +137,20 @@
                     <Setter Property="Background" Value="#1c2636"/>
                     <Setter Property="Foreground" Value="#e0e0e0"/>
                     <Style.Triggers>
+                        <!-- Lokalt subnet — standard farve (lidt lysere blå) -->
+                        <DataTrigger Binding="{Binding IsOutsideSubnet}" Value="False">
+                            <Setter Property="Background" Value="#1c2d3d"/>
+                        </DataTrigger>
+                        <!-- WAN-endepunkt (uden for subnet, men ikke på segment, og ikke CGNAT) — mørkegrøn tone -->
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsOutsideSubnet}" Value="True"/>
+                                <Condition Binding="{Binding IsForeignOnSegment}" Value="False"/>
+                                <Condition Binding="{Binding IsCarrierNat}" Value="False"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Background" Value="#1a3a2a"/>
+                            <Setter Property="Foreground" Value="#a8d5ba"/>
+                        </MultiDataTrigger>
                         <!-- CGNAT (ISP-lag) — dæmpet violet så det tydeligt ikke er et fund. -->
                         <DataTrigger Binding="{Binding IsCarrierNat}" Value="True">
                             <Setter Property="Background" Value="#2a1e3a"/>
