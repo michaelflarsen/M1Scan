@@ -85,7 +85,7 @@
                 </StackPanel>
                 <!-- Beskrivelse -->
                 <TextBlock Foreground="#8fa3bf" FontSize="12" TextWrapping="Wrap"
-                           Text="Denne fane bruges til at overvåge og hente enheder over fra et andet netværk til dit primære netværk. Tilføj IP-adresser du ønsker at følge, og se deres status i realtid. Klik 'Follow' på en enhed for at starte processen med at hente den over til dit primære netværksegment."/>
+                           Text="Denne fane bruges til at overvåge og hente enheder over fra et andet netværk til dit primære netværk. Tilføj IP-adresser du ønsker at følge og den destations IP, og se deres status i realtid. Klik 'Follow' på en enhed for at følge den til dens netværksegment."/>
             </StackPanel>
         </materialDesign:Card>
 
