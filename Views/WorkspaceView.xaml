@@ -64,15 +64,34 @@
 
     <Grid Margin="20,12,20,10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- MY IP card -->
+            <RowDefinition Height="Auto"/> <!-- HEADER CARD: Titel + beskrivelse -->
+            <RowDefinition Height="Auto"/> <!-- MY IP CARD: Stort IP display -->
             <RowDefinition Height="Auto"/> <!-- Samlet toolbar card -->
             <RowDefinition Height="*"/>    <!-- DataGrid -->
             <RowDefinition Height="Auto"/> <!-- Status message -->
         </Grid.RowDefinitions>
 
-        <!-- ===== MY IP CARD ===== -->
+        <!-- ===== HEADER CARD ===== -->
+        <materialDesign:Card Grid.Row="0" Margin="0,0,0,12" Padding="16,12"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <StackPanel>
+                <!-- Titel + ikon -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <materialDesign:PackIcon Kind="Lan" Width="26" Height="26"
+                                             Foreground="#4a90e2" VerticalAlignment="Center"/>
+                    <TextBlock Text="Device Follow — Hent enheder over til primært netværk" FontSize="24" FontWeight="Bold"
+                               Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <!-- Beskrivelse -->
+                <TextBlock Foreground="#8fa3bf" FontSize="12" TextWrapping="Wrap"
+                           Text="Denne fane bruges til at overvåge og hente enheder over fra et andet netværk til dit primære netværk. Tilføj IP-adresser du ønsker at følge, og se deres status i realtid. Klik 'Follow' på en enhed for at starte processen med at hente den over til dit primære netværksegment."/>
+            </StackPanel>
+        </materialDesign:Card>
+
+        <!-- ===== MY IP CARD: LØS IP DISPLAY ===== -->
         <materialDesign:Card x:Name="MyIpCard"
-                             Grid.Row="0" Margin="0,0,0,12" Padding="16,10"
+                             Grid.Row="1" Margin="0,0,0,12" Padding="16,10"
                              Background="#1C2535"
                              Cursor="Hand"
                              MouseLeftButtonUp="MyIpCard_Click"
@@ -193,7 +212,7 @@
         </materialDesign:Card>
 
         <!-- ===== SAMLET TOOLBAR CARD ===== -->
-        <materialDesign:Card Grid.Row="1" Margin="0,0,0,12" Padding="14,12"
+        <materialDesign:Card Grid.Row="2" Margin="0,0,0,12" Padding="14,12"
                              Background="#1C2535"
                              materialDesign:ElevationAssist.Elevation="Dp2">
             <StackPanel>
@@ -369,7 +388,7 @@
         </materialDesign:Card>
 
         <!-- ===== WATCH LIST DATAGRID ===== -->
-        <DataGrid Grid.Row="2"
+        <DataGrid Grid.Row="3"
                   ItemsSource="{Binding WatchList}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
@@ -807,7 +826,7 @@
         </DataGrid>
 
         <!-- ===== STATUS MESSAGE ===== -->
-        <TextBlock Grid.Row="3"
+        <TextBlock Grid.Row="4"
                    Text="{Binding StatusMessage}"
                    Foreground="#555555" FontSize="11"
                    Margin="0,12,0,0"/>
