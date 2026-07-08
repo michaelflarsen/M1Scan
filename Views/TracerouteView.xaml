@@ -10,7 +10,14 @@
                                  Background="#1C2535"
                                  materialDesign:ElevationAssist.Elevation="Dp2">
                 <StackPanel>
-                    <TextBlock Text="Visuel Traceroute" FontSize="24" FontWeight="Bold" Foreground="#e0e0e0" Margin="0,0,0,12"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <materialDesign:PackIcon Kind="NetworkPath" Width="26" Height="26"
+                                                 Foreground="#4a90e2" VerticalAlignment="Center"/>
+                        <TextBlock Text="Traceroute — Spor netværksrute til en vært" FontSize="24" FontWeight="Bold"
+                                   Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Foreground="#8fa3bf" FontSize="12" Margin="0,6,0,12" TextWrapping="Wrap"
+                               Text="Visualiserer det netværksrute (hops) som dine pakker tager fra din computer til en destination. For hver hop vises latency (forsinkelse), og du kan se hvor længe de enkelte routere tager at svare. Perfekt til at diagnosticere netværksforsinkelser og finde problematiske forbindelser."/>
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                 <TextBlock Text="Værtsnavn eller IP:" Foreground="#b0b0b0" VerticalAlignment="Center" Width="150"/>

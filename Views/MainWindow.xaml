@@ -459,6 +459,7 @@
             </Grid.LayoutTransform>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- TopBar -->
+                <RowDefinition Height="Auto"/> <!-- Header (Scan/IP-skift) -->
                 <RowDefinition Height="Auto"/> <!-- Stats row -->
                 <RowDefinition Height="*"/>    <!-- Content panels -->
             </Grid.RowDefinitions>
@@ -575,8 +576,55 @@
                 </Grid>
             </Border>
 
+            <!-- ===== HEADER ROW (Scan & IP-skift pages) ===== -->
+            <!-- Scan Header -->
+            <Border Grid.Row="1" Background="{StaticResource DarkBackgroundBrush}" Padding="20,0,20,0" Margin="0,6,0,0">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="Scan">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <materialDesign:Card Padding="16,12" Background="#1C2535" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Radar" Width="26" Height="26" Foreground="#4a90e2" VerticalAlignment="Center"/>
+                            <TextBlock Text="Scan — Aktiv netværksscanning" FontSize="24" FontWeight="Bold" Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Foreground="#8fa3bf" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" Text="Scanner aktivt et helt subnet ved at pinge hver adresse i det valgte IP-interval og opdager alle enheder der svarer. For hver host vises IP, MAC-adresse, producent (vendor), TTL/OS-gæt og åbne porte (80/443/8080), så du hurtigt får et komplet overblik over hvad der er online på netværket."/>
+                    </StackPanel>
+                </materialDesign:Card>
+            </Border>
+
+            <!-- IP-skift Header -->
+            <Border Grid.Row="1" Background="{StaticResource DarkBackgroundBrush}" Padding="20,0,20,0" Margin="0,6,0,0">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="IpSkift">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <materialDesign:Card Padding="16,12" Background="#1C2535" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="IpNetworkOutline" Width="26" Height="26" Foreground="#4a90e2" VerticalAlignment="Center"/>
+                            <TextBlock Text="IP-skift — Skift mellem DHCP og statisk IP" FontSize="24" FontWeight="Bold" Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Foreground="#8fa3bf" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" Text="Ændrer IP-konfigurationen på en valgt netværksadapter. Skift hurtigt til DHCP så adapteren automatisk får en adresse fra routeren, eller sæt en statisk IP med subnetmaske, gateway og DNS efter behov. Ændringerne udføres via netsh og kræver administratorrettigheder. Her kan du også rydde (flushe) DNS-cachen."/>
+                    </StackPanel>
+                </materialDesign:Card>
+            </Border>
+
             <!-- ===== STATS ROW (Devices page only) ===== -->
-            <Grid Grid.Row="1" x:Name="StatsRow"
+            <Grid Grid.Row="2" x:Name="StatsRow"
                   Background="{StaticResource DarkBackgroundBrush}"
                   Margin="20,12,20,0">
                 <Grid.ColumnDefinitions>
@@ -630,7 +678,7 @@
             <!-- ============================================================ -->
             <!--  CONTENT PANELS                                               -->
             <!-- ============================================================ -->
-            <Grid Grid.Row="2" Background="{StaticResource DarkBackgroundBrush}">
+            <Grid Grid.Row="3" Background="{StaticResource DarkBackgroundBrush}">
 
                 <!-- ===================================================== -->
                 <!--  HOME PANEL                                             -->
