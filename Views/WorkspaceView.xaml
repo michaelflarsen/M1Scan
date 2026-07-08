@@ -78,8 +78,8 @@
             <StackPanel>
                 <!-- Titel + ikon -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <materialDesign:PackIcon Kind="ServerNetwork" Width="26" Height="26"
-                                             Foreground="#4a90e2" VerticalAlignment="Center"/>
+                    <Image Source="../Resources/device_follow.jpg" Width="26" Height="26"
+                           VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
                     <TextBlock Text="Device Follow — Hent enheder over til primært netværk" FontSize="24" FontWeight="Bold"
                                Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
