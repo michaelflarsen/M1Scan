@@ -78,38 +78,8 @@
             <StackPanel>
                 <!-- Titel + ikon -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <Canvas Width="26" Height="26" VerticalAlignment="Center">
-                        <!-- Central IP box -->
-                        <Rectangle Canvas.Left="7" Canvas.Top="2" Width="10" Height="10"
-                                   RadiusX="1.5" RadiusY="1.5" Fill="None" Stroke="#4a90e2" StrokeThickness="0.8"/>
-                        <TextBlock Canvas.Left="9.5" Canvas.Top="4.5" FontSize="4" FontWeight="Bold"
-                                   Foreground="#4a90e2" Text="IP"/>
-
-                        <!-- Connection line from center up -->
-                        <Line X1="12" Y1="2" X2="12" Y2="-1" Stroke="#4a90e2" StrokeThickness="0.8"/>
-
-                        <!-- Top-left child box -->
-                        <Rectangle Canvas.Left="3" Canvas.Top="14" Width="8" Height="8"
-                                   RadiusX="1.5" RadiusY="1.5" Fill="None" Stroke="#4a90e2" StrokeThickness="0.8"/>
-
-                        <!-- Center child box -->
-                        <Rectangle Canvas.Left="8" Canvas.Top="14" Width="8" Height="8"
-                                   RadiusX="1.5" RadiusY="1.5" Fill="None" Stroke="#4a90e2" StrokeThickness="0.8"/>
-
-                        <!-- Right child box -->
-                        <Rectangle Canvas.Left="13" Canvas.Top="14" Width="8" Height="8"
-                                   RadiusX="1.5" RadiusY="1.5" Fill="None" Stroke="#4a90e2" StrokeThickness="0.8"/>
-
-                        <!-- Connection lines down -->
-                        <Line X1="7" Y1="12" X2="7" Y2="14" Stroke="#4a90e2" StrokeThickness="0.6"/>
-                        <Line X1="12" Y1="12" X2="12" Y2="14" Stroke="#4a90e2" StrokeThickness="0.6"/>
-                        <Line X1="17" Y1="12" X2="17" Y2="14" Stroke="#4a90e2" StrokeThickness="0.6"/>
-
-                        <!-- Dotted arrow pointing right -->
-                        <Polyline Points="20,5 22,3 22,7" Fill="None" Stroke="#4a90e2" StrokeThickness="0.8"/>
-                        <Line X1="15" Y1="5" X2="20" Y2="5" Stroke="#4a90e2" StrokeThickness="0.6"
-                              StrokeDashArray="2,2"/>
-                    </Canvas>
+                    <materialDesign:PackIcon Kind="ServerNetwork" Width="26" Height="26"
+                                             Foreground="#4a90e2" VerticalAlignment="Center"/>
                     <TextBlock Text="Device Follow — Hent enheder over til primært netværk" FontSize="24" FontWeight="Bold"
                                Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
