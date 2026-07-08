@@ -37,6 +37,7 @@
     <Resource Include="Resources\m1scan-logo.jpg" />
     <Resource Include="Resources\m1scan-logo-small.jpg" />
     <Resource Include="Resources\logo.png" />
+    <Resource Include="Resources\device_follow.jpg" />
   </ItemGroup>
 
   <ItemGroup>
