@@ -11,7 +11,7 @@
                                  materialDesign:ElevationAssist.Elevation="Dp2">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <materialDesign:PackIcon Kind="NetworkPath" Width="26" Height="26"
+                        <materialDesign:PackIcon Kind="Sitemap" Width="26" Height="26"
                                                  Foreground="#4a90e2" VerticalAlignment="Center"/>
                         <TextBlock Text="Traceroute — Spor netværksrute til en vært" FontSize="24" FontWeight="Bold"
                                    Foreground="#e0e0e0" Margin="10,0,0,0" VerticalAlignment="Center"/>
