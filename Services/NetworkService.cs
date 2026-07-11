@@ -49,6 +49,41 @@ namespace M1Scan.Services
         private const int RowSize = 88;
         private const int TableHeaderSize = 8;
 
+        // Try to get MAC from Windows netsh as fallback when native lookup fails
+        private static string GetMacFromNetshFallback(string ipAddress)
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("netsh", $"arp show interface")
+                {
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8
+                };
+                using var process = System.Diagnostics.Process.Start(psi);
+                if (process == null) return string.Empty;
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit(2000);
+
+                var lines = output.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    if (line.Contains(ipAddress, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var part in parts)
+                        {
+                            if (part.Length == 17 && part.Count(c => c == '-') == 5)
+                                return part.Replace('-', ':');
+                        }
+                    }
+                }
+            }
+            catch { }
+            return string.Empty;
+        }
+
         // Reads the Windows ARP cache via native GetIpNetTable2 — instant, no subprocess.
         private static Dictionary<string, string> ReadArpCacheNative()
         {
@@ -132,8 +167,16 @@ namespace M1Scan.Services
                         int destIp = BitConverter.ToInt32(bytes, 0);
                         byte[] macAddr = new byte[6];
                         uint macAddrLen = (uint)macAddr.Length;
-                        if (SendARP(destIp, 0, macAddr, ref macAddrLen) == 0)
+                        if (SendARP(destIp, 0, macAddr, ref macAddrLen) == 0 && macAddrLen > 0)
                             return string.Join(":", macAddr.Take((int)macAddrLen).Select(b => b.ToString("X2")));
+
+                        // Fallback: try native ARP cache first
+                        var nativeArp = ReadArpCacheNative();
+                        if (nativeArp.TryGetValue(ipAddress, out var mac) && !string.IsNullOrEmpty(mac))
+                            return mac;
+
+                        // Last resort: netsh fallback for stubborn devices like Shelly
+                        return GetMacFromNetshFallback(ipAddress);
                     }
                     catch { }
                     return string.Empty;
