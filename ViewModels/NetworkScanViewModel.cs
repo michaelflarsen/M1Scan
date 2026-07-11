@@ -481,7 +481,6 @@ namespace M1Scan.ViewModels
                 else
                 {
                     DiscoveredHosts.Add(host);
-                    SortHostsByIp();
                 }
 
                 StatusMessage = host.IsReachable
@@ -731,13 +730,9 @@ namespace M1Scan.ViewModels
                         CheckPortBounded(portSem, host.IpAddress, 443, srcIp, ct),
                         CheckPortBounded(portSem, host.IpAddress, 8080, srcIp, ct),
                         CheckPortBounded(portSem, host.IpAddress, 502, srcIp, ct));
-                    host.IsPort80Open   = portResults[0];
-                    host.IsPort443Open  = portResults[1];
-                    host.IsPort8080Open = portResults[2];
-                    host.IsPort502Open  = portResults[3];
 
-                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress, srcIp, ct);
-                    await UpdateHostInUI(host);
+                    var netbios = await _networkService.GetNetBiosNameAsync(host.IpAddress, srcIp, ct);
+                    await UpdateHostInUI(host, portResults, netbios);
                 });
                 await Task.WhenAll(enrichmentTasks);
 
@@ -794,7 +789,7 @@ namespace M1Scan.ViewModels
             finally { sem.Release(); }
         }
 
-        private async Task UpdateHostInUI(HostInfo host)
+        private async Task UpdateHostInUI(HostInfo host, bool[]? portResults = null, string? netbios = null)
         {
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
@@ -807,11 +802,14 @@ namespace M1Scan.ViewModels
                     existing.LastSeen = host.LastSeen;
                     existing.IsReachable = host.IsReachable;
                     existing.OsGuess = host.OsGuess;
-                    existing.NetBiosName = host.NetBiosName;
-                    existing.IsPort80Open = host.IsPort80Open;
-                    existing.IsPort443Open = host.IsPort443Open;
-                    existing.IsPort8080Open = host.IsPort8080Open;
-                    existing.IsPort502Open = host.IsPort502Open;
+                    if (netbios != null) existing.NetBiosName = netbios;
+                    if (portResults != null)
+                    {
+                        existing.IsPort80Open = portResults[0];
+                        existing.IsPort443Open = portResults[1];
+                        existing.IsPort8080Open = portResults[2];
+                        existing.IsPort502Open = portResults[3];
+                    }
                     if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
                     if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
                 }

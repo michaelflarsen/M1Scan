@@ -87,7 +87,10 @@ namespace M1Scan.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"GetMacFromNetshFallback failed: {ex.Message}");
+            }
             return string.Empty;
         }
 
@@ -317,6 +320,10 @@ namespace M1Scan.Services
             if (_dnsCache.TryGetValue(ip, out var cached))
                 return cached;
 
+            // Prevent unbounded cache growth on repeated scans
+            if (_dnsCache.Count > 10000)
+                _dnsCache.Clear();
+
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeoutMs);
             try
@@ -371,7 +378,8 @@ namespace M1Scan.Services
                     packet[2] = (byte)(checksum >> 8); packet[3] = (byte)(checksum & 0xFF);
 
                     pending[seq] = (ip, sw.ElapsedTicks);
-                    try { sock.SendTo(packet, new IPEndPoint(destAddr, 0)); } catch { }
+                    try { sock.SendTo(packet, new IPEndPoint(destAddr, 0)); }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"ICMP send to {ip} failed: {ex.Message}"); }
                     seq++;
                 }
 
