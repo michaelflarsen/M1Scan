@@ -80,6 +80,10 @@ namespace M1Scan.ViewModels
             }
         }
 
+        // Source IP of the selected adapter — binds all scan traffic (ping, port, NetBIOS,
+        // ARP) to that interface so a VPN/tunnel can't hijack the route to a LAN target.
+        private string ScanSrcIp => _selectedAdapter?.IpAddresses.FirstOrDefault() ?? string.Empty;
+
         public ObservableCollection<HostInfo> DiscoveredHosts
         {
             get => _discoveredHosts;
@@ -430,20 +434,23 @@ namespace M1Scan.ViewModels
                 _scanCts = new CancellationTokenSource();
                 var ct = _scanCts.Token;
 
-                var host = await _networkService.PingHostAsync(IpAddressInput, SelectedAdapter?.Name ?? string.Empty, ct);
+                var srcIp = ScanSrcIp;
+                var host = await _networkService.PingHostAsync(IpAddressInput, SelectedAdapter?.Name ?? string.Empty, srcIp, ct);
                 if (host.IsReachable)
                 {
                     var portResults = await Task.WhenAll(
-                        _networkService.CheckPortAsync(host.IpAddress, 80, 1000, ct),
-                        _networkService.CheckPortAsync(host.IpAddress, 443, 1000, ct),
-                        _networkService.CheckPortAsync(host.IpAddress, 8080, 1000, ct),
-                        _networkService.CheckPortAsync(host.IpAddress, 502, 1000, ct));
+                        _networkService.CheckPortAsync(host.IpAddress, 80, srcIp, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 443, srcIp, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 8080, srcIp, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 502, srcIp, 1000, ct));
                     host.IsPort80Open   = portResults[0];
                     host.IsPort443Open  = portResults[1];
                     host.IsPort8080Open = portResults[2];
                     host.IsPort502Open  = portResults[3];
 
-                    var mac = await _networkService.GetMacAddressAsync(host.IpAddress, ct);
+                    var mac = await _networkService.SendArpRequestAsync(host.IpAddress, srcIp, ct);
+                    if (string.IsNullOrEmpty(mac))
+                        mac = await _networkService.GetMacAddressAsync(host.IpAddress, ct);
                     if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
@@ -531,6 +538,9 @@ namespace M1Scan.ViewModels
 
             try
             {
+                // Bind all scan traffic to the selected adapter's source IP.
+                var srcIp = ScanSrcIp;
+
                 // ===== FASE 0+1: ARP-flood + ping-sweep (samtidige) =====
                 var floodTask = _networkService.FloodArpAsync(SubnetInput, StartIp, EndIp, ct);
 
@@ -549,7 +559,7 @@ namespace M1Scan.ViewModels
                         await semaphore.WaitAsync(ct).ConfigureAwait(false);
                         try
                         {
-                            var host = await _networkService.PingHostAsync(ip, SelectedAdapter?.Name ?? string.Empty, ct);
+                            var host = await _networkService.PingHostAsync(ip, SelectedAdapter?.Name ?? string.Empty, srcIp, ct);
                             var cnt = Interlocked.Increment(ref completedCount);
                             if (host.IsReachable)
                             {
@@ -582,10 +592,6 @@ namespace M1Scan.ViewModels
 
                 // Read the ARP cache first (populated by the flood + ping sweep) — instant.
                 var arpTable = _networkService.GetArpTableNative();
-
-                // Source IP of the selected adapter — forces ARP out of the local LAN
-                // interface even when a VPN (Tailscale) has hijacked the route to a LAN IP.
-                var srcIp = SelectedAdapter?.IpAddresses.FirstOrDefault() ?? string.Empty;
 
                 // Resolve MAC per host: prefer a direct blocking SendARP (returns the MAC
                 // even for slow devices like Shelly), fall back to the cache snapshot.
@@ -631,16 +637,16 @@ namespace M1Scan.ViewModels
                 var enrichmentTasks = onlineList.Select(async host =>
                 {
                     var portResults = await Task.WhenAll(
-                        CheckPortBounded(portSem, host.IpAddress, 80, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 443, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 8080, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 502, ct));
+                        CheckPortBounded(portSem, host.IpAddress, 80, srcIp, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 443, srcIp, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 8080, srcIp, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 502, srcIp, ct));
                     host.IsPort80Open   = portResults[0];
                     host.IsPort443Open  = portResults[1];
                     host.IsPort8080Open = portResults[2];
                     host.IsPort502Open  = portResults[3];
 
-                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress, ct);
+                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress, srcIp, ct);
                     await UpdateHostInUI(host);
                 });
                 await Task.WhenAll(enrichmentTasks);
@@ -691,10 +697,10 @@ namespace M1Scan.ViewModels
             }
         }
 
-        private async Task<bool> CheckPortBounded(SemaphoreSlim sem, string ip, int port, CancellationToken ct)
+        private async Task<bool> CheckPortBounded(SemaphoreSlim sem, string ip, int port, string srcIp, CancellationToken ct)
         {
             await sem.WaitAsync(ct).ConfigureAwait(false);
-            try { return await _networkService.CheckPortAsync(ip, port, 1000, ct); }
+            try { return await _networkService.CheckPortAsync(ip, port, srcIp, 1000, ct); }
             finally { sem.Release(); }
         }
 

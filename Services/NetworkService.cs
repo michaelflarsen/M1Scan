@@ -17,10 +17,13 @@ namespace M1Scan.Services
     {
         Task<List<NetworkAdapter>> GetNetworkAdaptersAsync();
         Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "", CancellationToken ct = default);
+        Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName, string srcIp, CancellationToken ct = default);
         Task<Dictionary<string, string>> GetArpTableAsync();
         Dictionary<string, string> GetArpTableNative();
         Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000, CancellationToken ct = default);
+        Task<bool> CheckPortAsync(string ip, int port, string srcIp, int timeoutMs = 1000, CancellationToken ct = default);
         Task<string> GetNetBiosNameAsync(string ipAddress, CancellationToken ct = default);
+        Task<string> GetNetBiosNameAsync(string ipAddress, string srcIp, CancellationToken ct = default);
         Task<string> GetMacAddressAsync(string ipAddress, CancellationToken ct = default);
         Task FloodArpAsync(string subnet, int startIp, int endIp, CancellationToken ct = default);
         Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default);
@@ -321,8 +324,73 @@ namespace M1Scan.Services
             }
         }
 
-        public async Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "",
-                                                   CancellationToken ct = default)
+        // Raw-socket ICMP echo bound to a specific source IP. Returns (success, rtt, ttl).
+        // System.Net.NetworkInformation.Ping cannot bind a source interface, so when we
+        // need to force ICMP out of a chosen adapter (e.g. avoid a VPN route) we build the
+        // ICMP packet manually on a raw socket bound to srcIp. Requires admin (app has it).
+        private static (bool ok, long rttMs, int ttl) IcmpPingBound(string ip, string srcIp, int timeoutMs)
+        {
+            if (!IPAddress.TryParse(ip, out var destAddr) ||
+                !IPAddress.TryParse(srcIp, out var srcAddr))
+                return (false, 0, 0);
+
+            Socket? sock = null;
+            try
+            {
+                sock = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Icmp);
+                sock.Bind(new IPEndPoint(srcAddr, 0));
+                sock.ReceiveTimeout = timeoutMs;
+                sock.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveTimeout, timeoutMs);
+
+                // ICMP echo request: type=8, code=0, id, seq, then checksum over the whole packet.
+                ushort id = (ushort)Environment.CurrentManagedThreadId;
+                byte[] packet = new byte[8];
+                packet[0] = 8; // echo request
+                packet[1] = 0;
+                packet[4] = (byte)(id >> 8); packet[5] = (byte)(id & 0xFF);
+                packet[6] = 0; packet[7] = 1; // sequence
+                ushort checksum = IcmpChecksum(packet);
+                packet[2] = (byte)(checksum >> 8); packet[3] = (byte)(checksum & 0xFF);
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                sock.SendTo(packet, new IPEndPoint(destAddr, 0));
+
+                var buf = new byte[1024];
+                EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
+                int received = sock.ReceiveFrom(buf, ref remote);
+                sw.Stop();
+
+                // Reply is a full IP packet: IHL*4 = IP header length, then ICMP.
+                if (received >= 20)
+                {
+                    int ihl = (buf[0] & 0x0F) * 4;
+                    int ttl = buf[8];
+                    if (received >= ihl + 8 && buf[ihl] == 0 /* echo reply */)
+                        return (true, sw.ElapsedMilliseconds, ttl);
+                }
+                return (false, 0, 0);
+            }
+            catch { return (false, 0, 0); }
+            finally { sock?.Dispose(); }
+        }
+
+        private static ushort IcmpChecksum(byte[] data)
+        {
+            uint sum = 0;
+            for (int i = 0; i + 1 < data.Length; i += 2)
+                sum += (uint)((data[i] << 8) + data[i + 1]);
+            if (data.Length % 2 == 1)
+                sum += (uint)(data[^1] << 8);
+            while ((sum >> 16) != 0) sum = (sum & 0xFFFF) + (sum >> 16);
+            return (ushort)~sum;
+        }
+
+        public Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "",
+                                            CancellationToken ct = default)
+            => PingHostAsync(hostOrIp, adapterName, string.Empty, ct);
+
+        public async Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName,
+                                                  string srcIp, CancellationToken ct = default)
         {
             var hostInfo = new HostInfo
             {
@@ -332,33 +400,63 @@ namespace M1Scan.Services
 
             try
             {
-                using var ping = new Ping();
-                // Single attempt 600ms — generous for LAN; TCP fallback covers filtered hosts
-                var reply = await ping.SendPingAsync(hostOrIp, 600);
-
-                if (reply.Status == IPStatus.Success)
+                // When a source IP is given, use a bound raw-socket ping so ICMP leaves the
+                // chosen adapter (not a VPN route). Otherwise use the simpler managed Ping.
+                if (!string.IsNullOrEmpty(srcIp))
                 {
-                    hostInfo.IsReachable = true;
-                    hostInfo.ResponseTime = (int)reply.RoundtripTime;
-                    hostInfo.Status = "Online";
-                    hostInfo.IpAddress = reply.Address.ToString();
-
-                    int ttl = reply.Options?.Ttl ?? 0;
-                    hostInfo.OsGuess = ttl switch
+                    var (ok, rtt, ttl) = await Task.Run(() => IcmpPingBound(hostOrIp, srcIp, 600), ct);
+                    if (ok)
                     {
-                        > 0 and <= 64  => "Linux / Mac",
-                        > 64 and <= 128 => "Windows",
-                        > 128           => "Netværksenhed",
-                        _               => string.Empty
-                    };
-
-                    if (IPAddress.TryParse(hostOrIp, out _))
-                        hostInfo.HostName = await GetHostNameWithTimeoutAsync(hostOrIp, 2000, ct);
+                        hostInfo.IsReachable = true;
+                        hostInfo.ResponseTime = (int)rtt;
+                        hostInfo.Status = "Online";
+                        hostInfo.IpAddress = hostOrIp;
+                        hostInfo.OsGuess = ttl switch
+                        {
+                            > 0 and <= 64   => "Linux / Mac",
+                            > 64 and <= 128 => "Windows",
+                            > 128           => "Netværksenhed",
+                            _               => string.Empty
+                        };
+                        if (IPAddress.TryParse(hostOrIp, out _))
+                            hostInfo.HostName = await GetHostNameWithTimeoutAsync(hostOrIp, 2000, ct);
+                    }
+                    else
+                    {
+                        hostInfo.IsReachable = false;
+                        hostInfo.Status = "Timeout";
+                    }
                 }
                 else
                 {
-                    hostInfo.IsReachable = false;
-                    hostInfo.Status = reply.Status.ToString();
+                    using var ping = new Ping();
+                    // Single attempt 600ms — generous for LAN; TCP fallback covers filtered hosts
+                    var reply = await ping.SendPingAsync(hostOrIp, 600);
+
+                    if (reply.Status == IPStatus.Success)
+                    {
+                        hostInfo.IsReachable = true;
+                        hostInfo.ResponseTime = (int)reply.RoundtripTime;
+                        hostInfo.Status = "Online";
+                        hostInfo.IpAddress = reply.Address.ToString();
+
+                        int ttl = reply.Options?.Ttl ?? 0;
+                        hostInfo.OsGuess = ttl switch
+                        {
+                            > 0 and <= 64  => "Linux / Mac",
+                            > 64 and <= 128 => "Windows",
+                            > 128           => "Netværksenhed",
+                            _               => string.Empty
+                        };
+
+                        if (IPAddress.TryParse(hostOrIp, out _))
+                            hostInfo.HostName = await GetHostNameWithTimeoutAsync(hostOrIp, 2000, ct);
+                    }
+                    else
+                    {
+                        hostInfo.IsReachable = false;
+                        hostInfo.Status = reply.Status.ToString();
+                    }
                 }
             }
             catch (Exception ex)
@@ -372,7 +470,7 @@ namespace M1Scan.Services
             {
                 if (ct.IsCancellationRequested) { hostInfo.LastSeen = DateTime.Now; return hostInfo; }
                 var tcpPorts = new[] { 80, 443, 22, 445 };
-                var tcpResults = await Task.WhenAll(tcpPorts.Select(p => CheckPortAsync(hostOrIp, p, 300, ct)));
+                var tcpResults = await Task.WhenAll(tcpPorts.Select(p => CheckPortAsync(hostOrIp, p, srcIp, 300, ct)));
                 var firstOpen = tcpPorts.Zip(tcpResults).FirstOrDefault(x => x.Second);
                 if (firstOpen.Second)
                 {
@@ -388,7 +486,11 @@ namespace M1Scan.Services
             return hostInfo;
         }
 
-        public async Task<string> GetNetBiosNameAsync(string ipAddress,
+        public Task<string> GetNetBiosNameAsync(string ipAddress, CancellationToken ct = default)
+            => GetNetBiosNameAsync(ipAddress, string.Empty, ct);
+
+        // Binds the UDP socket to srcIp so the NetBIOS query leaves the chosen adapter.
+        public async Task<string> GetNetBiosNameAsync(string ipAddress, string srcIp,
                                                        CancellationToken ct = default)
         {
             return await Task.Run(() =>
@@ -404,7 +506,17 @@ namespace M1Scan.Services
                         0x00, 0x21, 0x00, 0x01
                     };
 
-                    using var udp = new UdpClient();
+                    UdpClient udp;
+                    if (!string.IsNullOrEmpty(srcIp) && IPAddress.TryParse(srcIp, out var srcAddr))
+                    {
+                        try { udp = new UdpClient(new IPEndPoint(srcAddr, 0)); }
+                        catch { udp = new UdpClient(); }
+                    }
+                    else
+                    {
+                        udp = new UdpClient();
+                    }
+                    using var _udp = udp;
                     udp.Client.ReceiveTimeout = 200;
                     udp.Send(request, request.Length, ipAddress, 137);
 
@@ -438,19 +550,37 @@ namespace M1Scan.Services
             return await Task.Run(ReadArpCacheNative);
         }
 
-        public async Task<bool> CheckPortAsync(string ip, int port,
+        public Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000,
+                                         CancellationToken ct = default)
+            => CheckPortAsync(ip, port, string.Empty, timeoutMs, ct);
+
+        // Binds the outgoing socket to srcIp so the connection leaves the chosen adapter,
+        // preventing a VPN/tunnel from hijacking the route to a LAN destination.
+        public async Task<bool> CheckPortAsync(string ip, int port, string srcIp,
                                                 int timeoutMs = 1000,
                                                 CancellationToken ct = default)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeoutMs);
-            using var client = new TcpClient();
+
+            TcpClient client;
+            if (!string.IsNullOrEmpty(srcIp) && IPAddress.TryParse(srcIp, out var srcAddr))
+            {
+                try { client = new TcpClient(new IPEndPoint(srcAddr, 0)); }
+                catch { client = new TcpClient(); } // src IP not bindable (e.g. adapter gone) — fall back
+            }
+            else
+            {
+                client = new TcpClient();
+            }
+
             try
             {
                 await client.ConnectAsync(ip, port, cts.Token);
                 return client.Connected;
             }
             catch { return false; }
+            finally { client.Dispose(); }
         }
     }
 }
