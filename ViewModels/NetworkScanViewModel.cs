@@ -42,6 +42,9 @@ namespace M1Scan.ViewModels
         // OUI-lookup cache per scan — holds vendor names for MAC prefixes already looked up
         private readonly Dictionary<string, string> _ouiCache = new(StringComparer.OrdinalIgnoreCase);
 
+        private DateTime _scanStartTime;
+        private string _scanElapsedTime = string.Empty;
+
         public ObservableCollection<NetworkAdapter> AvailableAdapters
         {
             get => _availableAdapters;
@@ -157,6 +160,12 @@ namespace M1Scan.ViewModels
         }
 
         public string AutoRefreshButtonLabel => IsAutoRefreshEnabled ? "Stop auto" : "Start auto";
+
+        public string ScanElapsedTime
+        {
+            get => _scanElapsedTime;
+            set => SetProperty(ref _scanElapsedTime, value);
+        }
 
         public RelayCommand PingSingleCommand { get; }
         public RelayCommand ScanNetworkCommand { get; }
@@ -503,6 +512,7 @@ namespace M1Scan.ViewModels
 
             _scanCts = new CancellationTokenSource();
             var ct = _scanCts.Token;
+            _scanStartTime = DateTime.Now;
 
             // DispatcherTimer flushes _uiQueue to DiscoveredHosts every 100ms on UI thread
             bool flushing = false;
@@ -612,7 +622,9 @@ namespace M1Scan.ViewModels
                 SortHostsByIp();
                 ScanProgress = 100;
                 var total = DiscoveredHosts.Count(h => h.IsReachable);
-                StatusMessage = $"Færdig — {total} online enheder fundet.";
+                var elapsed = DateTime.Now - _scanStartTime;
+                ScanElapsedTime = $"{elapsed.TotalSeconds:F1}s";
+                StatusMessage = $"Færdig — {total} online enheder fundet på {ScanElapsedTime}";
             }
             catch (OperationCanceledException)
             {
