@@ -545,21 +545,89 @@ namespace M1Scan.ViewModels
                 var floodTask = _networkService.FloodArpAsync(SubnetInput, StartIp, EndIp, ct);
 
                 int totalTasks = EndIp - StartIp + 1;
-                var completedCount = 0;
                 var onlineCount = 0;
                 var reachableHosts = new ConcurrentBag<HostInfo>();
+                var allIps = Enumerable.Range(StartIp, totalTasks)
+                                       .Select(i => $"{SubnetInput}.{i}").ToList();
 
-                using var semaphore = new SemaphoreSlim(150);
-                var pingTasks = Enumerable.Range(StartIp, totalTasks).Select(i =>
+                if (!string.IsNullOrEmpty(srcIp))
                 {
-                    var ip = $"{SubnetInput}.{i}";
-                    return Task.Run(async () =>
+                    // Fast path: sweep the whole range on one bound raw socket.
+                    StatusMessage = $"Ping-scanning af {totalTasks} IP'er...";
+                    var sweep = await _networkService.PingSweepBoundAsync(allIps, srcIp, 800, ct);
+                    onlineCount = sweep.Count;
+                    foreach (var (ip, r) in sweep)
+                    {
+                        var host = new HostInfo
+                        {
+                            IpAddress = ip,
+                            HostName = ip,
+                            IsReachable = true,
+                            Status = "Online",
+                            ResponseTime = (int)r.rttMs,
+                            AdapterName = SelectedAdapter?.Name ?? string.Empty,
+                            OsGuess = r.ttl switch
+                            {
+                                > 0 and <= 64   => "Linux / Mac",
+                                > 64 and <= 128 => "Windows",
+                                > 128           => "Netværksenhed",
+                                _               => string.Empty
+                            },
+                            LastSeen = DateTime.Now
+                        };
+                        reachableHosts.Add(host);
+                        _uiQueue.Enqueue(host);
+                    }
+                    ScanProgress = 40;
+
+                    // TCP-fallback for hosts der blokerer ICMP (routere, firewalls, IoT):
+                    // prøv et par almindelige porte på de IP'er der ikke svarede på ping.
+                    var noReply = allIps.Where(ip => !sweep.ContainsKey(ip)).ToList();
+                    var tcpPorts = new[] { 80, 443, 445 };
+                    using var tcpSem = new SemaphoreSlim(150);
+                    var tcpTasks = noReply.Select(ip => Task.Run(async () =>
+                    {
+                        await tcpSem.WaitAsync(ct).ConfigureAwait(false);
+                        try
+                        {
+                            foreach (var p in tcpPorts)
+                            {
+                                if (await _networkService.CheckPortAsync(ip, p, srcIp, 300, ct))
+                                {
+                                    var host = new HostInfo
+                                    {
+                                        IpAddress = ip,
+                                        HostName = ip,
+                                        IsReachable = true,
+                                        Status = $"Online (TCP:{p})",
+                                        AdapterName = SelectedAdapter?.Name ?? string.Empty,
+                                        LastSeen = DateTime.Now
+                                    };
+                                    reachableHosts.Add(host);
+                                    _uiQueue.Enqueue(host);
+                                    Interlocked.Increment(ref onlineCount);
+                                    break;
+                                }
+                            }
+                        }
+                        finally { tcpSem.Release(); }
+                    }, ct)).ToList();
+                    await Task.WhenAll(tcpTasks);
+
+                    ScanProgress = 50;
+                }
+                else
+                {
+                    // Fallback path (no adapter/src IP): managed Ping per host, bounded.
+                    var completedCount = 0;
+                    using var semaphore = new SemaphoreSlim(150);
+                    var pingTasks = allIps.Select(ip => Task.Run(async () =>
                     {
                         if (ct.IsCancellationRequested) return;
                         await semaphore.WaitAsync(ct).ConfigureAwait(false);
                         try
                         {
-                            var host = await _networkService.PingHostAsync(ip, SelectedAdapter?.Name ?? string.Empty, srcIp, ct);
+                            var host = await _networkService.PingHostAsync(ip, SelectedAdapter?.Name ?? string.Empty, ct);
                             var cnt = Interlocked.Increment(ref completedCount);
                             if (host.IsReachable)
                             {
@@ -576,10 +644,11 @@ namespace M1Scan.ViewModels
                             });
                         }
                         finally { semaphore.Release(); }
-                    }, ct);
-                }).ToList();
+                    }, ct)).ToList();
 
-                await Task.WhenAll(pingTasks);
+                    await Task.WhenAll(pingTasks);
+                }
+
                 await floodTask;
 
                 FlushUiQueue(); // Flush resterende ping-resultater

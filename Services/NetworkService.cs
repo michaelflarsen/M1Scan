@@ -18,6 +18,9 @@ namespace M1Scan.Services
         Task<List<NetworkAdapter>> GetNetworkAdaptersAsync();
         Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "", CancellationToken ct = default);
         Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName, string srcIp, CancellationToken ct = default);
+        // Sweeps all IPs on one bound raw socket. Returns responsive IP -> (rttMs, ttl).
+        Task<Dictionary<string, (long rttMs, int ttl)>> PingSweepBoundAsync(
+            IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct = default);
         Task<Dictionary<string, string>> GetArpTableAsync();
         Dictionary<string, string> GetArpTableNative();
         Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000, CancellationToken ct = default);
@@ -324,53 +327,76 @@ namespace M1Scan.Services
             }
         }
 
-        // Raw-socket ICMP echo bound to a specific source IP. Returns (success, rtt, ttl).
-        // System.Net.NetworkInformation.Ping cannot bind a source interface, so when we
-        // need to force ICMP out of a chosen adapter (e.g. avoid a VPN route) we build the
-        // ICMP packet manually on a raw socket bound to srcIp. Requires admin (app has it).
-        private static (bool ok, long rttMs, int ttl) IcmpPingBound(string ip, string srcIp, int timeoutMs)
+        // Sweeps an entire IP range with ICMP echo over ONE shared raw socket bound to srcIp.
+        // A single socket sends all requests (each tagged with a sequence number that encodes
+        // the destination) and one receive loop matches replies back — far cheaper than one
+        // socket per host, and avoids cross-talk where one socket steals another's reply.
+        // Returns a dictionary of responsive IP -> (rttMs, ttl). Requires admin (app has it).
+        private static Dictionary<string, (long rttMs, int ttl)> IcmpSweepBound(
+            IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct)
         {
-            if (!IPAddress.TryParse(ip, out var destAddr) ||
-                !IPAddress.TryParse(srcIp, out var srcAddr))
-                return (false, 0, 0);
+            var result = new Dictionary<string, (long, int)>();
+            if (!IPAddress.TryParse(srcIp, out var srcAddr)) return result;
+
+            // Map sequence number -> destination IP + send timestamp, so replies can be matched.
+            var pending = new Dictionary<ushort, (string ip, long sentTicks)>();
+            var ipList = ips.Where(x => IPAddress.TryParse(x, out _)).ToList();
 
             Socket? sock = null;
             try
             {
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Icmp);
                 sock.Bind(new IPEndPoint(srcAddr, 0));
-                sock.ReceiveTimeout = timeoutMs;
-                sock.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveTimeout, timeoutMs);
 
-                // ICMP echo request: type=8, code=0, id, seq, then checksum over the whole packet.
-                ushort id = (ushort)Environment.CurrentManagedThreadId;
-                byte[] packet = new byte[8];
-                packet[0] = 8; // echo request
-                packet[1] = 0;
-                packet[4] = (byte)(id >> 8); packet[5] = (byte)(id & 0xFF);
-                packet[6] = 0; packet[7] = 1; // sequence
-                ushort checksum = IcmpChecksum(packet);
-                packet[2] = (byte)(checksum >> 8); packet[3] = (byte)(checksum & 0xFF);
-
+                ushort id = (ushort)(Environment.CurrentManagedThreadId & 0xFFFF);
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                sock.SendTo(packet, new IPEndPoint(destAddr, 0));
 
-                var buf = new byte[1024];
-                EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
-                int received = sock.ReceiveFrom(buf, ref remote);
-                sw.Stop();
-
-                // Reply is a full IP packet: IHL*4 = IP header length, then ICMP.
-                if (received >= 20)
+                // ---- Send phase: fire an echo request for every IP ----
+                ushort seq = 0;
+                foreach (var ip in ipList)
                 {
+                    if (ct.IsCancellationRequested) break;
+                    var destAddr = IPAddress.Parse(ip);
+                    byte[] packet = new byte[8];
+                    packet[0] = 8; // echo request
+                    packet[4] = (byte)(id >> 8); packet[5] = (byte)(id & 0xFF);
+                    packet[6] = (byte)(seq >> 8); packet[7] = (byte)(seq & 0xFF);
+                    ushort checksum = IcmpChecksum(packet);
+                    packet[2] = (byte)(checksum >> 8); packet[3] = (byte)(checksum & 0xFF);
+
+                    pending[seq] = (ip, sw.ElapsedTicks);
+                    try { sock.SendTo(packet, new IPEndPoint(destAddr, 0)); } catch { }
+                    seq++;
+                }
+
+                // ---- Receive phase: collect replies until timeout or all matched ----
+                var buf = new byte[1024];
+                while (pending.Count > result.Count && !ct.IsCancellationRequested)
+                {
+                    long remainingMs = timeoutMs - sw.ElapsedMilliseconds;
+                    if (remainingMs <= 0) break;
+                    sock.ReceiveTimeout = (int)Math.Min(remainingMs, timeoutMs);
+
+                    int received;
+                    EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
+                    try { received = sock.ReceiveFrom(buf, ref remote); }
+                    catch (SocketException) { break; } // timeout — no more replies
+
+                    if (received < 20) continue;
                     int ihl = (buf[0] & 0x0F) * 4;
                     int ttl = buf[8];
-                    if (received >= ihl + 8 && buf[ihl] == 0 /* echo reply */)
-                        return (true, sw.ElapsedMilliseconds, ttl);
+                    if (received < ihl + 8 || buf[ihl] != 0 /* echo reply */) continue;
+
+                    ushort rId = (ushort)((buf[ihl + 4] << 8) | buf[ihl + 5]);
+                    ushort rSeq = (ushort)((buf[ihl + 6] << 8) | buf[ihl + 7]);
+                    if (rId != id || !pending.TryGetValue(rSeq, out var info)) continue;
+
+                    var rttMs = (sw.ElapsedTicks - info.sentTicks) * 1000 / System.Diagnostics.Stopwatch.Frequency;
+                    result[info.ip] = (rttMs, ttl);
                 }
-                return (false, 0, 0);
+                return result;
             }
-            catch { return (false, 0, 0); }
+            catch { return result; }
             finally { sock?.Dispose(); }
         }
 
@@ -389,6 +415,10 @@ namespace M1Scan.Services
                                             CancellationToken ct = default)
             => PingHostAsync(hostOrIp, adapterName, string.Empty, ct);
 
+        public Task<Dictionary<string, (long rttMs, int ttl)>> PingSweepBoundAsync(
+            IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct = default)
+            => Task.Run(() => IcmpSweepBound(ips, srcIp, timeoutMs, ct), ct);
+
         public async Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName,
                                                   string srcIp, CancellationToken ct = default)
         {
@@ -404,7 +434,11 @@ namespace M1Scan.Services
                 // chosen adapter (not a VPN route). Otherwise use the simpler managed Ping.
                 if (!string.IsNullOrEmpty(srcIp))
                 {
-                    var (ok, rtt, ttl) = await Task.Run(() => IcmpPingBound(hostOrIp, srcIp, 600), ct);
+                    var sweep = await Task.Run(
+                        () => IcmpSweepBound(new[] { hostOrIp }, srcIp, 600, ct), ct);
+                    bool ok = sweep.TryGetValue(hostOrIp, out var r);
+                    long rtt = ok ? r.rttMs : 0;
+                    int ttl = ok ? r.ttl : 0;
                     if (ok)
                     {
                         hostInfo.IsReachable = true;
