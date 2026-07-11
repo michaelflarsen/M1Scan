@@ -578,8 +578,19 @@ namespace M1Scan.ViewModels
                 StatusMessage = $"Ping-fase færdig — {onlineCount} online. Henter MAC-adresser...";
                 ScanProgress = 55;
 
-                var arpTable = _networkService.GetArpTableNative();
                 var onlineList = reachableHosts.ToList();
+
+                // Send ARP requests to all online hosts to ensure they're in cache (helps with Shelly, etc)
+                using var arpSem = new SemaphoreSlim(100);
+                var arpTasks = onlineList.Select(async host =>
+                {
+                    await arpSem.WaitAsync(ct).ConfigureAwait(false);
+                    try { await _networkService.SendArpRequestAsync(host.IpAddress, ct); }
+                    finally { arpSem.Release(); }
+                });
+                await Task.WhenAll(arpTasks);
+
+                var arpTable = _networkService.GetArpTableNative();
 
                 foreach (var host in onlineList)
                 {

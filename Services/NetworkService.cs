@@ -23,6 +23,7 @@ namespace M1Scan.Services
         Task<string> GetNetBiosNameAsync(string ipAddress, CancellationToken ct = default);
         Task<string> GetMacAddressAsync(string ipAddress, CancellationToken ct = default);
         Task FloodArpAsync(string subnet, int startIp, int endIp, CancellationToken ct = default);
+        Task SendArpRequestAsync(string ip, CancellationToken ct = default);
     }
 
     public class NetworkService : INetworkService
@@ -123,6 +124,22 @@ namespace M1Scan.Services
         }
 
         public Dictionary<string, string> GetArpTableNative() => ReadArpCacheNative();
+
+        // Sends ARP requests to specific IPs to ensure they're in the OS ARP cache
+        public async Task SendArpRequestAsync(string ip, CancellationToken ct = default)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    var bytes = IPAddress.Parse(ip).GetAddressBytes();
+                    int dest = BitConverter.ToInt32(bytes, 0);
+                    byte[] mac = new byte[6]; uint len = 6;
+                    SendARP(dest, 0, mac, ref len);
+                }
+                catch { }
+            }, ct);
+        }
 
         // Sends ARP requests to all IPs in range to seed the OS ARP cache.
         // Runs concurrently with the ping sweep; capped at 1500ms total.
