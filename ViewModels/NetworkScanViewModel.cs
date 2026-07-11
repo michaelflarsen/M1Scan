@@ -614,6 +614,23 @@ namespace M1Scan.ViewModels
                     }, ct)).ToList();
                     await Task.WhenAll(tcpTasks);
 
+                    // Resolve hostnames (reverse-DNS/mDNS) for all online hosts — the sweep
+                    // path builds HostInfo directly, so this step must be done explicitly.
+                    StatusMessage = "Slår værtsnavne op...";
+                    using var dnsSem = new SemaphoreSlim(100);
+                    var dnsTasks = reachableHosts.Select(host => Task.Run(async () =>
+                    {
+                        await dnsSem.WaitAsync(ct).ConfigureAwait(false);
+                        try
+                        {
+                            var name = await _networkService.ResolveHostNameAsync(host.IpAddress, 2000, ct);
+                            if (!string.IsNullOrEmpty(name) && name != host.IpAddress)
+                                host.HostName = name;
+                        }
+                        finally { dnsSem.Release(); }
+                    }, ct)).ToList();
+                    await Task.WhenAll(dnsTasks);
+
                     ScanProgress = 50;
                 }
                 else

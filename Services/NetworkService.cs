@@ -28,6 +28,7 @@ namespace M1Scan.Services
         Task<string> GetNetBiosNameAsync(string ipAddress, CancellationToken ct = default);
         Task<string> GetNetBiosNameAsync(string ipAddress, string srcIp, CancellationToken ct = default);
         Task<string> GetMacAddressAsync(string ipAddress, CancellationToken ct = default);
+        Task<string> ResolveHostNameAsync(string ip, int timeoutMs = 2000, CancellationToken ct = default);
         Task FloodArpAsync(string subnet, int startIp, int endIp, CancellationToken ct = default);
         Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default);
         Task<string> SendArpRequestAsync(string ip, string srcIp, CancellationToken ct = default);
@@ -304,6 +305,11 @@ namespace M1Scan.Services
             try { return intf.GetIPProperties().GetIPv4Properties().IsDhcpEnabled; }
             catch { return false; }
         }
+
+        // Public wrapper for reverse-DNS/mDNS hostname resolution (used by the fast sweep path).
+        public Task<string> ResolveHostNameAsync(string ip, int timeoutMs = 2000,
+                                                 CancellationToken ct = default)
+            => GetHostNameWithTimeoutAsync(ip, timeoutMs, ct);
 
         private async Task<string> GetHostNameWithTimeoutAsync(string ip,
             int timeoutMs = 2000, CancellationToken ct = default)
