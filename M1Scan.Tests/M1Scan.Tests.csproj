@@ -5,6 +5,7 @@
     <IsTestProject>true</IsTestProject>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <UseAppHost>true</UseAppHost>
   </PropertyGroup>
 
   <ItemGroup>
