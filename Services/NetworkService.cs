@@ -50,12 +50,12 @@ namespace M1Scan.Services
         private const int RowSize = 88;
         private const int TableHeaderSize = 8;
 
-        // Try to get MAC from Windows netsh as fallback when native lookup fails
+        // Try to get MAC from Windows netsh arp table as fallback
         private static string GetMacFromNetshFallback(string ipAddress)
         {
             try
             {
-                var psi = new System.Diagnostics.ProcessStartInfo("netsh", $"arp show interface")
+                var psi = new System.Diagnostics.ProcessStartInfo("netsh", $"arp show table")
                 {
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -72,12 +72,10 @@ namespace M1Scan.Services
                 {
                     if (line.Contains(ipAddress, StringComparison.OrdinalIgnoreCase))
                     {
-                        var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var part in parts)
-                        {
-                            if (part.Length == 17 && part.Count(c => c == '-') == 5)
-                                return part.Replace('-', ':');
-                        }
+                        // Look for MAC address pattern (xx-xx-xx-xx-xx-xx)
+                        var macMatches = System.Text.RegularExpressions.Regex.Matches(line, @"[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (macMatches.Count > 0)
+                            return macMatches[0].Value.Replace('-', ':');
                     }
                 }
             }

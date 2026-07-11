@@ -594,7 +594,13 @@ namespace M1Scan.ViewModels
 
                 foreach (var host in onlineList)
                 {
-                    if (arpTable.TryGetValue(host.IpAddress, out var mac) && !string.IsNullOrEmpty(mac))
+                    var mac = string.Empty;
+                    if (arpTable.TryGetValue(host.IpAddress, out var cachedMac) && !string.IsNullOrEmpty(cachedMac))
+                    {
+                        mac = cachedMac;
+                    }
+
+                    if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
                         // Check cache first, only lookup if not cached
