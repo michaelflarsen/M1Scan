@@ -24,6 +24,7 @@ namespace M1Scan.Services
         Task<string> GetMacAddressAsync(string ipAddress, CancellationToken ct = default);
         Task FloodArpAsync(string subnet, int startIp, int endIp, CancellationToken ct = default);
         Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default);
+        Task<string> SendArpRequestAsync(string ip, string srcIp, CancellationToken ct = default);
     }
 
     public class NetworkService : INetworkService
@@ -131,13 +132,24 @@ namespace M1Scan.Services
         // MAC directly into the buffer — this is more reliable than reading the ARP
         // cache afterward, which may not yet be populated for slow-responding devices.
         // Retries once, because slow IoT devices (Shelly, etc.) often miss the first ARP.
+        //
+        // srcIp forces the request out of a specific local interface. This is essential
+        // when a VPN (Tailscale, etc.) hijacks the route to a LAN IP: without it the OS
+        // sends the ARP through the tunnel where it can't resolve, and the device shows
+        // no MAC even though it's on the same physical segment.
         public async Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default)
+            => await SendArpRequestAsync(ip, string.Empty, ct);
+
+        public async Task<string> SendArpRequestAsync(string ip, string srcIp,
+                                                      CancellationToken ct = default)
         {
-            int dest;
+            int dest, src = 0;
             try
             {
                 var bytes = IPAddress.Parse(ip).GetAddressBytes();
                 dest = BitConverter.ToInt32(bytes, 0);
+                if (!string.IsNullOrEmpty(srcIp) && IPAddress.TryParse(srcIp, out var srcAddr))
+                    src = BitConverter.ToInt32(srcAddr.GetAddressBytes(), 0);
             }
             catch { return string.Empty; }
 
@@ -150,7 +162,7 @@ namespace M1Scan.Services
                     try
                     {
                         byte[] macBuf = new byte[6]; uint len = 6;
-                        if (SendARP(dest, 0, macBuf, ref len) == 0 && len > 0)
+                        if (SendARP(dest, src, macBuf, ref len) == 0 && len > 0)
                             return string.Join(":", macBuf.Take((int)len).Select(b => b.ToString("X2")));
                     }
                     catch { }

@@ -583,6 +583,10 @@ namespace M1Scan.ViewModels
                 // Read the ARP cache first (populated by the flood + ping sweep) — instant.
                 var arpTable = _networkService.GetArpTableNative();
 
+                // Source IP of the selected adapter — forces ARP out of the local LAN
+                // interface even when a VPN (Tailscale) has hijacked the route to a LAN IP.
+                var srcIp = SelectedAdapter?.IpAddresses.FirstOrDefault() ?? string.Empty;
+
                 // Resolve MAC per host: prefer a direct blocking SendARP (returns the MAC
                 // even for slow devices like Shelly), fall back to the cache snapshot.
                 using var arpSem = new SemaphoreSlim(100);
@@ -591,7 +595,7 @@ namespace M1Scan.ViewModels
                     await arpSem.WaitAsync(ct).ConfigureAwait(false);
                     try
                     {
-                        var mac = await _networkService.SendArpRequestAsync(host.IpAddress, ct);
+                        var mac = await _networkService.SendArpRequestAsync(host.IpAddress, srcIp, ct);
                         if (string.IsNullOrEmpty(mac) &&
                             arpTable.TryGetValue(host.IpAddress, out var cachedMac))
                         {
