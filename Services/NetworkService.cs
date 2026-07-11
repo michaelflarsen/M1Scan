@@ -27,6 +27,8 @@ namespace M1Scan.Services
 
     public class NetworkService : INetworkService
     {
+        private readonly Dictionary<string, string> _dnsCache = new(StringComparer.OrdinalIgnoreCase);
+
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
         private static extern int SendARP(int destIp, int srcIp, byte[] macAddr, ref uint macAddrLen);
 
@@ -203,17 +205,26 @@ namespace M1Scan.Services
             catch { return false; }
         }
 
-        private static async Task<string> GetHostNameWithTimeoutAsync(string ip,
+        private async Task<string> GetHostNameWithTimeoutAsync(string ip,
             int timeoutMs = 2000, CancellationToken ct = default)
         {
+            if (_dnsCache.TryGetValue(ip, out var cached))
+                return cached;
+
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeoutMs);
             try
             {
                 var entry = await Dns.GetHostEntryAsync(ip, AddressFamily.Unspecified, cts.Token);
-                return entry.HostName;
+                var hostname = entry.HostName;
+                _dnsCache[ip] = hostname;
+                return hostname;
             }
-            catch { return ip; }
+            catch
+            {
+                _dnsCache[ip] = ip;
+                return ip;
+            }
         }
 
         public async Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "",
@@ -300,7 +311,7 @@ namespace M1Scan.Services
                     };
 
                     using var udp = new UdpClient();
-                    udp.Client.ReceiveTimeout = 500;
+                    udp.Client.ReceiveTimeout = 200;
                     udp.Send(request, request.Length, ipAddress, 137);
 
                     var ep = new IPEndPoint(IPAddress.Any, 0);

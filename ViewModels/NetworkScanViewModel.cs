@@ -503,7 +503,10 @@ namespace M1Scan.ViewModels
             IsScanning = true;
             ScanProgress = 0;
             if (!merge)
+            {
                 DiscoveredHosts.Clear();
+                _ouiCache.Clear();
+            }
             StatusMessage = merge
                 ? $"Auto-opdatering af {SubnetInput}.x..."
                 : SelectedAdapter != null
@@ -575,7 +578,6 @@ namespace M1Scan.ViewModels
                 StatusMessage = $"Ping-fase færdig — {onlineCount} online. Henter MAC-adresser...";
                 ScanProgress = 55;
 
-                _ouiCache.Clear(); // Reset cache for new scan
                 var arpTable = _networkService.GetArpTableNative();
                 var onlineList = reachableHosts.ToList();
 
