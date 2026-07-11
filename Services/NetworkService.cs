@@ -23,7 +23,7 @@ namespace M1Scan.Services
         Task<string> GetNetBiosNameAsync(string ipAddress, CancellationToken ct = default);
         Task<string> GetMacAddressAsync(string ipAddress, CancellationToken ct = default);
         Task FloodArpAsync(string subnet, int startIp, int endIp, CancellationToken ct = default);
-        Task SendArpRequestAsync(string ip, CancellationToken ct = default);
+        Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default);
     }
 
     public class NetworkService : INetworkService
@@ -123,19 +123,24 @@ namespace M1Scan.Services
 
         public Dictionary<string, string> GetArpTableNative() => ReadArpCacheNative();
 
-        // Sends ARP requests to specific IPs to ensure they're in the OS ARP cache
-        public async Task SendArpRequestAsync(string ip, CancellationToken ct = default)
+        // Sends a blocking ARP request to a single IP and returns the resolved MAC.
+        // SendARP blocks until the device replies or the OS times out, and writes the
+        // MAC directly into the buffer — this is more reliable than reading the ARP
+        // cache afterward, which may not yet be populated for slow-responding devices.
+        public async Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default)
         {
-            await Task.Run(() =>
+            return await Task.Run(() =>
             {
                 try
                 {
                     var bytes = IPAddress.Parse(ip).GetAddressBytes();
                     int dest = BitConverter.ToInt32(bytes, 0);
                     byte[] mac = new byte[6]; uint len = 6;
-                    SendARP(dest, 0, mac, ref len);
+                    if (SendARP(dest, 0, mac, ref len) == 0 && len > 0)
+                        return string.Join(":", mac.Take((int)len).Select(b => b.ToString("X2")));
                 }
                 catch { }
+                return string.Empty;
             }, ct);
         }
 

@@ -580,30 +580,33 @@ namespace M1Scan.ViewModels
 
                 var onlineList = reachableHosts.ToList();
 
-                // Send ARP requests to all online hosts to ensure they're in cache (helps with Shelly, etc)
-                using var arpSem = new SemaphoreSlim(100);
-                var arpTasks = onlineList.Select(async host =>
-                {
-                    await arpSem.WaitAsync(ct).ConfigureAwait(false);
-                    try { await _networkService.SendArpRequestAsync(host.IpAddress, ct); }
-                    finally { arpSem.Release(); }
-                });
-                await Task.WhenAll(arpTasks);
-
+                // Read the ARP cache first (populated by the flood + ping sweep) — instant.
                 var arpTable = _networkService.GetArpTableNative();
 
-                foreach (var host in onlineList)
+                // Resolve MAC per host: prefer a direct blocking SendARP (returns the MAC
+                // even for slow devices like Shelly), fall back to the cache snapshot.
+                using var arpSem = new SemaphoreSlim(100);
+                var macTasks = onlineList.Select(async host =>
                 {
-                    var mac = string.Empty;
-                    if (arpTable.TryGetValue(host.IpAddress, out var cachedMac) && !string.IsNullOrEmpty(cachedMac))
+                    await arpSem.WaitAsync(ct).ConfigureAwait(false);
+                    try
                     {
-                        mac = cachedMac;
+                        var mac = await _networkService.SendArpRequestAsync(host.IpAddress, ct);
+                        if (string.IsNullOrEmpty(mac) &&
+                            arpTable.TryGetValue(host.IpAddress, out var cachedMac))
+                        {
+                            mac = cachedMac;
+                        }
+                        return (host, mac);
                     }
+                    finally { arpSem.Release(); }
+                });
 
+                foreach (var (host, mac) in await Task.WhenAll(macTasks))
+                {
                     if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
-                        // Check cache first, only lookup if not cached
                         if (!_ouiCache.TryGetValue(mac, out var vendor))
                         {
                             vendor = OuiLookup.Lookup(mac);
