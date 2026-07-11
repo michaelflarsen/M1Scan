@@ -625,7 +625,11 @@ namespace M1Scan.ViewModels
                         {
                             var name = await _networkService.ResolveHostNameAsync(host.IpAddress, 2000, ct);
                             if (!string.IsNullOrEmpty(name) && name != host.IpAddress)
-                                host.HostName = name;
+                            {
+                                // HostInfo is bound to the grid — mutate it on the UI thread so
+                                // the change notification actually refreshes the visible row.
+                                await Application.Current.Dispatcher.InvokeAsync(() => host.HostName = name);
+                            }
                         }
                         finally { dnsSem.Release(); }
                     }, ct)).ToList();
