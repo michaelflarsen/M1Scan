@@ -39,6 +39,9 @@ namespace M1Scan.ViewModels
         private readonly ConcurrentQueue<HostInfo> _uiQueue = new();
         private CancellationTokenSource? _scanCts;
 
+        // OUI-lookup cache per scan — holds vendor names for MAC prefixes already looked up
+        private readonly Dictionary<string, string> _ouiCache = new(StringComparer.OrdinalIgnoreCase);
+
         public ObservableCollection<NetworkAdapter> AvailableAdapters
         {
             get => _availableAdapters;
@@ -435,7 +438,12 @@ namespace M1Scan.ViewModels
                     if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
-                        host.Vendor = OuiLookup.Lookup(mac);
+                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        {
+                            vendor = OuiLookup.Lookup(mac);
+                            _ouiCache[mac] = vendor;
+                        }
+                        host.Vendor = vendor;
                     }
                 }
 
@@ -557,6 +565,7 @@ namespace M1Scan.ViewModels
                 StatusMessage = $"Ping-fase færdig — {onlineCount} online. Henter MAC-adresser...";
                 ScanProgress = 55;
 
+                _ouiCache.Clear(); // Reset cache for new scan
                 var arpTable = _networkService.GetArpTableNative();
                 var onlineList = reachableHosts.ToList();
 
@@ -565,45 +574,40 @@ namespace M1Scan.ViewModels
                     if (arpTable.TryGetValue(host.IpAddress, out var mac) && !string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
-                        host.Vendor = OuiLookup.Lookup(mac);
+                        // Check cache first, only lookup if not cached
+                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        {
+                            vendor = OuiLookup.Lookup(mac);
+                            _ouiCache[mac] = vendor;
+                        }
+                        host.Vendor = vendor;
                         _uiQueue.Enqueue(host);
                     }
                 }
 
                 FlushUiQueue();
 
-                // ===== FASE 3: Port-tjek =====
-                StatusMessage = "MAC-adresser hentet. Tjekker porte...";
+                // ===== FASE 3+4: Port-tjek + NetBIOS (paralleliseret) =====
+                StatusMessage = "MAC-adresser hentet. Tjekker porte og NetBIOS...";
                 ScanProgress = 70;
 
-                using var portSem = new SemaphoreSlim(50);
-                var portTasks = onlineList.Select(async host =>
+                using var portSem = new SemaphoreSlim(150);
+                var enrichmentTasks = onlineList.Select(async host =>
                 {
-                    var results = await Task.WhenAll(
+                    var portResults = await Task.WhenAll(
                         CheckPortBounded(portSem, host.IpAddress, 80, ct),
                         CheckPortBounded(portSem, host.IpAddress, 443, ct),
                         CheckPortBounded(portSem, host.IpAddress, 8080, ct),
                         CheckPortBounded(portSem, host.IpAddress, 502, ct));
-                    host.IsPort80Open   = results[0];
-                    host.IsPort443Open  = results[1];
-                    host.IsPort8080Open = results[2];
-                    host.IsPort502Open  = results[3];
+                    host.IsPort80Open   = portResults[0];
+                    host.IsPort443Open  = portResults[1];
+                    host.IsPort8080Open = portResults[2];
+                    host.IsPort502Open  = portResults[3];
+
+                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress, ct);
                     await UpdateHostInUI(host);
                 });
-                await Task.WhenAll(portTasks);
-
-                // ===== FASE 4: NetBIOS =====
-                StatusMessage = "NetBIOS-opslag igangsat...";
-                ScanProgress = 90;
-
-                var allHosts = DiscoveredHosts.ToList(); // snapshot på UI thread
-                var netbiosTasks = allHosts.Select(async host =>
-                {
-                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress, ct);
-                    if (!string.IsNullOrEmpty(host.NetBiosName))
-                        await UpdateHostInUI(host);
-                });
-                await Task.WhenAll(netbiosTasks);
+                await Task.WhenAll(enrichmentTasks);
 
                 SortHostsByIp();
                 ScanProgress = 100;
