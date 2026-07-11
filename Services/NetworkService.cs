@@ -127,21 +127,37 @@ namespace M1Scan.Services
         // SendARP blocks until the device replies or the OS times out, and writes the
         // MAC directly into the buffer — this is more reliable than reading the ARP
         // cache afterward, which may not yet be populated for slow-responding devices.
+        // Retries once, because slow IoT devices (Shelly, etc.) often miss the first ARP.
         public async Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default)
         {
-            return await Task.Run(() =>
+            int dest;
+            try
             {
-                try
+                var bytes = IPAddress.Parse(ip).GetAddressBytes();
+                dest = BitConverter.ToInt32(bytes, 0);
+            }
+            catch { return string.Empty; }
+
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                if (ct.IsCancellationRequested) return string.Empty;
+
+                var mac = await Task.Run(() =>
                 {
-                    var bytes = IPAddress.Parse(ip).GetAddressBytes();
-                    int dest = BitConverter.ToInt32(bytes, 0);
-                    byte[] mac = new byte[6]; uint len = 6;
-                    if (SendARP(dest, 0, mac, ref len) == 0 && len > 0)
-                        return string.Join(":", mac.Take((int)len).Select(b => b.ToString("X2")));
-                }
-                catch { }
-                return string.Empty;
-            }, ct);
+                    try
+                    {
+                        byte[] macBuf = new byte[6]; uint len = 6;
+                        if (SendARP(dest, 0, macBuf, ref len) == 0 && len > 0)
+                            return string.Join(":", macBuf.Take((int)len).Select(b => b.ToString("X2")));
+                    }
+                    catch { }
+                    return string.Empty;
+                }, ct);
+
+                if (!string.IsNullOrEmpty(mac)) return mac;
+                if (attempt == 0) await Task.Delay(120, ct).ConfigureAwait(false);
+            }
+            return string.Empty;
         }
 
         // Sends ARP requests to all IPs in range to seed the OS ARP cache.
