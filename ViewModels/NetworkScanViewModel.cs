@@ -39,6 +39,12 @@ namespace M1Scan.ViewModels
         private readonly ConcurrentQueue<HostInfo> _uiQueue = new();
         private CancellationTokenSource? _scanCts;
 
+        // OUI-lookup cache per scan — holds vendor names for MAC prefixes already looked up
+        private readonly Dictionary<string, string> _ouiCache = new(StringComparer.OrdinalIgnoreCase);
+
+        private DateTime _scanStartTime;
+        private string _scanElapsedTime = string.Empty;
+
         public ObservableCollection<NetworkAdapter> AvailableAdapters
         {
             get => _availableAdapters;
@@ -73,6 +79,10 @@ namespace M1Scan.ViewModels
                     : $"{_selectedAdapter.Description} — {ip}";
             }
         }
+
+        // Source IP of the selected adapter — binds all scan traffic (ping, port, NetBIOS,
+        // ARP) to that interface so a VPN/tunnel can't hijack the route to a LAN target.
+        private string ScanSrcIp => _selectedAdapter?.IpAddresses.FirstOrDefault() ?? string.Empty;
 
         public ObservableCollection<HostInfo> DiscoveredHosts
         {
@@ -154,6 +164,12 @@ namespace M1Scan.ViewModels
         }
 
         public string AutoRefreshButtonLabel => IsAutoRefreshEnabled ? "Stop auto" : "Start auto";
+
+        public string ScanElapsedTime
+        {
+            get => _scanElapsedTime;
+            set => SetProperty(ref _scanElapsedTime, value);
+        }
 
         public RelayCommand PingSingleCommand { get; }
         public RelayCommand ScanNetworkCommand { get; }
@@ -418,24 +434,32 @@ namespace M1Scan.ViewModels
                 _scanCts = new CancellationTokenSource();
                 var ct = _scanCts.Token;
 
-                var host = await _networkService.PingHostAsync(IpAddressInput, SelectedAdapter?.Name ?? string.Empty, ct);
+                var srcIp = ScanSrcIp;
+                var host = await _networkService.PingHostAsync(IpAddressInput, SelectedAdapter?.Name ?? string.Empty, srcIp, ct);
                 if (host.IsReachable)
                 {
                     var portResults = await Task.WhenAll(
-                        _networkService.CheckPortAsync(host.IpAddress, 80, 1000, ct),
-                        _networkService.CheckPortAsync(host.IpAddress, 443, 1000, ct),
-                        _networkService.CheckPortAsync(host.IpAddress, 8080, 1000, ct),
-                        _networkService.CheckPortAsync(host.IpAddress, 502, 1000, ct));
+                        _networkService.CheckPortAsync(host.IpAddress, 80, srcIp, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 443, srcIp, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 8080, srcIp, 1000, ct),
+                        _networkService.CheckPortAsync(host.IpAddress, 502, srcIp, 1000, ct));
                     host.IsPort80Open   = portResults[0];
                     host.IsPort443Open  = portResults[1];
                     host.IsPort8080Open = portResults[2];
                     host.IsPort502Open  = portResults[3];
 
-                    var mac = await _networkService.GetMacAddressAsync(host.IpAddress, ct);
+                    var mac = await _networkService.SendArpRequestAsync(host.IpAddress, srcIp, ct);
+                    if (string.IsNullOrEmpty(mac))
+                        mac = await _networkService.GetMacAddressAsync(host.IpAddress, ct);
                     if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
-                        host.Vendor = OuiLookup.Lookup(mac);
+                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        {
+                            vendor = OuiLookup.Lookup(mac);
+                            _ouiCache[mac] = vendor;
+                        }
+                        host.Vendor = vendor;
                     }
                 }
 
@@ -486,7 +510,10 @@ namespace M1Scan.ViewModels
             IsScanning = true;
             ScanProgress = 0;
             if (!merge)
+            {
                 DiscoveredHosts.Clear();
+                _ouiCache.Clear();
+            }
             StatusMessage = merge
                 ? $"Auto-opdatering af {SubnetInput}.x..."
                 : SelectedAdapter != null
@@ -495,6 +522,7 @@ namespace M1Scan.ViewModels
 
             _scanCts = new CancellationTokenSource();
             var ct = _scanCts.Token;
+            _scanStartTime = DateTime.Now;
 
             // DispatcherTimer flushes _uiQueue to DiscoveredHosts every 100ms on UI thread
             bool flushing = false;
@@ -510,19 +538,111 @@ namespace M1Scan.ViewModels
 
             try
             {
+                // Bind all scan traffic to the selected adapter's source IP.
+                var srcIp = ScanSrcIp;
+
                 // ===== FASE 0+1: ARP-flood + ping-sweep (samtidige) =====
                 var floodTask = _networkService.FloodArpAsync(SubnetInput, StartIp, EndIp, ct);
 
                 int totalTasks = EndIp - StartIp + 1;
-                var completedCount = 0;
                 var onlineCount = 0;
                 var reachableHosts = new ConcurrentBag<HostInfo>();
+                var allIps = Enumerable.Range(StartIp, totalTasks)
+                                       .Select(i => $"{SubnetInput}.{i}").ToList();
 
-                using var semaphore = new SemaphoreSlim(150);
-                var pingTasks = Enumerable.Range(StartIp, totalTasks).Select(i =>
+                if (!string.IsNullOrEmpty(srcIp))
                 {
-                    var ip = $"{SubnetInput}.{i}";
-                    return Task.Run(async () =>
+                    // Fast path: sweep the whole range on one bound raw socket.
+                    StatusMessage = $"Ping-scanning af {totalTasks} IP'er...";
+                    var sweep = await _networkService.PingSweepBoundAsync(allIps, srcIp, 800, ct);
+                    onlineCount = sweep.Count;
+                    foreach (var (ip, r) in sweep)
+                    {
+                        var host = new HostInfo
+                        {
+                            IpAddress = ip,
+                            HostName = ip,
+                            IsReachable = true,
+                            Status = "Online",
+                            ResponseTime = (int)r.rttMs,
+                            AdapterName = SelectedAdapter?.Name ?? string.Empty,
+                            OsGuess = r.ttl switch
+                            {
+                                > 0 and <= 64   => "Linux / Mac",
+                                > 64 and <= 128 => "Windows",
+                                > 128           => "Netværksenhed",
+                                _               => string.Empty
+                            },
+                            LastSeen = DateTime.Now
+                        };
+                        reachableHosts.Add(host);
+                        _uiQueue.Enqueue(host);
+                    }
+                    ScanProgress = 40;
+
+                    // TCP-fallback for hosts der blokerer ICMP (routere, firewalls, IoT):
+                    // prøv et par almindelige porte på de IP'er der ikke svarede på ping.
+                    var noReply = allIps.Where(ip => !sweep.ContainsKey(ip)).ToList();
+                    var tcpPorts = new[] { 80, 443, 445 };
+                    using var tcpSem = new SemaphoreSlim(150);
+                    var tcpTasks = noReply.Select(ip => Task.Run(async () =>
+                    {
+                        await tcpSem.WaitAsync(ct).ConfigureAwait(false);
+                        try
+                        {
+                            foreach (var p in tcpPorts)
+                            {
+                                if (await _networkService.CheckPortAsync(ip, p, srcIp, 300, ct))
+                                {
+                                    var host = new HostInfo
+                                    {
+                                        IpAddress = ip,
+                                        HostName = ip,
+                                        IsReachable = true,
+                                        Status = $"Online (TCP:{p})",
+                                        AdapterName = SelectedAdapter?.Name ?? string.Empty,
+                                        LastSeen = DateTime.Now
+                                    };
+                                    reachableHosts.Add(host);
+                                    _uiQueue.Enqueue(host);
+                                    Interlocked.Increment(ref onlineCount);
+                                    break;
+                                }
+                            }
+                        }
+                        finally { tcpSem.Release(); }
+                    }, ct)).ToList();
+                    await Task.WhenAll(tcpTasks);
+
+                    // Resolve hostnames (reverse-DNS/mDNS) for all online hosts — the sweep
+                    // path builds HostInfo directly, so this step must be done explicitly.
+                    StatusMessage = "Slår værtsnavne op...";
+                    using var dnsSem = new SemaphoreSlim(100);
+                    var dnsTasks = reachableHosts.Select(host => Task.Run(async () =>
+                    {
+                        await dnsSem.WaitAsync(ct).ConfigureAwait(false);
+                        try
+                        {
+                            var name = await _networkService.ResolveHostNameAsync(host.IpAddress, 2000, ct);
+                            if (!string.IsNullOrEmpty(name) && name != host.IpAddress)
+                            {
+                                // HostInfo is bound to the grid — mutate it on the UI thread so
+                                // the change notification actually refreshes the visible row.
+                                await Application.Current.Dispatcher.InvokeAsync(() => host.HostName = name);
+                            }
+                        }
+                        finally { dnsSem.Release(); }
+                    }, ct)).ToList();
+                    await Task.WhenAll(dnsTasks);
+
+                    ScanProgress = 50;
+                }
+                else
+                {
+                    // Fallback path (no adapter/src IP): managed Ping per host, bounded.
+                    var completedCount = 0;
+                    using var semaphore = new SemaphoreSlim(150);
+                    var pingTasks = allIps.Select(ip => Task.Run(async () =>
                     {
                         if (ct.IsCancellationRequested) return;
                         await semaphore.WaitAsync(ct).ConfigureAwait(false);
@@ -545,10 +665,11 @@ namespace M1Scan.ViewModels
                             });
                         }
                         finally { semaphore.Release(); }
-                    }, ct);
-                }).ToList();
+                    }, ct)).ToList();
 
-                await Task.WhenAll(pingTasks);
+                    await Task.WhenAll(pingTasks);
+                }
+
                 await floodTask;
 
                 FlushUiQueue(); // Flush resterende ping-resultater
@@ -557,58 +678,96 @@ namespace M1Scan.ViewModels
                 StatusMessage = $"Ping-fase færdig — {onlineCount} online. Henter MAC-adresser...";
                 ScanProgress = 55;
 
-                var arpTable = _networkService.GetArpTableNative();
                 var onlineList = reachableHosts.ToList();
 
-                foreach (var host in onlineList)
+                // Read the ARP cache first (populated by the flood + ping sweep) — instant.
+                var arpTable = _networkService.GetArpTableNative();
+
+                // Resolve MAC per host: prefer a direct blocking SendARP (returns the MAC
+                // even for slow devices like Shelly), fall back to the cache snapshot.
+                using var arpSem = new SemaphoreSlim(100);
+                var macTasks = onlineList.Select(async host =>
                 {
-                    if (arpTable.TryGetValue(host.IpAddress, out var mac) && !string.IsNullOrEmpty(mac))
+                    await arpSem.WaitAsync(ct).ConfigureAwait(false);
+                    try
+                    {
+                        var mac = await _networkService.SendArpRequestAsync(host.IpAddress, srcIp, ct);
+                        if (string.IsNullOrEmpty(mac) &&
+                            arpTable.TryGetValue(host.IpAddress, out var cachedMac))
+                        {
+                            mac = cachedMac;
+                        }
+                        return (host, mac);
+                    }
+                    finally { arpSem.Release(); }
+                });
+
+                foreach (var (host, mac) in await Task.WhenAll(macTasks))
+                {
+                    if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
-                        host.Vendor = OuiLookup.Lookup(mac);
+                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        {
+                            vendor = OuiLookup.Lookup(mac);
+                            _ouiCache[mac] = vendor;
+                        }
+                        host.Vendor = vendor;
                         _uiQueue.Enqueue(host);
                     }
                 }
 
                 FlushUiQueue();
 
-                // ===== FASE 3: Port-tjek =====
-                StatusMessage = "MAC-adresser hentet. Tjekker porte...";
+                // ===== FASE 3+4: Port-tjek + NetBIOS (paralleliseret) =====
+                StatusMessage = "MAC-adresser hentet. Tjekker porte og NetBIOS...";
                 ScanProgress = 70;
 
-                using var portSem = new SemaphoreSlim(50);
-                var portTasks = onlineList.Select(async host =>
+                using var portSem = new SemaphoreSlim(150);
+                var enrichmentTasks = onlineList.Select(async host =>
                 {
-                    var results = await Task.WhenAll(
-                        CheckPortBounded(portSem, host.IpAddress, 80, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 443, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 8080, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 502, ct));
-                    host.IsPort80Open   = results[0];
-                    host.IsPort443Open  = results[1];
-                    host.IsPort8080Open = results[2];
-                    host.IsPort502Open  = results[3];
+                    var portResults = await Task.WhenAll(
+                        CheckPortBounded(portSem, host.IpAddress, 80, srcIp, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 443, srcIp, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 8080, srcIp, ct),
+                        CheckPortBounded(portSem, host.IpAddress, 502, srcIp, ct));
+                    host.IsPort80Open   = portResults[0];
+                    host.IsPort443Open  = portResults[1];
+                    host.IsPort8080Open = portResults[2];
+                    host.IsPort502Open  = portResults[3];
+
+                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress, srcIp, ct);
                     await UpdateHostInUI(host);
                 });
-                await Task.WhenAll(portTasks);
+                await Task.WhenAll(enrichmentTasks);
 
-                // ===== FASE 4: NetBIOS =====
-                StatusMessage = "NetBIOS-opslag igangsat...";
-                ScanProgress = 90;
-
-                var allHosts = DiscoveredHosts.ToList(); // snapshot på UI thread
-                var netbiosTasks = allHosts.Select(async host =>
+                // ===== FASE 5: Endelig MAC-reconciliation =====
+                // Efter alt netværkstrafik er Windows' ARP-cache fuldt populeret. Fyld MAC
+                // ind for enhver host der stadig mangler den — inkl. services på en server
+                // der deler hostens fysiske MAC (de har en MAC i cachen selvom SendARP fejlede).
+                var finalArp = _networkService.GetArpTableNative();
+                foreach (var host in onlineList)
                 {
-                    host.NetBiosName = await _networkService.GetNetBiosNameAsync(host.IpAddress, ct);
-                    if (!string.IsNullOrEmpty(host.NetBiosName))
+                    if (!string.IsNullOrEmpty(host.MacAddress)) continue;
+                    if (finalArp.TryGetValue(host.IpAddress, out var mac) && !string.IsNullOrEmpty(mac))
+                    {
+                        host.MacAddress = mac;
+                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        {
+                            vendor = OuiLookup.Lookup(mac);
+                            _ouiCache[mac] = vendor;
+                        }
+                        host.Vendor = vendor;
                         await UpdateHostInUI(host);
-                });
-                await Task.WhenAll(netbiosTasks);
+                    }
+                }
 
                 SortHostsByIp();
                 ScanProgress = 100;
                 var total = DiscoveredHosts.Count(h => h.IsReachable);
-                StatusMessage = $"Færdig — {total} online enheder fundet.";
+                var elapsed = DateTime.Now - _scanStartTime;
+                ScanElapsedTime = $"{elapsed.TotalSeconds:F1}s";
+                StatusMessage = $"Færdig — {total} online enheder fundet på {ScanElapsedTime}";
             }
             catch (OperationCanceledException)
             {
@@ -628,10 +787,10 @@ namespace M1Scan.ViewModels
             }
         }
 
-        private async Task<bool> CheckPortBounded(SemaphoreSlim sem, string ip, int port, CancellationToken ct)
+        private async Task<bool> CheckPortBounded(SemaphoreSlim sem, string ip, int port, string srcIp, CancellationToken ct)
         {
             await sem.WaitAsync(ct).ConfigureAwait(false);
-            try { return await _networkService.CheckPortAsync(ip, port, 1000, ct); }
+            try { return await _networkService.CheckPortAsync(ip, port, srcIp, 1000, ct); }
             finally { sem.Release(); }
         }
 

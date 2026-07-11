@@ -17,16 +17,27 @@ namespace M1Scan.Services
     {
         Task<List<NetworkAdapter>> GetNetworkAdaptersAsync();
         Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "", CancellationToken ct = default);
+        Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName, string srcIp, CancellationToken ct = default);
+        // Sweeps all IPs on one bound raw socket. Returns responsive IP -> (rttMs, ttl).
+        Task<Dictionary<string, (long rttMs, int ttl)>> PingSweepBoundAsync(
+            IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct = default);
         Task<Dictionary<string, string>> GetArpTableAsync();
         Dictionary<string, string> GetArpTableNative();
         Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000, CancellationToken ct = default);
+        Task<bool> CheckPortAsync(string ip, int port, string srcIp, int timeoutMs = 1000, CancellationToken ct = default);
         Task<string> GetNetBiosNameAsync(string ipAddress, CancellationToken ct = default);
+        Task<string> GetNetBiosNameAsync(string ipAddress, string srcIp, CancellationToken ct = default);
         Task<string> GetMacAddressAsync(string ipAddress, CancellationToken ct = default);
+        Task<string> ResolveHostNameAsync(string ip, int timeoutMs = 2000, CancellationToken ct = default);
         Task FloodArpAsync(string subnet, int startIp, int endIp, CancellationToken ct = default);
+        Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default);
+        Task<string> SendArpRequestAsync(string ip, string srcIp, CancellationToken ct = default);
     }
 
     public class NetworkService : INetworkService
     {
+        private readonly Dictionary<string, string> _dnsCache = new(StringComparer.OrdinalIgnoreCase);
+
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
         private static extern int SendARP(int destIp, int srcIp, byte[] macAddr, ref uint macAddrLen);
 
@@ -46,6 +57,39 @@ namespace M1Scan.Services
         //   [76] DWORD State  (6 = NlnsPermanent = self/broadcast, skip)
         private const int RowSize = 88;
         private const int TableHeaderSize = 8;
+
+        // Try to get MAC from Windows netsh arp table as fallback
+        private static string GetMacFromNetshFallback(string ipAddress)
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("netsh", $"arp show table")
+                {
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8
+                };
+                using var process = System.Diagnostics.Process.Start(psi);
+                if (process == null) return string.Empty;
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit(2000);
+
+                var lines = output.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    if (line.Contains(ipAddress, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Look for MAC address pattern (xx-xx-xx-xx-xx-xx)
+                        var macMatches = System.Text.RegularExpressions.Regex.Matches(line, @"[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (macMatches.Count > 0)
+                            return macMatches[0].Value.Replace('-', ':');
+                    }
+                }
+            }
+            catch { }
+            return string.Empty;
+        }
 
         // Reads the Windows ARP cache via native GetIpNetTable2 — instant, no subprocess.
         private static Dictionary<string, string> ReadArpCacheNative()
@@ -78,6 +122,9 @@ namespace M1Scan.Services
                     for (int b = 0; b < (int)macLen; b++)
                         macBytes[b] = Marshal.ReadByte(row, 40 + b);
 
+                    // Skip null-MAC (00:00:00:00:00:00) — an unresolved/incomplete entry.
+                    if (macBytes.All(b => b == 0)) continue;
+
                     result[ip] = string.Join(":", macBytes.Select(b => b.ToString("X2")));
                 }
             }
@@ -86,6 +133,54 @@ namespace M1Scan.Services
         }
 
         public Dictionary<string, string> GetArpTableNative() => ReadArpCacheNative();
+
+        // Sends a blocking ARP request to a single IP and returns the resolved MAC.
+        // SendARP blocks until the device replies or the OS times out, and writes the
+        // MAC directly into the buffer — this is more reliable than reading the ARP
+        // cache afterward, which may not yet be populated for slow-responding devices.
+        // Retries once, because slow IoT devices (Shelly, etc.) often miss the first ARP.
+        //
+        // srcIp forces the request out of a specific local interface. This is essential
+        // when a VPN (Tailscale, etc.) hijacks the route to a LAN IP: without it the OS
+        // sends the ARP through the tunnel where it can't resolve, and the device shows
+        // no MAC even though it's on the same physical segment.
+        public async Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default)
+            => await SendArpRequestAsync(ip, string.Empty, ct);
+
+        public async Task<string> SendArpRequestAsync(string ip, string srcIp,
+                                                      CancellationToken ct = default)
+        {
+            int dest, src = 0;
+            try
+            {
+                var bytes = IPAddress.Parse(ip).GetAddressBytes();
+                dest = BitConverter.ToInt32(bytes, 0);
+                if (!string.IsNullOrEmpty(srcIp) && IPAddress.TryParse(srcIp, out var srcAddr))
+                    src = BitConverter.ToInt32(srcAddr.GetAddressBytes(), 0);
+            }
+            catch { return string.Empty; }
+
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                if (ct.IsCancellationRequested) return string.Empty;
+
+                var mac = await Task.Run(() =>
+                {
+                    try
+                    {
+                        byte[] macBuf = new byte[6]; uint len = 6;
+                        if (SendARP(dest, src, macBuf, ref len) == 0 && len > 0)
+                            return string.Join(":", macBuf.Take((int)len).Select(b => b.ToString("X2")));
+                    }
+                    catch { }
+                    return string.Empty;
+                }, ct);
+
+                if (!string.IsNullOrEmpty(mac)) return mac;
+                if (attempt == 0) await Task.Delay(120, ct).ConfigureAwait(false);
+            }
+            return string.Empty;
+        }
 
         // Sends ARP requests to all IPs in range to seed the OS ARP cache.
         // Runs concurrently with the ping sweep; capped at 1500ms total.
@@ -130,8 +225,16 @@ namespace M1Scan.Services
                         int destIp = BitConverter.ToInt32(bytes, 0);
                         byte[] macAddr = new byte[6];
                         uint macAddrLen = (uint)macAddr.Length;
-                        if (SendARP(destIp, 0, macAddr, ref macAddrLen) == 0)
+                        if (SendARP(destIp, 0, macAddr, ref macAddrLen) == 0 && macAddrLen > 0)
                             return string.Join(":", macAddr.Take((int)macAddrLen).Select(b => b.ToString("X2")));
+
+                        // Fallback: try native ARP cache first
+                        var nativeArp = ReadArpCacheNative();
+                        if (nativeArp.TryGetValue(ipAddress, out var mac) && !string.IsNullOrEmpty(mac))
+                            return mac;
+
+                        // Last resort: netsh fallback for stubborn devices like Shelly
+                        return GetMacFromNetshFallback(ipAddress);
                     }
                     catch { }
                     return string.Empty;
@@ -203,21 +306,127 @@ namespace M1Scan.Services
             catch { return false; }
         }
 
-        private static async Task<string> GetHostNameWithTimeoutAsync(string ip,
+        // Public wrapper for reverse-DNS/mDNS hostname resolution (used by the fast sweep path).
+        public Task<string> ResolveHostNameAsync(string ip, int timeoutMs = 2000,
+                                                 CancellationToken ct = default)
+            => GetHostNameWithTimeoutAsync(ip, timeoutMs, ct);
+
+        private async Task<string> GetHostNameWithTimeoutAsync(string ip,
             int timeoutMs = 2000, CancellationToken ct = default)
         {
+            if (_dnsCache.TryGetValue(ip, out var cached))
+                return cached;
+
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeoutMs);
             try
             {
                 var entry = await Dns.GetHostEntryAsync(ip, AddressFamily.Unspecified, cts.Token);
-                return entry.HostName;
+                var hostname = entry.HostName;
+                _dnsCache[ip] = hostname;
+                return hostname;
             }
-            catch { return ip; }
+            catch
+            {
+                _dnsCache[ip] = ip;
+                return ip;
+            }
         }
 
-        public async Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "",
-                                                   CancellationToken ct = default)
+        // Sweeps an entire IP range with ICMP echo over ONE shared raw socket bound to srcIp.
+        // A single socket sends all requests (each tagged with a sequence number that encodes
+        // the destination) and one receive loop matches replies back — far cheaper than one
+        // socket per host, and avoids cross-talk where one socket steals another's reply.
+        // Returns a dictionary of responsive IP -> (rttMs, ttl). Requires admin (app has it).
+        private static Dictionary<string, (long rttMs, int ttl)> IcmpSweepBound(
+            IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct)
+        {
+            var result = new Dictionary<string, (long, int)>();
+            if (!IPAddress.TryParse(srcIp, out var srcAddr)) return result;
+
+            // Map sequence number -> destination IP + send timestamp, so replies can be matched.
+            var pending = new Dictionary<ushort, (string ip, long sentTicks)>();
+            var ipList = ips.Where(x => IPAddress.TryParse(x, out _)).ToList();
+
+            Socket? sock = null;
+            try
+            {
+                sock = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Icmp);
+                sock.Bind(new IPEndPoint(srcAddr, 0));
+
+                ushort id = (ushort)(Environment.CurrentManagedThreadId & 0xFFFF);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
+                // ---- Send phase: fire an echo request for every IP ----
+                ushort seq = 0;
+                foreach (var ip in ipList)
+                {
+                    if (ct.IsCancellationRequested) break;
+                    var destAddr = IPAddress.Parse(ip);
+                    byte[] packet = new byte[8];
+                    packet[0] = 8; // echo request
+                    packet[4] = (byte)(id >> 8); packet[5] = (byte)(id & 0xFF);
+                    packet[6] = (byte)(seq >> 8); packet[7] = (byte)(seq & 0xFF);
+                    ushort checksum = IcmpChecksum(packet);
+                    packet[2] = (byte)(checksum >> 8); packet[3] = (byte)(checksum & 0xFF);
+
+                    pending[seq] = (ip, sw.ElapsedTicks);
+                    try { sock.SendTo(packet, new IPEndPoint(destAddr, 0)); } catch { }
+                    seq++;
+                }
+
+                // ---- Receive phase: collect replies until timeout or all matched ----
+                var buf = new byte[1024];
+                while (pending.Count > result.Count && !ct.IsCancellationRequested)
+                {
+                    long remainingMs = timeoutMs - sw.ElapsedMilliseconds;
+                    if (remainingMs <= 0) break;
+                    sock.ReceiveTimeout = (int)Math.Min(remainingMs, timeoutMs);
+
+                    int received;
+                    EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
+                    try { received = sock.ReceiveFrom(buf, ref remote); }
+                    catch (SocketException) { break; } // timeout — no more replies
+
+                    if (received < 20) continue;
+                    int ihl = (buf[0] & 0x0F) * 4;
+                    int ttl = buf[8];
+                    if (received < ihl + 8 || buf[ihl] != 0 /* echo reply */) continue;
+
+                    ushort rId = (ushort)((buf[ihl + 4] << 8) | buf[ihl + 5]);
+                    ushort rSeq = (ushort)((buf[ihl + 6] << 8) | buf[ihl + 7]);
+                    if (rId != id || !pending.TryGetValue(rSeq, out var info)) continue;
+
+                    var rttMs = (sw.ElapsedTicks - info.sentTicks) * 1000 / System.Diagnostics.Stopwatch.Frequency;
+                    result[info.ip] = (rttMs, ttl);
+                }
+                return result;
+            }
+            catch { return result; }
+            finally { sock?.Dispose(); }
+        }
+
+        private static ushort IcmpChecksum(byte[] data)
+        {
+            uint sum = 0;
+            for (int i = 0; i + 1 < data.Length; i += 2)
+                sum += (uint)((data[i] << 8) + data[i + 1]);
+            if (data.Length % 2 == 1)
+                sum += (uint)(data[^1] << 8);
+            while ((sum >> 16) != 0) sum = (sum & 0xFFFF) + (sum >> 16);
+            return (ushort)~sum;
+        }
+
+        public Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "",
+                                            CancellationToken ct = default)
+            => PingHostAsync(hostOrIp, adapterName, string.Empty, ct);
+
+        public Task<Dictionary<string, (long rttMs, int ttl)>> PingSweepBoundAsync(
+            IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct = default)
+            => Task.Run(() => IcmpSweepBound(ips, srcIp, timeoutMs, ct), ct);
+
+        public async Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName,
+                                                  string srcIp, CancellationToken ct = default)
         {
             var hostInfo = new HostInfo
             {
@@ -227,33 +436,67 @@ namespace M1Scan.Services
 
             try
             {
-                using var ping = new Ping();
-                // Single attempt 600ms — generous for LAN; TCP fallback covers filtered hosts
-                var reply = await ping.SendPingAsync(hostOrIp, 600);
-
-                if (reply.Status == IPStatus.Success)
+                // When a source IP is given, use a bound raw-socket ping so ICMP leaves the
+                // chosen adapter (not a VPN route). Otherwise use the simpler managed Ping.
+                if (!string.IsNullOrEmpty(srcIp))
                 {
-                    hostInfo.IsReachable = true;
-                    hostInfo.ResponseTime = (int)reply.RoundtripTime;
-                    hostInfo.Status = "Online";
-                    hostInfo.IpAddress = reply.Address.ToString();
-
-                    int ttl = reply.Options?.Ttl ?? 0;
-                    hostInfo.OsGuess = ttl switch
+                    var sweep = await Task.Run(
+                        () => IcmpSweepBound(new[] { hostOrIp }, srcIp, 600, ct), ct);
+                    bool ok = sweep.TryGetValue(hostOrIp, out var r);
+                    long rtt = ok ? r.rttMs : 0;
+                    int ttl = ok ? r.ttl : 0;
+                    if (ok)
                     {
-                        > 0 and <= 64  => "Linux / Mac",
-                        > 64 and <= 128 => "Windows",
-                        > 128           => "Netværksenhed",
-                        _               => string.Empty
-                    };
-
-                    if (IPAddress.TryParse(hostOrIp, out _))
-                        hostInfo.HostName = await GetHostNameWithTimeoutAsync(hostOrIp, 2000, ct);
+                        hostInfo.IsReachable = true;
+                        hostInfo.ResponseTime = (int)rtt;
+                        hostInfo.Status = "Online";
+                        hostInfo.IpAddress = hostOrIp;
+                        hostInfo.OsGuess = ttl switch
+                        {
+                            > 0 and <= 64   => "Linux / Mac",
+                            > 64 and <= 128 => "Windows",
+                            > 128           => "Netværksenhed",
+                            _               => string.Empty
+                        };
+                        if (IPAddress.TryParse(hostOrIp, out _))
+                            hostInfo.HostName = await GetHostNameWithTimeoutAsync(hostOrIp, 2000, ct);
+                    }
+                    else
+                    {
+                        hostInfo.IsReachable = false;
+                        hostInfo.Status = "Timeout";
+                    }
                 }
                 else
                 {
-                    hostInfo.IsReachable = false;
-                    hostInfo.Status = reply.Status.ToString();
+                    using var ping = new Ping();
+                    // Single attempt 600ms — generous for LAN; TCP fallback covers filtered hosts
+                    var reply = await ping.SendPingAsync(hostOrIp, 600);
+
+                    if (reply.Status == IPStatus.Success)
+                    {
+                        hostInfo.IsReachable = true;
+                        hostInfo.ResponseTime = (int)reply.RoundtripTime;
+                        hostInfo.Status = "Online";
+                        hostInfo.IpAddress = reply.Address.ToString();
+
+                        int ttl = reply.Options?.Ttl ?? 0;
+                        hostInfo.OsGuess = ttl switch
+                        {
+                            > 0 and <= 64  => "Linux / Mac",
+                            > 64 and <= 128 => "Windows",
+                            > 128           => "Netværksenhed",
+                            _               => string.Empty
+                        };
+
+                        if (IPAddress.TryParse(hostOrIp, out _))
+                            hostInfo.HostName = await GetHostNameWithTimeoutAsync(hostOrIp, 2000, ct);
+                    }
+                    else
+                    {
+                        hostInfo.IsReachable = false;
+                        hostInfo.Status = reply.Status.ToString();
+                    }
                 }
             }
             catch (Exception ex)
@@ -267,7 +510,7 @@ namespace M1Scan.Services
             {
                 if (ct.IsCancellationRequested) { hostInfo.LastSeen = DateTime.Now; return hostInfo; }
                 var tcpPorts = new[] { 80, 443, 22, 445 };
-                var tcpResults = await Task.WhenAll(tcpPorts.Select(p => CheckPortAsync(hostOrIp, p, 300, ct)));
+                var tcpResults = await Task.WhenAll(tcpPorts.Select(p => CheckPortAsync(hostOrIp, p, srcIp, 300, ct)));
                 var firstOpen = tcpPorts.Zip(tcpResults).FirstOrDefault(x => x.Second);
                 if (firstOpen.Second)
                 {
@@ -283,7 +526,11 @@ namespace M1Scan.Services
             return hostInfo;
         }
 
-        public async Task<string> GetNetBiosNameAsync(string ipAddress,
+        public Task<string> GetNetBiosNameAsync(string ipAddress, CancellationToken ct = default)
+            => GetNetBiosNameAsync(ipAddress, string.Empty, ct);
+
+        // Binds the UDP socket to srcIp so the NetBIOS query leaves the chosen adapter.
+        public async Task<string> GetNetBiosNameAsync(string ipAddress, string srcIp,
                                                        CancellationToken ct = default)
         {
             return await Task.Run(() =>
@@ -299,8 +546,18 @@ namespace M1Scan.Services
                         0x00, 0x21, 0x00, 0x01
                     };
 
-                    using var udp = new UdpClient();
-                    udp.Client.ReceiveTimeout = 500;
+                    UdpClient udp;
+                    if (!string.IsNullOrEmpty(srcIp) && IPAddress.TryParse(srcIp, out var srcAddr))
+                    {
+                        try { udp = new UdpClient(new IPEndPoint(srcAddr, 0)); }
+                        catch { udp = new UdpClient(); }
+                    }
+                    else
+                    {
+                        udp = new UdpClient();
+                    }
+                    using var _udp = udp;
+                    udp.Client.ReceiveTimeout = 200;
                     udp.Send(request, request.Length, ipAddress, 137);
 
                     var ep = new IPEndPoint(IPAddress.Any, 0);
@@ -333,19 +590,37 @@ namespace M1Scan.Services
             return await Task.Run(ReadArpCacheNative);
         }
 
-        public async Task<bool> CheckPortAsync(string ip, int port,
+        public Task<bool> CheckPortAsync(string ip, int port, int timeoutMs = 1000,
+                                         CancellationToken ct = default)
+            => CheckPortAsync(ip, port, string.Empty, timeoutMs, ct);
+
+        // Binds the outgoing socket to srcIp so the connection leaves the chosen adapter,
+        // preventing a VPN/tunnel from hijacking the route to a LAN destination.
+        public async Task<bool> CheckPortAsync(string ip, int port, string srcIp,
                                                 int timeoutMs = 1000,
                                                 CancellationToken ct = default)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeoutMs);
-            using var client = new TcpClient();
+
+            TcpClient client;
+            if (!string.IsNullOrEmpty(srcIp) && IPAddress.TryParse(srcIp, out var srcAddr))
+            {
+                try { client = new TcpClient(new IPEndPoint(srcAddr, 0)); }
+                catch { client = new TcpClient(); } // src IP not bindable (e.g. adapter gone) — fall back
+            }
+            else
+            {
+                client = new TcpClient();
+            }
+
             try
             {
                 await client.ConnectAsync(ip, port, cts.Token);
                 return client.Connected;
             }
             catch { return false; }
+            finally { client.Dispose(); }
         }
     }
 }

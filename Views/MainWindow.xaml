@@ -644,7 +644,7 @@
                     </StackPanel>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="1" Margin="0,0,8,0" Padding="16,10"
+                <materialDesign:Card Grid.Row="0" Grid.Column="1" Margin="0,0,8,0" Padding="16,10"
                                      Background="#1C2535"
                                      materialDesign:ElevationAssist.Elevation="Dp2">
                     <StackPanel>
@@ -654,7 +654,7 @@
                     </StackPanel>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="2" Margin="0,0,8,0" Padding="16,10"
+                <materialDesign:Card Grid.Row="0" Grid.Column="2" Margin="0,0,8,0" Padding="16,10"
                                      Background="#1C2535"
                                      materialDesign:ElevationAssist.Elevation="Dp2">
                     <StackPanel>
@@ -667,11 +667,22 @@
                 <materialDesign:Card Grid.Column="3" Padding="16,10"
                                      Background="#1C2535"
                                      materialDesign:ElevationAssist.Elevation="Dp2">
-                    <StackPanel>
-                        <TextBlock Text="{Binding LastScanTime, RelativeSource={RelativeSource AncestorType=Window}}"
-                                   Style="{StaticResource StatValue}" FontSize="22"/>
-                        <TextBlock Text="Last scanned" Style="{StaticResource StatLabel}"/>
-                    </StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="{Binding LastScanTime, RelativeSource={RelativeSource AncestorType=Window}}"
+                                       Style="{StaticResource StatValue}" FontSize="22"/>
+                            <TextBlock Text="Last scanned" Style="{StaticResource StatLabel}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                            <TextBlock Text="Scanning time: " FontSize="11" Foreground="#666"/>
+                            <TextBlock Text="{Binding NetworkScanVm.ScanElapsedTime}"
+                                       FontSize="11" FontFamily="Consolas" Foreground="#4a90e2" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Grid>
                 </materialDesign:Card>
             </Grid>
 
