@@ -114,6 +114,9 @@ namespace M1Scan.Services
                     for (int b = 0; b < (int)macLen; b++)
                         macBytes[b] = Marshal.ReadByte(row, 40 + b);
 
+                    // Skip null-MAC (00:00:00:00:00:00) — an unresolved/incomplete entry.
+                    if (macBytes.All(b => b == 0)) continue;
+
                     result[ip] = string.Join(":", macBytes.Select(b => b.ToString("X2")));
                 }
             }

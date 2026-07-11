@@ -641,6 +641,27 @@ namespace M1Scan.ViewModels
                 });
                 await Task.WhenAll(enrichmentTasks);
 
+                // ===== FASE 5: Endelig MAC-reconciliation =====
+                // Efter alt netværkstrafik er Windows' ARP-cache fuldt populeret. Fyld MAC
+                // ind for enhver host der stadig mangler den — inkl. services på en server
+                // der deler hostens fysiske MAC (de har en MAC i cachen selvom SendARP fejlede).
+                var finalArp = _networkService.GetArpTableNative();
+                foreach (var host in onlineList)
+                {
+                    if (!string.IsNullOrEmpty(host.MacAddress)) continue;
+                    if (finalArp.TryGetValue(host.IpAddress, out var mac) && !string.IsNullOrEmpty(mac))
+                    {
+                        host.MacAddress = mac;
+                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        {
+                            vendor = OuiLookup.Lookup(mac);
+                            _ouiCache[mac] = vendor;
+                        }
+                        host.Vendor = vendor;
+                        await UpdateHostInUI(host);
+                    }
+                }
+
                 SortHostsByIp();
                 ScanProgress = 100;
                 var total = DiscoveredHosts.Count(h => h.IsReachable);
