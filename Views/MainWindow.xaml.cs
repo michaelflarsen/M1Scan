@@ -167,6 +167,7 @@ namespace M1Scan.Views
             if (IpConfigPanel  != null) IpConfigPanel.Visibility  = _selectedPage == "IpSkift"      ? Visibility.Visible : Visibility.Collapsed;
             if (TraceroutePanel != null) TraceroutePanel.Visibility = _selectedPage == "Traceroute"  ? Visibility.Visible : Visibility.Collapsed;
             if (FindIpPanel    != null) FindIpPanel.Visibility     = _selectedPage == "FindIp"       ? Visibility.Visible : Visibility.Collapsed;
+            if (MacAliasPanel  != null) MacAliasPanel.Visibility   = _selectedPage == "MacAlias"     ? Visibility.Visible : Visibility.Collapsed;
             if (StatsRow       != null) StatsRow.Visibility       = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
         }
 

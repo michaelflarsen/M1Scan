@@ -42,6 +42,7 @@ namespace M1Scan.Models
 
         private string _osGuess = string.Empty;
         private string _vendor = string.Empty;
+        private string _originalVendor = string.Empty;
         private string _netBiosName = string.Empty;
         private bool _isPort80Open;
         private bool _isPort443Open;
@@ -50,6 +51,8 @@ namespace M1Scan.Models
 
         public string OsGuess { get => _osGuess; set => SetProperty(ref _osGuess, value); }
         public string Vendor { get => _vendor; set => SetProperty(ref _vendor, value); }
+        public string OriginalVendor { get => _originalVendor; set => SetProperty(ref _originalVendor, value); }
+        public bool IsAlias => !string.IsNullOrEmpty(_vendor) && _vendor != _originalVendor;
         public string NetBiosName { get => _netBiosName; set => SetProperty(ref _netBiosName, value); }
 
         public bool IsPort80Open

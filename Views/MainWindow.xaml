@@ -412,6 +412,18 @@
                             </StackPanel>
                         </RadioButton>
 
+                        <RadioButton x:Name="MacAliasNavBtn"
+                                     Style="{StaticResource SideNavStyle}"
+                                     GroupName="SideNav" Tag="MacAlias" Click="SideNav_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="TagMultiple" Width="18" Height="18"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                                         VerticalAlignment="Center"/>
+                                <TextBlock Text="MAC Aliases" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            </StackPanel>
+                        </RadioButton>
+
                         <RadioButton Style="{StaticResource SideNavStyle}" IsEnabled="False"
                                      GroupName="SideNav">
                             <StackPanel Orientation="Horizontal">
@@ -488,6 +500,9 @@
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="FindIp">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="MacAlias">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -879,6 +894,9 @@
                                             <MenuItem Header="Kopier IP"
                                                       Command="{Binding Source={StaticResource VmProxy}, Path=Data.CopyIpCommand}"
                                                       CommandParameter="{Binding IpAddress}"/>
+                                            <MenuItem Header="Kopier MAC"
+                                                      Command="{Binding Source={StaticResource VmProxy}, Path=Data.CopyMacCommand}"
+                                                      CommandParameter="{Binding MacAddress}"/>
                                             <Separator/>
                                             <MenuItem Header="Åbn :80 i browser"
                                                       Command="{Binding Source={StaticResource VmProxy}, Path=Data.OpenInBrowserCommand}"
@@ -959,11 +977,15 @@
                                         <TextBlock x:Name="vnd" Text="{Binding Vendor}"
                                                    Foreground="{StaticResource DarkForegroundBrush}"
                                                    VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis"/>
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding OriginalVendor}"/>
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding Vendor}" Value="">
                                                 <Setter TargetName="vnd" Property="Text"       Value="—"/>
                                                 <Setter TargetName="vnd" Property="Foreground" Value="#3A3A3A"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsAlias}" Value="True">
+                                                <Setter TargetName="vnd" Property="FontStyle" Value="Italic"/>
                                             </DataTrigger>
                                         </DataTemplate.Triggers>
                                     </DataTemplate>
@@ -1396,6 +1418,12 @@
                 <!-- ===================================================== -->
                 <views:FindIpView x:Name="FindIpPanel" Visibility="Collapsed"
                                   DataContext="{Binding FindIpVm}"/>
+
+                <!-- ===================================================== -->
+                <!--  MAC ALIAS PANEL                                        -->
+                <!-- ===================================================== -->
+                <views:MacAliasView x:Name="MacAliasPanel" Visibility="Collapsed"
+                                    DataContext="{Binding MacAliasVm}"/>
 
             </Grid>
             <!-- end content panels -->

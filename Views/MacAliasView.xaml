@@ -1,0 +1,219 @@
+<UserControl x:Class="M1Scan.Views.MacAliasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Background="{StaticResource DarkBackgroundBrush}">
+
+    <Grid Margin="20,12,20,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ADD ALIAS CARD -->
+        <materialDesign:Card Grid.Row="0" Margin="0,0,0,12" Padding="16,12"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <StackPanel>
+                <TextBlock Text="Add MAC Alias" FontSize="16" FontWeight="Bold"
+                           Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
+
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Text="MAC Address:"
+                               Foreground="{StaticResource DarkForegroundBrush}"
+                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Grid.Column="1" Style="{StaticResource DarkTextBoxStyle}"
+                             Text="{Binding MacInput, UpdateSourceTrigger=PropertyChanged}"
+                             materialDesign:HintAssist.Hint="2c6b7d or 2c:6b:7d:xx:xx:xx"/>
+
+                    <TextBlock Grid.Column="2" Text="Description:"
+                               Foreground="{StaticResource DarkForegroundBrush}"
+                               VerticalAlignment="Center" Margin="10,0,10,0"/>
+                    <TextBox Grid.Column="3" Style="{StaticResource DarkTextBoxStyle}"
+                             Text="{Binding DescriptionInput, UpdateSourceTrigger=PropertyChanged}"
+                             materialDesign:HintAssist.Hint="e.g., ZoneUnit Wandsworth"/>
+
+                    <Button Grid.Column="4" Content="Add"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Background="#1565C0" BorderBrush="#1565C0"
+                            Height="36" Padding="20,0" Margin="10,0,0,0"
+                            Command="{Binding AddCommand}"/>
+                </Grid>
+
+                <TextBlock Text="{Binding StatusMessage}"
+                           Foreground="#4a90e2" FontSize="11" Margin="0,0,0,0"/>
+            </StackPanel>
+        </materialDesign:Card>
+
+        <!-- ALIASES TABLE CARD -->
+        <materialDesign:Card Grid.Row="1" Margin="0,0,0,12" Padding="16,12"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <TextBlock Text="MAC Aliases" FontSize="16" FontWeight="Bold"
+                                   Foreground="{StaticResource DarkForegroundBrush}"/>
+                        <TextBlock Text="{Binding Aliases.Count, StringFormat=({0})}"
+                                   Foreground="#666666" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button Content="Refresh" Style="{StaticResource DarkButtonStyle}"
+                            Width="80" HorizontalAlignment="Right"
+                            Command="{Binding RefreshCommand}"/>
+                </Grid>
+
+                <DataGrid ItemsSource="{Binding Aliases}"
+                          AutoGenerateColumns="False" IsReadOnly="False"
+                          CanUserAddRows="False" CanUserDeleteRows="False"
+                          Background="{StaticResource ControlBackgroundBrush}"
+                          BorderBrush="{StaticResource ControlBorderBrush}"
+                          BorderThickness="1" RowHeight="28" ColumnHeaderHeight="30"
+                          GridLinesVisibility="Horizontal"
+                          CanUserResizeRows="False" SelectionMode="Single"
+                          CanUserReorderColumns="False"
+                          HorizontalScrollBarVisibility="Auto"
+                          MinHeight="200">
+
+                    <DataGrid.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="Padding" Value="4,0,4,0"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="DataGridCell">
+                                        <Border Padding="{TemplateBinding Padding}"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}">
+                                            <ContentPresenter VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </DataGrid.CellStyle>
+
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="Background"   Value="#151E2C"/>
+                            <Setter Property="Foreground"   Value="#888888"/>
+                            <Setter Property="Padding"      Value="6,0"/>
+                            <Setter Property="FontSize"     Value="11"/>
+                            <Setter Property="FontWeight"   Value="SemiBold"/>
+                            <Setter Property="BorderBrush"  Value="{StaticResource ControlBorderBrush}"/>
+                            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource DarkForegroundBrush}"/>
+                            <Setter Property="BorderBrush" Value="#333333"/>
+                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#1D2D3D"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+
+                    <DataGrid.Columns>
+                        <!-- MAC Prefix -->
+                        <DataGridTextColumn Header="MAC Prefix" Binding="{Binding MacPrefix}" Width="150">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#64B5F6"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="FontFamily" Value="Consolas"/>
+                                    <Setter Property="FontSize" Value="11"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Custom Description -->
+                        <DataGridTextColumn Header="Your Description" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="250">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource DarkForegroundBrush}"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                            <DataGridTextColumn.EditingElementStyle>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Background" Value="#0D1520"/>
+                                    <Setter Property="Foreground" Value="{StaticResource DarkForegroundBrush}"/>
+                                    <Setter Property="BorderBrush" Value="#1565C0"/>
+                                    <Setter Property="BorderThickness" Value="1"/>
+                                    <Setter Property="Padding" Value="4,2"/>
+                                </Style>
+                            </DataGridTextColumn.EditingElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Original Vendor (OUI) -->
+                        <DataGridTextColumn Header="Original Vendor (OUI)" Binding="{Binding OriginalVendor}" Width="*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#888888"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                    <Setter Property="FontSize" Value="10"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Actions -->
+                        <DataGridTemplateColumn Header="Actions" Width="80" CanUserSort="False" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0">
+                                        <Button Width="32" Height="24" Padding="2"
+                                                Style="{StaticResource MaterialDesignIconButton}"
+                                                ToolTip="Lookup original OUI"
+                                                Command="{Binding DataContext.LookupCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}">
+                                            <materialDesign:PackIcon Kind="Magnify" Width="14" Height="14"/>
+                                        </Button>
+                                        <Button Width="32" Height="24" Padding="2" Margin="4,0,0,0"
+                                                Style="{StaticResource MaterialDesignIconButton}"
+                                                Foreground="#EF5350"
+                                                ToolTip="Remove alias"
+                                                Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}">
+                                            <materialDesign:PackIcon Kind="Delete" Width="14" Height="14"/>
+                                        </Button>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </StackPanel>
+        </materialDesign:Card>
+
+        <!-- INFO SECTION -->
+        <Border Grid.Row="2" Background="#0D1520" CornerRadius="4" Padding="12,10">
+            <StackPanel>
+                <TextBlock Text="How it works" FontWeight="Bold" Foreground="#4a90e2"
+                           FontSize="12" Margin="0,0,0,6"/>
+                <TextBlock Text="• MAC aliases override the vendor lookup (OUI) everywhere in the app — Network Scan, Device Follow, etc."
+                           Foreground="#888888" FontSize="11" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                <TextBlock Text="• Lookup first shows both the original IEEE vendor and your custom description"
+                           Foreground="#888888" FontSize="11" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                <TextBlock Text="• You can use a 6-char prefix (OUI, e.g., 2c6b7d) or a full 12-char MAC address"
+                           Foreground="#888888" FontSize="11" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

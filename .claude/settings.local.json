@@ -17,7 +17,11 @@
       "Skill(update-config)",
       "Skill(update-config:*)",
       "Read(//c/Users/MichaelLarsenNtechAp/.claude/**)",
-      "Bash(dotnet test *)"
+      "Bash(dotnet test *)",
+      "PowerShell(cd \"c:\\\\VS_Code_projekt\\\\M1Scan\"; dotnet build --configuration Debug 2>&1 | Measure-Object -Line | Select-Object @{Name=\"Lines\";Expression={$_.Lines}}; Write-Output \"Build completed\"; dotnet build --configuration Debug 2>&1 | Select-Object -Last 3)",
+      "PowerShell(Start-Process \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\\\\M1Scan.exe\" -Verb RunAs; Write-Output \"Started M1Scan with admin privileges\")",
+      "PowerShell(cd \"c:\\\\VS_Code_projekt\\\\M1Scan\\\\bin\\\\Debug\\\\net8.0-windows\"; .\\\\M1Scan.exe 2>&1 &; Start-Sleep -Seconds 5; Get-Process | Where-Object {$_.ProcessName -eq \"M1Scan\"} | Select-Object ProcessName, Id)",
+      "PowerShell(Get-Process -Name \"M1Scan\" -ErrorAction SilentlyContinue)"
     ]
   }
 }

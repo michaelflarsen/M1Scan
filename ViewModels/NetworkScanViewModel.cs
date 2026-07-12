@@ -180,6 +180,7 @@ namespace M1Scan.ViewModels
         public RelayCommand ToggleAutoRefreshCommand { get; }
         public RelayCommand OpenInBrowserCommand { get; }
         public RelayCommand CopyIpCommand { get; }
+        public RelayCommand CopyMacCommand { get; }
         public RelayCommand PingHostCommand { get; }
         public RelayCommand ExportCommand { get; }
 
@@ -213,6 +214,11 @@ namespace M1Scan.ViewModels
             {
                 if (param is string ip && !string.IsNullOrEmpty(ip))
                     System.Windows.Clipboard.SetText(ip);
+            });
+            CopyMacCommand = new RelayCommand(param =>
+            {
+                if (param is string mac && !string.IsNullOrEmpty(mac))
+                    System.Windows.Clipboard.SetText(mac);
             });
             PingHostCommand = new RelayCommand(
                 async param =>
@@ -288,6 +294,7 @@ namespace M1Scan.ViewModels
                     if (!string.IsNullOrEmpty(host.OsGuess)) existing.OsGuess = host.OsGuess;
                     if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
                     if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
+                    if (!string.IsNullOrEmpty(host.OriginalVendor)) existing.OriginalVendor = host.OriginalVendor;
                     if (!string.IsNullOrEmpty(host.NetBiosName)) existing.NetBiosName = host.NetBiosName;
                     if (host.IsPort80Open) existing.IsPort80Open = true;
                     if (host.IsPort443Open) existing.IsPort443Open = true;
@@ -460,6 +467,7 @@ namespace M1Scan.ViewModels
                             _ouiCache[mac] = vendor;
                         }
                         host.Vendor = vendor;
+                        host.OriginalVendor = OuiLookup.LookupOuiOnly(mac);
                     }
                 }
 
@@ -712,6 +720,7 @@ namespace M1Scan.ViewModels
                             _ouiCache[mac] = vendor;
                         }
                         host.Vendor = vendor;
+                        host.OriginalVendor = OuiLookup.LookupOuiOnly(mac);
                         _uiQueue.Enqueue(host);
                     }
                 }
@@ -753,6 +762,7 @@ namespace M1Scan.ViewModels
                             _ouiCache[mac] = vendor;
                         }
                         host.Vendor = vendor;
+                        host.OriginalVendor = OuiLookup.LookupOuiOnly(mac);
                         await UpdateHostInUI(host);
                     }
                 }

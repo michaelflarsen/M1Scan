@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using M1Scan.Services;
 
 namespace M1Scan.Utils
 {
@@ -10,12 +11,19 @@ namespace M1Scan.Utils
     // indlejret i assemblyen som en gzip-komprimeret "OUI|Vendor"-tekstfil
     // (Resources/Data/oui.txt.gz — regenerér med scripts/update-oui.py).
     // Lazy + trådsikker: filen læses og udpakkes kun ved første opslag.
+    // MAC-aliaser overrides OUI-opslag hvis de er registreret via SetMacAliasService.
     public static class OuiLookup
     {
         private const string ResourceName = "M1Scan.Resources.Data.oui.txt.gz";
+        private static IMacAliasService? _macAliasService;
 
         private static readonly Lazy<Dictionary<string, string>> _oui =
             new(LoadFromEmbeddedResource, isThreadSafe: true);
+
+        public static void SetMacAliasService(IMacAliasService service)
+        {
+            _macAliasService = service;
+        }
 
         private static Dictionary<string, string> LoadFromEmbeddedResource()
         {
@@ -51,7 +59,25 @@ namespace M1Scan.Utils
         public static string Lookup(string mac)
         {
             if (string.IsNullOrEmpty(mac)) return string.Empty;
-            // Normaliser: fjern : - . og tag de første 6 tegn
+
+            var normalized = mac.Replace(":", "").Replace("-", "").Replace(".", "");
+            if (normalized.Length < 6) return string.Empty;
+
+            // Tjek MAC-aliaser først (overrides OUI)
+            if (_macAliasService != null)
+            {
+                var alias = _macAliasService.Lookup(normalized);
+                if (!string.IsNullOrEmpty(alias))
+                    return alias;
+            }
+
+            // Fallback til OUI-lookup
+            return LookupOuiOnly(normalized);
+        }
+
+        public static string LookupOuiOnly(string mac)
+        {
+            if (string.IsNullOrEmpty(mac)) return string.Empty;
             var normalized = mac.Replace(":", "").Replace("-", "").Replace(".", "");
             if (normalized.Length < 6) return string.Empty;
             var oui = normalized.Substring(0, 6).ToUpperInvariant();

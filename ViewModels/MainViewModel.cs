@@ -63,6 +63,7 @@ namespace M1Scan.ViewModels
         public UpdateViewModel      UpdateVm      { get; }
         public TracerouteViewModel  TracerouteVm  { get; }
         public FindIpViewModel      FindIpVm      { get; }
+        public MacAliasViewModel    MacAliasVm    { get; }
 
         public RelayCommand RefreshAdaptersCommand { get; }
         public RelayCommand ResetAdapterCommand { get; }
@@ -80,6 +81,7 @@ namespace M1Scan.ViewModels
             IUpdateService updateService = new UpdateService();
             ITracerouteService tracerouteService = new TracerouteService();
             IFindIpService findIpService = new FindIpService();
+            IMacAliasService macAliasService = new MacAliasService();
 
             HomeVm        = new HomeViewModel(_networkService, diagnosticsService);
             NetworkScanVm = new NetworkScanViewModel(_networkService, exportService);
@@ -88,6 +90,10 @@ namespace M1Scan.ViewModels
             UpdateVm      = new UpdateViewModel(updateService);
             TracerouteVm  = new TracerouteViewModel(tracerouteService);
             FindIpVm      = new FindIpViewModel(findIpService, _networkService);
+            MacAliasVm    = new MacAliasViewModel(macAliasService);
+
+            // Sæt MacAliasService globalt i OuiLookup så aliaser overrides vendors overalt
+            OuiLookup.SetMacAliasService(macAliasService);
 
             RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
             ResetAdapterCommand = new RelayCommand(async _ => await ResetAdapterAsync(), _ => SelectedAdapter != null);
@@ -103,6 +109,7 @@ namespace M1Scan.ViewModels
             NetworkScanVm.Dispose();
             WorkspaceVm.Dispose();
             FindIpVm.Dispose();
+            MacAliasVm.Dispose();
         }
 
 
