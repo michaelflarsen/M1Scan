@@ -622,7 +622,7 @@ namespace M1Scan.ViewModels
                         {
                             foreach (var p in tcpPorts)
                             {
-                                if (await _networkService.CheckPortAsync(ip, p, srcIp, 300, ct))
+                                if (await _networkService.CheckPortAsync(ip, p, srcIp, 200, ct))
                                 {
                                     var host = new HostInfo
                                     {
@@ -647,13 +647,13 @@ namespace M1Scan.ViewModels
                     // Resolve hostnames (reverse-DNS/mDNS) for all online hosts — the sweep
                     // path builds HostInfo directly, so this step must be done explicitly.
                     StatusMessage = "Slår værtsnavne op...";
-                    using var dnsSem = new SemaphoreSlim(100);
+                    using var dnsSem = new SemaphoreSlim(150);
                     var dnsTasks = reachableHosts.Select(host => Task.Run(async () =>
                     {
                         await dnsSem.WaitAsync(ct).ConfigureAwait(false);
                         try
                         {
-                            var name = await _networkService.ResolveHostNameAsync(host.IpAddress, 2000, ct);
+                            var name = await _networkService.ResolveHostNameAsync(host.IpAddress, 800, ct);
                             if (!string.IsNullOrEmpty(name) && name != host.IpAddress)
                             {
                                 // HostInfo is bound to the grid — mutate it on the UI thread so
