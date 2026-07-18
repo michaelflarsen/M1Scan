@@ -687,15 +687,69 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0">
+                        <!-- NOT SCANNING: Show last scan time -->
+                        <StackPanel Grid.Row="0" Visibility="{Binding NetworkScanVm.IsScanning, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                             <TextBlock Text="{Binding LastScanTime, RelativeSource={RelativeSource AncestorType=Window}}"
                                        Style="{StaticResource StatValue}" FontSize="22"/>
                             <TextBlock Text="Last scanned" Style="{StaticResource StatLabel}"/>
                         </StackPanel>
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
-                            <TextBlock Text="Scanning time: " FontSize="11" Foreground="#666"/>
-                            <TextBlock Text="{Binding NetworkScanVm.ScanElapsedTime}"
-                                       FontSize="11" FontFamily="Consolas" Foreground="#4a90e2" FontWeight="Bold"/>
+
+                        <!-- SCANNING: Show progress bar -->
+                        <StackPanel Grid.Row="1" Orientation="Vertical"
+                                   Visibility="{Binding NetworkScanVm.IsScanning, Converter={StaticResource BoolToVisibilityConverter}}"
+                                   Margin="0,6,0,0">
+                            <!-- Header with scanning indicator -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16"
+                                                        VerticalAlignment="Center" Margin="0,0,6,0"
+                                                        Foreground="#4a90e2">
+                                    <materialDesign:PackIcon.Triggers>
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                        From="0" To="360" Duration="0:0:2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </materialDesign:PackIcon.Triggers>
+                                    <materialDesign:PackIcon.RenderTransform>
+                                        <RotateTransform CenterX="8" CenterY="8"/>
+                                    </materialDesign:PackIcon.RenderTransform>
+                                </materialDesign:PackIcon>
+                                <TextBlock Text="SCANNING IN PROGRESS" FontSize="12" FontWeight="Bold"
+                                          Foreground="#4a90e2" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Progress bar (indeterminate animation) -->
+                            <ProgressBar Height="4" Background="#2a3f5f" Foreground="#4a90e2" IsIndeterminate="True"/>
+
+                            <!-- Status message -->
+                            <TextBlock Text="{Binding NetworkScanVm.StatusMessage}" FontSize="11"
+                                      Foreground="#aaa" Margin="0,6,0,0"/>
+
+                            <!-- Timing info -->
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                    <TextBlock Text="Elapsed: " FontSize="10" Foreground="#666"/>
+                                    <TextBlock Text="{Binding NetworkScanVm.ScanElapsedTime}"
+                                              FontSize="10" FontFamily="Consolas" Foreground="#4a90e2" FontWeight="Bold"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text=" • " FontSize="10" Foreground="#555" Margin="4,0"/>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                    <TextBlock Text="Est. remaining: " FontSize="10" Foreground="#666"/>
+                                    <TextBlock Text="{Binding NetworkScanVm.EstimatedTimeRemaining}"
+                                              FontSize="10" FontFamily="Consolas" Foreground="#e24a4a" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Grid>
                 </materialDesign:Card>

@@ -171,6 +171,28 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _scanElapsedTime, value);
         }
 
+        public string EstimatedTimeRemaining
+        {
+            get
+            {
+                if (!IsScanning || DateTime.UtcNow <= _scanStartTime)
+                    return string.Empty;
+
+                var elapsed = DateTime.UtcNow - _scanStartTime;
+                if (elapsed.TotalSeconds < 1 || ScanProgress <= 0)
+                    return "...";
+
+                var progressPercent = Math.Max(1, Math.Min(100, ScanProgress));
+                var estimatedTotal = elapsed.TotalSeconds * (100.0 / progressPercent);
+                var remaining = Math.Max(0, estimatedTotal - elapsed.TotalSeconds);
+
+                var ts = TimeSpan.FromSeconds(remaining);
+                return ts.Hours > 0
+                    ? $"{ts.Hours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+                    : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+            }
+        }
+
         public RelayCommand PingSingleCommand { get; }
         public RelayCommand ScanNetworkCommand { get; }
         public RelayCommand CancelScanCommand { get; }
