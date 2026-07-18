@@ -11,12 +11,18 @@ namespace M1Scan.Services
 {
     /// <summary>
     /// Lookup Country and ASN for IP addresses via ip-api.com batch endpoint.
+    ///
+    /// Rate limits: 15 requests per minute per IP address (free tier).
+    /// Session cache prevents repeated lookups of the same IP addresses during a session.
+    /// Note: ip-api.com free tier is for non-commercial use only. Commercial deployments require
+    /// either upgrade to paid plan or switch to an alternative data source (e.g., local MaxMind database).
     /// </summary>
     public interface IGeoIpService
     {
         /// <summary>
         /// Batch lookup of country and ASN for a set of public IP addresses.
         /// Private/reserved IPs are filtered out before the API call.
+        /// Results are cached in memory for the lifetime of the process.
         /// Returns a dict mapping IP -> (Country, Asn); private IPs are absent from the dict.
         /// </summary>
         Task<Dictionary<string, (string Country, string Asn)>> LookupBatchAsync(
