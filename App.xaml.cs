@@ -24,9 +24,19 @@ namespace M1Scan
 
         private static bool IsRunningAsAdmin()
         {
-            var identity = WindowsIdentity.GetCurrent();
-            var principal = new WindowsPrincipal(identity);
-            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+            try
+            {
+                var identity = WindowsIdentity.GetCurrent();
+                if (identity == null)
+                    return false;
+
+                var principal = new WindowsPrincipal(identity);
+                return principal.IsInRole(WindowsBuiltInRole.Administrator);
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
