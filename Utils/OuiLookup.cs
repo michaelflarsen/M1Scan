@@ -83,5 +83,26 @@ namespace M1Scan.Utils
             var oui = normalized.Substring(0, 6).ToUpperInvariant();
             return _oui.Value.TryGetValue(oui, out var vendor) ? vendor : string.Empty;
         }
+
+        public static (string vendor, string originalOui) LookupWithOriginal(string mac)
+        {
+            if (string.IsNullOrEmpty(mac)) return (string.Empty, string.Empty);
+
+            var normalized = mac.Replace(":", "").Replace("-", "").Replace(".", "");
+            if (normalized.Length < 6) return (string.Empty, string.Empty);
+
+            var oui = normalized.Substring(0, 6).ToUpperInvariant();
+            var ouiVendor = _oui.Value.TryGetValue(oui, out var vendor) ? vendor : string.Empty;
+
+            // Tjek MAC-aliaser først (overrides OUI)
+            if (_macAliasService != null)
+            {
+                var alias = _macAliasService.Lookup(normalized);
+                if (!string.IsNullOrEmpty(alias))
+                    return (alias, ouiVendor);
+            }
+
+            return (ouiVendor, ouiVendor);
+        }
     }
 }

@@ -39,8 +39,8 @@ namespace M1Scan.ViewModels
         private readonly ConcurrentQueue<HostInfo> _uiQueue = new();
         private CancellationTokenSource? _scanCts;
 
-        // OUI-lookup cache per scan — holds vendor names for MAC prefixes already looked up
-        private readonly Dictionary<string, string> _ouiCache = new(StringComparer.OrdinalIgnoreCase);
+        // OUI-lookup cache per scan — holds (vendor, originalOui) tuples to avoid redundant lookups
+        private readonly Dictionary<string, (string vendor, string originalOui)> _ouiCache = new(StringComparer.OrdinalIgnoreCase);
 
         private DateTime _scanStartTime;
         private string _scanElapsedTime = string.Empty;
@@ -461,13 +461,14 @@ namespace M1Scan.ViewModels
                     if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
-                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        if (!_ouiCache.TryGetValue(mac, out var cached))
                         {
-                            vendor = OuiLookup.Lookup(mac);
-                            _ouiCache[mac] = vendor;
+                            var (vendor, originalOui) = OuiLookup.LookupWithOriginal(mac);
+                            cached = (vendor, originalOui);
+                            _ouiCache[mac] = cached;
                         }
-                        host.Vendor = vendor;
-                        host.OriginalVendor = OuiLookup.LookupOuiOnly(mac);
+                        host.Vendor = cached.vendor;
+                        host.OriginalVendor = cached.originalOui;
                     }
                 }
 
@@ -714,13 +715,14 @@ namespace M1Scan.ViewModels
                     if (!string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
-                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        if (!_ouiCache.TryGetValue(mac, out var cached))
                         {
-                            vendor = OuiLookup.Lookup(mac);
-                            _ouiCache[mac] = vendor;
+                            var (vendor, originalOui) = OuiLookup.LookupWithOriginal(mac);
+                            cached = (vendor, originalOui);
+                            _ouiCache[mac] = cached;
                         }
-                        host.Vendor = vendor;
-                        host.OriginalVendor = OuiLookup.LookupOuiOnly(mac);
+                        host.Vendor = cached.vendor;
+                        host.OriginalVendor = cached.originalOui;
                         _uiQueue.Enqueue(host);
                     }
                 }
@@ -756,13 +758,14 @@ namespace M1Scan.ViewModels
                     if (finalArp.TryGetValue(host.IpAddress, out var mac) && !string.IsNullOrEmpty(mac))
                     {
                         host.MacAddress = mac;
-                        if (!_ouiCache.TryGetValue(mac, out var vendor))
+                        if (!_ouiCache.TryGetValue(mac, out var cached))
                         {
-                            vendor = OuiLookup.Lookup(mac);
-                            _ouiCache[mac] = vendor;
+                            var (vendor, originalOui) = OuiLookup.LookupWithOriginal(mac);
+                            cached = (vendor, originalOui);
+                            _ouiCache[mac] = cached;
                         }
-                        host.Vendor = vendor;
-                        host.OriginalVendor = OuiLookup.LookupOuiOnly(mac);
+                        host.Vendor = cached.vendor;
+                        host.OriginalVendor = cached.originalOui;
                         await UpdateHostInUI(host);
                     }
                 }
