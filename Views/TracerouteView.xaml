@@ -94,7 +94,8 @@
                                  Background="#1C2535"
                                  materialDesign:ElevationAssist.Elevation="Dp2">
                 <DataGrid ItemsSource="{Binding Hops}" Background="#141c28" Foreground="#e0e0e0"
-                          HeadersVisibility="Column" AutoGenerateColumns="False" ColumnWidth="*" BorderThickness="0">
+                          HeadersVisibility="Column" AutoGenerateColumns="False" ColumnWidth="*" BorderThickness="0"
+                          PreviewMouseWheel="DataGrid_PreviewMouseWheel">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
                         <Setter Property="Background" Value="#1a2332"/>
@@ -116,8 +117,8 @@
                     <DataGridTextColumn Header="Hop" Binding="{Binding HopNumber}" Width="50"/>
                     <DataGridTextColumn Header="IP-adresse" Binding="{Binding IpAddress}" Width="150"/>
                     <DataGridTextColumn Header="Værtsnavn" Binding="{Binding HostName}" Width="200"/>
-                    <DataGridTextColumn Header="Land" Binding="{Binding Country}" Width="80"/>
-                    <DataGridTextColumn Header="ASN" Binding="{Binding Asn}" Width="100"/>
+                    <DataGridTextColumn Header="Land" Binding="{Binding Country}" Width="120"/>
+                    <DataGridTextColumn Header="ASN" Binding="{Binding Asn}" Width="220"/>
                     <DataGridTextColumn Header="Avg. Latency (ms)" Binding="{Binding LatencySeries.AvgDisplay}" Width="120"/>
                     <DataGridTextColumn Header="Jitter (ms)" Binding="{Binding LatencySeries.JitterDisplay}" Width="100"/>
                     <DataGridTextColumn Header="Tab %" Binding="{Binding LatencySeries.LossDisplay}" Width="80"/>

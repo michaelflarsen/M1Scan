@@ -14,6 +14,7 @@ namespace M1Scan.ViewModels
     public class TracerouteViewModel : ObservableObject
     {
         private readonly ITracerouteService _tracerouteService;
+        private readonly IGeoIpService _geoIpService;
         private CancellationTokenSource? _traceCts;
 
         private ObservableCollection<TraceHopInfo> _hops = new();
@@ -77,9 +78,10 @@ namespace M1Scan.ViewModels
         public ICommand ProbeLoopCommand { get; }
         public ICommand CancelTraceCommand { get; }
 
-        public TracerouteViewModel(ITracerouteService tracerouteService)
+        public TracerouteViewModel(ITracerouteService tracerouteService, IGeoIpService geoIpService)
         {
             _tracerouteService = tracerouteService;
+            _geoIpService = geoIpService;
 
             TraceCommand = new RelayCommand(_ => _ = ExecuteTraceAsync(), _ => !IsTracing && !IsProbing);
             ProbeLoopCommand = new RelayCommand(_ => _ = ToggleProbingAsync(), _ => IsTraceComplete || IsProbing);
@@ -130,9 +132,16 @@ namespace M1Scan.ViewModels
                     });
                 }
 
-                StatusMessage = Hops.Count > 0
-                    ? $"Sporing fuldført — {Hops.Count} hop'er"
-                    : "Sporing fuldført — ingen svar";
+                // Trace completed — now enrich in parallel (DNS, Country, ASN)
+                if (Hops.Count > 0 && !_traceCts.Token.IsCancellationRequested)
+                {
+                    await EnrichHopsAsync(_traceCts.Token);
+                    StatusMessage = $"Sporing fuldført — {Hops.Count} hop'er";
+                }
+                else if (Hops.Count == 0)
+                {
+                    StatusMessage = "Sporing fuldført — ingen svar";
+                }
             }
             catch (OperationCanceledException)
             {
@@ -148,6 +157,92 @@ namespace M1Scan.ViewModels
                 IsTraceComplete = Hops.Count > 0;
                 _traceCts?.Dispose();
                 _traceCts = null;
+            }
+        }
+
+        private async Task EnrichHopsAsync(CancellationToken ct)
+        {
+            if (Hops.Count == 0)
+                return;
+
+            try
+            {
+                // Update status while enriching
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                    StatusMessage = "🔄 Slår værtsnavne, land og ASN op...");
+
+                // Phase 1: Parallel reverse-DNS resolution
+                var dnsTask = Task.WhenAll(
+                    Hops.Where(h => !string.IsNullOrEmpty(h.IpAddress) && string.IsNullOrEmpty(h.HostName))
+                        .Select(h => ResolveAndSetHostNameAsync(h, ct)));
+
+                await dnsTask;
+
+                if (ct.IsCancellationRequested)
+                    return;
+
+                // Phase 2: Batch geo/ASN lookup for public IPs
+                var publicIps = Hops
+                    .Where(h => !string.IsNullOrEmpty(h.IpAddress))
+                    .Select(h => h.IpAddress!)
+                    .ToList();
+
+                if (publicIps.Count > 0)
+                {
+                    var geoData = await _geoIpService.LookupBatchAsync(publicIps, ct);
+
+                    // Marshal geo data updates to UI thread
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        foreach (var hop in Hops.Where(h => !string.IsNullOrEmpty(h.IpAddress)))
+                        {
+                            if (geoData.TryGetValue(hop.IpAddress!, out var result))
+                            {
+                                hop.Country = result.Country;
+                                hop.Asn = result.Asn;
+                            }
+                            else
+                            {
+                                // Private IP — mark as such
+                                hop.Country = "—";
+                            }
+                        }
+                    });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Enrichment was cancelled — that's OK
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"EnrichHopsAsync error: {ex.Message}");
+                // Don't crash the trace just because enrichment failed
+            }
+        }
+
+        private async Task ResolveAndSetHostNameAsync(TraceHopInfo hop, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(hop.IpAddress))
+                return;
+
+            try
+            {
+                var hostName = await _tracerouteService.ResolveHostNameAsync(hop.IpAddress, 1500, ct);
+                if (!string.IsNullOrEmpty(hostName))
+                {
+                    // Marshal UI update to dispatcher thread
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                        hop.HostName = hostName);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // DNS failed — just skip hostname for this hop
             }
         }
 

@@ -1,0 +1,187 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace M1Scan.Services
+{
+    /// <summary>
+    /// Lookup Country and ASN for IP addresses via ip-api.com batch endpoint.
+    ///
+    /// Rate limits: 15 requests per minute per IP address (free tier).
+    /// Session cache prevents repeated lookups of the same IP addresses during a session.
+    /// Note: ip-api.com free tier is for non-commercial use only. Commercial deployments require
+    /// either upgrade to paid plan or switch to an alternative data source (e.g., local MaxMind database).
+    /// </summary>
+    public interface IGeoIpService
+    {
+        /// <summary>
+        /// Batch lookup of country and ASN for a set of public IP addresses.
+        /// Private/reserved IPs are filtered out before the API call.
+        /// Results are cached in memory for the lifetime of the process.
+        /// Returns a dict mapping IP -> (Country, Asn); private IPs are absent from the dict.
+        /// </summary>
+        Task<Dictionary<string, (string Country, string Asn)>> LookupBatchAsync(
+            IEnumerable<string> ips,
+            CancellationToken ct = default);
+    }
+
+    public class GeoIpService : IGeoIpService
+    {
+        private static readonly HttpClient _httpClient = new();
+        private const string BatchEndpoint = "http://ip-api.com/batch";
+
+        // Session-scoped in-memory cache (process lifetime, not persistent to disk).
+        // Thread-safe via lock; no expiry (ASN/country for a given IP don't change within a session).
+        private static readonly Dictionary<string, (string Country, string Asn)> _cache = new();
+        private static readonly object _cacheLock = new();
+
+        // Private/reserved IP ranges per RFC1918, RFC3927, RFC6598, RFC4291, etc.
+        private static readonly (IPAddress Low, IPAddress High)[] PrivateRanges = new[]
+        {
+            (IPAddress.Parse("10.0.0.0"),       IPAddress.Parse("10.255.255.255")),       // RFC1918
+            (IPAddress.Parse("172.16.0.0"),     IPAddress.Parse("172.31.255.255")),       // RFC1918
+            (IPAddress.Parse("192.168.0.0"),    IPAddress.Parse("192.168.255.255")),      // RFC1918
+            (IPAddress.Parse("127.0.0.0"),      IPAddress.Parse("127.255.255.255")),      // Loopback
+            (IPAddress.Parse("169.254.0.0"),    IPAddress.Parse("169.254.255.255")),      // Link-local
+            (IPAddress.Parse("100.64.0.0"),     IPAddress.Parse("100.127.255.255")),      // Carrier-grade NAT (RFC6598)
+        };
+
+        public GeoIpService()
+        {
+            _httpClient.Timeout = TimeSpan.FromSeconds(10);
+        }
+
+        /// <summary>
+        /// Check if an IP is in a private/reserved range.
+        /// </summary>
+        private static bool IsPrivateIp(string ipStr)
+        {
+            if (!IPAddress.TryParse(ipStr, out var ip))
+                return true; // Invalid IPs treated as private, skip them.
+
+            foreach (var (low, high) in PrivateRanges)
+            {
+                if (CompareIps(ip, low) >= 0 && CompareIps(ip, high) <= 0)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Compare two IP addresses. Returns negative if a < b, 0 if equal, positive if a > b.
+        /// </summary>
+        private static int CompareIps(IPAddress a, IPAddress b)
+        {
+            byte[] aBytes = a.GetAddressBytes();
+            byte[] bBytes = b.GetAddressBytes();
+
+            for (int i = 0; i < Math.Min(aBytes.Length, bBytes.Length); i++)
+            {
+                if (aBytes[i] != bBytes[i])
+                    return aBytes[i].CompareTo(bBytes[i]);
+            }
+
+            return aBytes.Length.CompareTo(bBytes.Length);
+        }
+
+        public async Task<Dictionary<string, (string Country, string Asn)>> LookupBatchAsync(
+            IEnumerable<string> ips,
+            CancellationToken ct = default)
+        {
+            // Filter to public IPs only.
+            var publicIps = ips.Where(ip => !IsPrivateIp(ip)).Distinct().ToList();
+
+            if (publicIps.Count == 0)
+                return new Dictionary<string, (string, string)>();
+
+            // Check cache for IPs we've already looked up.
+            var result = new Dictionary<string, (string, string)>();
+            var missingIps = new List<string>();
+
+            lock (_cacheLock)
+            {
+                foreach (var ip in publicIps)
+                {
+                    if (_cache.TryGetValue(ip, out var cached))
+                    {
+                        result[ip] = cached;
+                    }
+                    else
+                    {
+                        missingIps.Add(ip);
+                    }
+                }
+            }
+
+            // If all IPs are cached, return immediately.
+            if (missingIps.Count == 0)
+                return result;
+
+            try
+            {
+                // Build batch request for only the IPs we don't have: {"query":"x.x.x.x","fields":"query,country,as,status"}
+                var queries = missingIps.Select(ip => new { query = ip, fields = "query,country,as,status" }).ToList();
+                var json = JsonSerializer.Serialize(queries);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.PostAsync(BatchEndpoint, content, ct);
+                response.EnsureSuccessStatusCode();
+
+                var responseJson = await response.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                if (root.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in root.EnumerateArray())
+                    {
+                        string? ip = item.TryGetProperty("query", out var q) ? q.GetString() : null;
+                        string? country = item.TryGetProperty("country", out var c) ? c.GetString() : null;
+                        string? asn = item.TryGetProperty("as", out var a) ? a.GetString() : null;
+                        string? status = item.TryGetProperty("status", out var s) ? s.GetString() : null;
+
+                        // Only include if status is "success" and we have both country and IP.
+                        if (status == "success" && !string.IsNullOrEmpty(ip) && !string.IsNullOrEmpty(country))
+                        {
+                            asn = asn ?? "—";
+                            result[ip] = (country, asn);
+
+                            // Cache the new result.
+                            lock (_cacheLock)
+                            {
+                                _cache[ip] = (country, asn);
+                            }
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch (HttpRequestException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"GeoIpService: HTTP error: {ex.Message}");
+                return new Dictionary<string, (string, string)>();
+            }
+            catch (JsonException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"GeoIpService: JSON parse error: {ex.Message}");
+                return new Dictionary<string, (string, string)>();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"GeoIpService: Unexpected error: {ex.Message}");
+                return new Dictionary<string, (string, string)>();
+            }
+        }
+    }
+}

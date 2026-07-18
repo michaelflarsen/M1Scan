@@ -4,6 +4,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using M1Scan.ViewModels;
@@ -234,6 +235,24 @@ namespace M1Scan.Views
                 StrokeThickness = 1.5
             };
             HopGraphCanvas.Children.Add(yAxis);
+        }
+
+        private void DataGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // Pass mouse wheel events to parent ScrollViewer so scrolling works when over DataGrid
+            var scrollViewer = FindParent<ScrollViewer>(sender as UIElement);
+            if (scrollViewer != null)
+            {
+                scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset - e.Delta / 3.0);
+                e.Handled = true;
+            }
+        }
+
+        private static T? FindParent<T>(UIElement? element) where T : UIElement
+        {
+            UIElement? parent = VisualTreeHelper.GetParent(element) as UIElement;
+            if (parent == null) return null;
+            return parent is T t ? t : FindParent<T>(parent);
         }
     }
 }
