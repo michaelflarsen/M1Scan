@@ -730,6 +730,11 @@
                                           Foreground="#4a90e2" VerticalAlignment="Center"/>
                             </StackPanel>
 
+                            <!-- Last scanned time during active scan -->
+                            <TextBlock Text="{Binding LastScanTime, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='Last Scanned: {0}'}"
+                                      FontSize="10" Foreground="#666" Margin="0,0,0,6"/>
+
+
                             <!-- Progress bar (indeterminate animation) -->
                             <ProgressBar Height="4" Background="#2a3f5f" Foreground="#4a90e2" IsIndeterminate="True"/>
 
