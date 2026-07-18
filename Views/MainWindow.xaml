@@ -694,6 +694,14 @@
                             <TextBlock Text="Last scanned" Style="{StaticResource StatLabel}"/>
                         </StackPanel>
 
+                        <!-- NOT SCANNING: Show total scanning time -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0"
+                                   Visibility="{Binding NetworkScanVm.IsScanning, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <TextBlock Text="Total time: " FontSize="11" Foreground="#666"/>
+                            <TextBlock Text="{Binding NetworkScanVm.ScanElapsedTime}"
+                                       FontSize="11" FontFamily="Consolas" Foreground="#4a90e2" FontWeight="Bold"/>
+                        </StackPanel>
+
                         <!-- SCANNING: Show progress bar -->
                         <StackPanel Grid.Row="1" Orientation="Vertical"
                                    Visibility="{Binding NetworkScanVm.IsScanning, Converter={StaticResource BoolToVisibilityConverter}}"
