@@ -80,6 +80,7 @@ namespace M1Scan.ViewModels
             IExportService exportService = new ExportService();
             IUpdateService updateService = new UpdateService();
             ITracerouteService tracerouteService = new TracerouteService();
+            IGeoIpService geoIpService = new GeoIpService();
             IFindIpService findIpService = new FindIpService();
             IMacAliasService macAliasService = new MacAliasService();
 
@@ -88,7 +89,7 @@ namespace M1Scan.ViewModels
             IpConfigVm    = new IpConfigViewModel(_ipConfigService, _networkService);
             WorkspaceVm   = new WorkspaceViewModel(_ipConfigService, exportService);
             UpdateVm      = new UpdateViewModel(updateService);
-            TracerouteVm  = new TracerouteViewModel(tracerouteService);
+            TracerouteVm  = new TracerouteViewModel(tracerouteService, geoIpService);
             FindIpVm      = new FindIpViewModel(findIpService, _networkService);
             MacAliasVm    = new MacAliasViewModel(macAliasService);
 

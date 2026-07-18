@@ -16,6 +16,7 @@ namespace M1Scan.Services
     {
         IAsyncEnumerable<TraceHopInfo> TraceRouteAsync(string hostOrIp, int maxHops = 32, int timeoutMs = 600, CancellationToken ct = default);
         IAsyncEnumerable<TraceHopInfo> ContinuousProbeAsync(List<TraceHopInfo> hops, int timeoutMs = 600, int delayBetweenHopsMs = 2000, CancellationToken ct = default);
+        Task<string?> ResolveHostNameAsync(string ip, int timeoutMs = 1500, CancellationToken ct = default);
     }
 
     public class TracerouteService : ITracerouteService
@@ -117,28 +118,7 @@ namespace M1Scan.Services
                         await Task.Delay(30, ct);
                 }
 
-                // DNS reverse lookup for hostname (with 2-second timeout)
-                if (!string.IsNullOrEmpty(hopInfo.IpAddress))
-                {
-                    try
-                    {
-                        var dnsTask = Dns.GetHostEntryAsync(hopInfo.IpAddress);
-                        var delayTask = Task.Delay(2000, ct);
-                        var completed = await Task.WhenAny(dnsTask, delayTask);
-
-                        if (completed == dnsTask)
-                        {
-                            var hostEntry = await dnsTask;
-                            hopInfo.HostName = hostEntry.HostName;
-                        }
-                        // If delay task completed first, timeout — skip hostname
-                    }
-                    catch
-                    {
-                        // Hostname resolution fejlede — det er OK, vi har IP'en
-                    }
-                }
-
+                // Skip DNS reverse lookup here — it will run in parallel after the trace completes.
                 // Yield hop med det samme — UI opdaterer progressivt!
                 yield return hopInfo;
 
@@ -215,6 +195,33 @@ namespace M1Scan.Services
                     if (!ct.IsCancellationRequested)
                         await Task.Delay(delayBetweenHopsMs, ct);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Resolve hostname for a single IP address with a timeout.
+        /// Returns null if resolution fails or times out.
+        /// </summary>
+        public async Task<string?> ResolveHostNameAsync(string ip, int timeoutMs = 1500, CancellationToken ct = default)
+        {
+            try
+            {
+                var dnsTask = Dns.GetHostEntryAsync(ip);
+                var delayTask = Task.Delay(timeoutMs, ct);
+                var completed = await Task.WhenAny(dnsTask, delayTask);
+
+                if (completed == dnsTask)
+                {
+                    var hostEntry = await dnsTask;
+                    return hostEntry.HostName;
+                }
+
+                // Timeout — return null
+                return null;
+            }
+            catch
+            {
+                return null;
             }
         }
     }

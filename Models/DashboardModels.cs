@@ -199,13 +199,33 @@ namespace M1Scan.Models
     public enum CaptivePortalStatus { Unknown, None, PortalDetected, NoResponse }
 
     /// <summary>Én hop i en traceroute (IP, hostname, latency over tid).</summary>
-    public class TraceHopInfo
+    public class TraceHopInfo : ObservableObject
     {
+        private string? _hostName;
+        private string? _country;
+        private string? _asn;
+
         public int HopNumber { get; set; }
         public string? IpAddress { get; set; }
-        public string? HostName { get; set; }
-        public string? Country { get; set; }
-        public string? Asn { get; set; }
+
+        public string? HostName
+        {
+            get => _hostName;
+            set => SetProperty(ref _hostName, value);
+        }
+
+        public string? Country
+        {
+            get => _country;
+            set => SetProperty(ref _country, value);
+        }
+
+        public string? Asn
+        {
+            get => _asn;
+            set => SetProperty(ref _asn, value);
+        }
+
         public LatencySeries LatencySeries { get; set; } = new LatencySeries { Label = "" };
         public bool IsReachable { get; set; }
         public bool IsTimeout { get; set; }
