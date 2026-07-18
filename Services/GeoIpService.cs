@@ -128,35 +128,38 @@ namespace M1Scan.Services
                 // Build batch request for only the IPs we don't have: {"query":"x.x.x.x","fields":"query,country,as,status"}
                 var queries = missingIps.Select(ip => new { query = ip, fields = "query,country,as,status" }).ToList();
                 var json = JsonSerializer.Serialize(queries);
-                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync(BatchEndpoint, content, ct);
+                using var response = await _httpClient.PostAsync(BatchEndpoint, content, ct);
                 response.EnsureSuccessStatusCode();
 
                 var responseJson = await response.Content.ReadAsStringAsync(ct);
                 using var doc = JsonDocument.Parse(responseJson);
                 var root = doc.RootElement;
 
-                if (root.ValueKind == JsonValueKind.Array)
+                if (root.ValueKind != JsonValueKind.Array)
                 {
-                    foreach (var item in root.EnumerateArray())
+                    System.Diagnostics.Debug.WriteLine($"GeoIpService: Unexpected response format (expected array, got {root.ValueKind})");
+                    return result;
+                }
+
+                foreach (var item in root.EnumerateArray())
+                {
+                    string? ip = item.TryGetProperty("query", out var q) ? q.GetString() : null;
+                    string? country = item.TryGetProperty("country", out var c) ? c.GetString() : null;
+                    string? asn = item.TryGetProperty("as", out var a) ? a.GetString() : null;
+                    string? status = item.TryGetProperty("status", out var s) ? s.GetString() : null;
+
+                    // Only include if status is "success" and we have both country and IP.
+                    if (status == "success" && !string.IsNullOrEmpty(ip) && !string.IsNullOrEmpty(country))
                     {
-                        string? ip = item.TryGetProperty("query", out var q) ? q.GetString() : null;
-                        string? country = item.TryGetProperty("country", out var c) ? c.GetString() : null;
-                        string? asn = item.TryGetProperty("as", out var a) ? a.GetString() : null;
-                        string? status = item.TryGetProperty("status", out var s) ? s.GetString() : null;
+                        asn = asn ?? "—";
+                        result[ip] = (country, asn);
 
-                        // Only include if status is "success" and we have both country and IP.
-                        if (status == "success" && !string.IsNullOrEmpty(ip) && !string.IsNullOrEmpty(country))
+                        // Cache the new result.
+                        lock (_cacheLock)
                         {
-                            asn = asn ?? "—";
-                            result[ip] = (country, asn);
-
-                            // Cache the new result.
-                            lock (_cacheLock)
-                            {
-                                _cache[ip] = (country, asn);
-                            }
+                            _cache[ip] = (country, asn);
                         }
                     }
                 }
