@@ -552,7 +552,7 @@ namespace M1Scan.ViewModels
 
             _scanCts = new CancellationTokenSource();
             var ct = _scanCts.Token;
-            _scanStartTime = DateTime.Now;
+            _scanStartTime = DateTime.UtcNow;
 
             // DispatcherTimer flushes _uiQueue to DiscoveredHosts every 100ms on UI thread
             bool flushing = false;
@@ -795,7 +795,7 @@ namespace M1Scan.ViewModels
                 SortHostsByIp();
                 ScanProgress = 100;
                 var total = DiscoveredHosts.Count(h => h.IsReachable);
-                var elapsed = DateTime.Now - _scanStartTime;
+                var elapsed = DateTime.UtcNow - _scanStartTime;
                 ScanElapsedTime = $"{elapsed.TotalSeconds:F1}s";
                 StatusMessage = $"Færdig — {total} online enheder fundet på {ScanElapsedTime}";
             }
