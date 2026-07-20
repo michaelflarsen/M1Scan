@@ -242,6 +242,15 @@ namespace M1Scan.ViewModels
 
         public bool HasGateway => GatewayCheck != null;
 
+        private string _routerVendor = string.Empty;
+        public string RouterVendor
+        {
+            get => _routerVendor;
+            set { if (SetProperty(ref _routerVendor, value)) OnPropertyChanged(nameof(HasRouterVendor)); }
+        }
+
+        public bool HasRouterVendor => !string.IsNullOrEmpty(RouterVendor);
+
         public WanInfo Wan { get; } = new();
 
         private AdapterDisplay? _defaultAdapter;
@@ -431,6 +440,22 @@ namespace M1Scan.ViewModels
             set { if (SetProperty(ref _diagnosticsVisible, value)) SaveUiSettings(); }
         }
 
+        private bool _devicesVisible = false;
+        public bool DevicesVisible
+        {
+            get => _devicesVisible;
+            set { if (SetProperty(ref _devicesVisible, value)) SaveUiSettings(); }
+        }
+
+        public LatencySeries InternetSeries { get; } = new() { Label = "Internet" };
+
+        private string _internetLatency = "—";
+        public string InternetLatency
+        {
+            get => _internetLatency;
+            set => SetProperty(ref _internetLatency, value);
+        }
+
         // ── Kommandoer ───────────────────────────────────────────────────────
 
         public RelayCommand RefreshCommand           { get; }
@@ -439,6 +464,7 @@ namespace M1Scan.ViewModels
         public RelayCommand AcknowledgeAllCommand    { get; }
         public RelayCommand ToggleGraphsCommand      { get; }
         public RelayCommand ToggleDiagnosticsCommand { get; }
+        public RelayCommand ToggleDevicesCommand     { get; }
         public RelayCommand ResetScoreCommand        { get; }
 
         public HomeViewModel(INetworkService networkService, IDiagnosticsService diagnosticsService)
@@ -454,6 +480,7 @@ namespace M1Scan.ViewModels
 
             ToggleGraphsCommand      = new RelayCommand(_ => GraphsVisible      = !GraphsVisible);
             ToggleDiagnosticsCommand = new RelayCommand(_ => DiagnosticsVisible = !DiagnosticsVisible);
+            ToggleDevicesCommand     = new RelayCommand(_ => DevicesVisible     = !DevicesVisible);
             ResetScoreCommand = new RelayCommand(_ =>
             {
                 GatewaySeries.Reset();
@@ -720,6 +747,11 @@ namespace M1Scan.ViewModels
                 }
 
                 var arp = await arpTask;
+
+                var routerVendor = (gatewayIp != null && arp.TryGetValue(gatewayIp, out var gwMac))
+                    ? OuiLookup.Lookup(gwMac) ?? string.Empty
+                    : string.Empty;
+                await dispatcher.InvokeAsync(() => RouterVendor = routerVendor);
 
                 // Ny enhed-detektion: første kørsel seeder hele baseline som kendt,
                 // så eksisterende enheder ikke alle markeres NYE

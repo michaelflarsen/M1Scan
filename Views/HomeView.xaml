@@ -6,386 +6,35 @@
 
     <Grid x:Name="RootGrid" Margin="20,12,20,10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- 0: header -->
-            <RowDefinition Height="10"/>    <!-- 1: spacer -->
-            <RowDefinition Height="Auto"/>  <!-- 2: diagnostik toggle -->
-            <RowDefinition Height="Auto"/>  <!-- 3: diagnostik cards -->
-            <RowDefinition Height="0"/>     <!-- 4: spacer efter diagnostik -->
-            <RowDefinition Height="Auto"/>  <!-- 5: graph-header (klikbar toggle) -->
-            <RowDefinition Height="Auto"/>  <!-- 6: forbindelseskvalitet (resizable) -->
-            <RowDefinition Height="Auto"/>  <!-- 7: højde-splitter -->
-            <RowDefinition Height="Auto" MinHeight="172"/>  <!-- 8: WAN chain + score -->
-            <RowDefinition Height="Auto"/>  <!-- 9: adapter cards -->
-            <RowDefinition Height="0"/>     <!-- 10: (ubrugt) -->
-            <RowDefinition Height="0"/>     <!-- 11: (ubrugt) -->
-            <RowDefinition Height="12"/>    <!-- 12: spacer -->
-            <RowDefinition Height="*"/>     <!-- 13: known devices -->
+            <RowDefinition Height="Auto"/>  <!-- 0: Overskrift -->
+            <RowDefinition Height="12"/>    <!-- 1: Spacer -->
+            <RowDefinition Height="Auto"/>  <!-- 2: Niveau 1 — Status + Topologi -->
+            <RowDefinition Height="12"/>    <!-- 3: Spacer -->
+            <RowDefinition Height="180" MinHeight="120"/>  <!-- 4: Niveau 2 — Gateway + Internet (resizable højde) -->
+            <RowDefinition Height="6"/>     <!-- 5: GridSplitter (vertikal resize) -->
+            <RowDefinition Height="Auto"/>  <!-- 6: Niveau 3 — Detaljer + Hastighed (samlet expander) -->
+            <RowDefinition Height="6"/>     <!-- 7: Spacer -->
+            <RowDefinition Height="Auto"/>  <!-- 8: Niveau 3 — Kendte enheder-expander -->
+            <RowDefinition Height="*"/>     <!-- 9: Scroll-spacer -->
         </Grid.RowDefinitions>
 
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- HEADER                                                 -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="0">
+        <!-- OVERSKRIFT -->
+        <TextBlock Grid.Row="0" Text="Netværksoverblik" FontSize="20" FontWeight="Bold"
+                   Foreground="White" Margin="0,0,0,0"/>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- NIVEAU 1: STATUS + TOPOLOGI (HERO)                 -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="320"/>  <!-- Score-kort (større) -->
+                <ColumnDefinition Width="*"/>    <!-- Topologi-kæde (flexed) -->
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                <TextBlock Text="Netværksoverblik" FontSize="20" FontWeight="Bold"
-                           Foreground="White" Margin="0,2,0,0"/>
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-
-                <TextBlock VerticalAlignment="Center" FontSize="10" Foreground="#3A4A5A" Margin="0,0,12,0">
-                    <Run Text="Sidst opdateret: "/>
-                    <Run Text="{Binding LastRefreshed}"/>
-                </TextBlock>
-
-                <!-- NYE enheder-chip -->
-                <Border CornerRadius="4" Padding="9,5" Margin="0,0,10,0" Background="#3A2A10"
-                        Visibility="{Binding HasNewDevices, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="AlertCircleOutline" Width="12" Height="12"
-                                                 Foreground="#FF9800" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock FontSize="11" FontWeight="Bold" Foreground="#FF9800" VerticalAlignment="Center">
-                            <Run Text="{Binding NewDeviceCount, Mode=OneWay}"/>
-                            <Run Text=" NYE"/>
-                        </TextBlock>
-                    </StackPanel>
-                </Border>
-
-                <!-- Mini-scorebadge -->
-                <Border CornerRadius="4" Padding="9,5" Margin="0,0,10,0" Background="#0C1A2C"
-                        ToolTip="{Binding Health.Verdict}"
-                        Visibility="{Binding Health.IsValid, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="HeartPulse" Width="12" Height="12"
-                                                 Foreground="{Binding Health.ColorHex}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock Text="{Binding HeaderScoreText}" FontSize="11" FontWeight="Bold"
-                                   FontFamily="Consolas" Foreground="{Binding Health.ColorHex}" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-
-                <Button Style="{StaticResource MaterialDesignOutlinedButton}"
-                        Height="28" Padding="12,0" Margin="0,0,10,0"
-                        Command="{Binding RefreshCommand}"
-                        IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBoolConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14"
-                                                 VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock Text="Opdater" VerticalAlignment="Center" FontSize="12"/>
-                    </StackPanel>
-                </Button>
-
-                <Border CornerRadius="4" Padding="10,5">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="#1A1212"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                    <Setter Property="Background" Value="#0D2010"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,7,0">
-                            <Ellipse.Style>
-                                <Style TargetType="Ellipse">
-                                    <Setter Property="Fill" Value="#5C2A2A"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                            <Setter Property="Fill" Value="#4CAF50"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Ellipse.Style>
-                        </Ellipse>
-                        <TextBlock FontSize="12" FontWeight="Bold" VerticalAlignment="Center">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Text"       Value="OFFLINE"/>
-                                    <Setter Property="Foreground" Value="#7A3A3A"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                            <Setter Property="Text"       Value="ONLINE"/>
-                                            <Setter Property="Foreground" Value="#4CAF50"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-        </Grid>
-
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- WAN TOPOLOGY CHAIN + NETVÆRKSSCORE                     -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <Grid x:Name="TopologyGrid" Grid.Row="8" Margin="0,0,0,24" HorizontalAlignment="Left">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>  <!-- header -->
-                <RowDefinition Height="Auto"/>  <!-- indhold -->
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/> <!-- topologikæde -->
-                <ColumnDefinition Width="Auto"/> <!-- netværksscore -->
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
-                       Text="// Topologi" FontFamily="Consolas" FontSize="10"
-                       Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
-
-        <Grid Grid.Row="1" Grid.Column="0" HorizontalAlignment="Left">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200"/> <!-- NODE 1: WAN -->
-                <ColumnDefinition Width="44"/>  <!-- Connector -->
-                <ColumnDefinition Width="200"/> <!-- NODE 2: ROUTER -->
-                <ColumnDefinition Width="44"/>  <!-- Connector -->
-                <ColumnDefinition Width="200"/> <!-- NODE 3: ADAPTER -->
-            </Grid.ColumnDefinitions>
-
-            <!-- ── NODE 1: AKTIV ADAPTER ── -->
-            <Border x:Name="WanChainNode1" Grid.Column="0" Height="148" Background="#080f14"
-                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="BorderBrush" Value="#1a3040"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding DefaultAdapter.IsDefaultRoute}" Value="True">
-                                <Setter Property="BorderBrush" Value="#1A4A30"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <!-- Monitor/adapter icon -->
-                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
-                        <Canvas Width="32" Height="32">
-                            <Rectangle Canvas.Left="2" Canvas.Top="2" Width="28" Height="19"
-                                       Stroke="#4CAF50" StrokeThickness="1" Fill="Transparent"/>
-                            <Rectangle Canvas.Left="5" Canvas.Top="5" Width="22" Height="13"
-                                       Fill="#071207"/>
-                            <!-- Signal bars -->
-                            <Rectangle Canvas.Left="10"   Canvas.Top="14" Width="3" Height="3" Fill="#4CAF50" Opacity="0.4"/>
-                            <Rectangle Canvas.Left="14.5" Canvas.Top="12" Width="3" Height="5" Fill="#4CAF50" Opacity="0.65"/>
-                            <Rectangle Canvas.Left="19"   Canvas.Top="10" Width="3" Height="7" Fill="#4CAF50" Opacity="0.9"/>
-                            <!-- Stand -->
-                            <Line X1="16" Y1="21" X2="16" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
-                            <!-- Base -->
-                            <Line X1="9" Y1="26" X2="23" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
-                        </Canvas>
-                    </Viewbox>
-                    <TextBlock Text="{Binding DefaultAdapter.Name, FallbackValue='ADAPTER'}"
-                               FontSize="9" FontWeight="Bold" Foreground="#4CAF50"
-                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               MaxWidth="190" Margin="0,0,0,3"/>
-                    <TextBlock Text="{Binding DefaultAdapter.IpAddress, FallbackValue='—'}"
-                               FontFamily="Consolas" FontSize="13" FontWeight="Bold"
-                               Foreground="White" HorizontalAlignment="Center"/>
-                    <TextBlock Text="{Binding DefaultAdapter.SubnetMask, FallbackValue='—'}"
-                               FontFamily="Consolas" FontSize="9" Foreground="#1E4A2A"
-                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                    <TextBlock Text="{Binding DefaultAdapter.SpeedText, FallbackValue='—'}"
-                               FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="#4CAF50"
-                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                    <TextBlock Text="{Binding DefaultAdapter.Description, FallbackValue='—'}"
-                               FontSize="9" Foreground="#2A4A3A"
-                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               MaxWidth="190" Margin="6,1,6,0"/>
-                </StackPanel>
-            </Border>
-
-            <!-- Connector 1 → 2 -->
-            <Canvas Grid.Column="1" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch"
-                    Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Line X1="2" Y1="8" X2="31" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
-                <Polygon Points="31,2 44,8 31,14" Fill="#4fc3f7"/>
-            </Canvas>
-
-            <!-- Connector direkte: Adapter → WAN (kun uden router) -->
-            <Canvas Grid.Column="1" Grid.ColumnSpan="3" Height="16" VerticalAlignment="Center"
-                    Visibility="{Binding HasGateway, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                <Line X1="2" Y1="8" X2="275" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
-                <Polygon Points="263,2 276,8 263,14" Fill="#4fc3f7"/>
-            </Canvas>
-
-            <!-- ── NODE 2: ROUTER ── -->
-            <Border Grid.Column="2" Height="148" Background="#080f14"
+            <!-- NETVÆRKSSCORE-KORT -->
+            <Border Grid.Column="0" Height="168" Background="#080f14"
                     BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6"
-                    Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <!-- Router icon -->
-                    <Viewbox Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,5">
-                        <Canvas Width="32" Height="32">
-                            <!-- Router body -->
-                            <Rectangle Canvas.Left="3" Canvas.Top="14" Width="26" Height="11"
-                                       Stroke="#4fc3f7" StrokeThickness="1" Fill="Transparent"/>
-                            <!-- Left antenna -->
-                            <Line X1="9"  Y1="14" X2="8"  Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
-                            <Ellipse Canvas.Left="6"  Canvas.Top="2" Width="4" Height="4"
-                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
-                            <!-- Center antenna -->
-                            <Line X1="16" Y1="14" X2="16" Y2="2" Stroke="#4fc3f7" StrokeThickness="1"/>
-                            <Ellipse Canvas.Left="14" Canvas.Top="0" Width="4" Height="4"
-                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
-                            <!-- Right antenna -->
-                            <Line X1="23" Y1="14" X2="24" Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
-                            <Ellipse Canvas.Left="22" Canvas.Top="2" Width="4" Height="4"
-                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
-                            <!-- LED dots on body -->
-                            <Ellipse Canvas.Left="6"  Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.7"/>
-                            <Ellipse Canvas.Left="14" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.4"/>
-                            <Ellipse Canvas.Left="22" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.2"/>
-                        </Canvas>
-                    </Viewbox>
-                    <TextBlock Text="ROUTER" FontSize="9" FontWeight="Bold"
-                               Foreground="#4fc3f7" HorizontalAlignment="Center" Margin="0,0,0,3"/>
-                    <TextBlock Text="{Binding GatewayCheck.Host, FallbackValue='—'}"
-                               FontFamily="Consolas" FontSize="13" FontWeight="Bold"
-                               Foreground="White" HorizontalAlignment="Center"/>
-                    <TextBlock Text="{Binding GatewayCheck.LatencyDisplay, FallbackValue='—'}"
-                               FontSize="9" HorizontalAlignment="Center" Margin="0,2,0,0">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="#2A4060"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding GatewayCheck.IsOnline}" Value="True">
-                                        <Setter Property="Foreground" Value="#2E7D32"/>
-                                    </DataTrigger>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding GatewayCheck.IsChecking}" Value="False"/>
-                                            <Condition Binding="{Binding GatewayCheck.IsOnline}"   Value="False"/>
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Foreground" Value="#7A2020"/>
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </StackPanel>
-            </Border>
-
-            <!-- Connector 2 → 3 -->
-            <Canvas Grid.Column="3" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch"
-                    Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Line X1="2" Y1="8" X2="31" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
-                <Polygon Points="31,2 44,8 31,14" Fill="#4fc3f7"/>
-            </Canvas>
-
-            <!-- ── NODE 3: WAN ── -->
-            <Border Grid.Column="4" Height="148" Background="#080f14"
-                    BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Opacity" Value="1.0"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding Wan.IsLoading}" Value="True">
-                                <Setter Property="Opacity" Value="0.55"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <!-- Globe icon -->
-                    <Viewbox Width="26" Height="26" HorizontalAlignment="Center" Margin="0,0,0,4">
-                        <Canvas Width="32" Height="32">
-                            <Ellipse Canvas.Left="1" Canvas.Top="1" Width="30" Height="30"
-                                     Stroke="#4fc3f7" StrokeThickness="1" Fill="Transparent"/>
-                            <Ellipse Canvas.Left="7" Canvas.Top="1" Width="18" Height="30"
-                                     Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
-                            <Ellipse Canvas.Left="12" Canvas.Top="1" Width="8" Height="30"
-                                     Stroke="#4fc3f7" StrokeThickness="0.6" Fill="Transparent" Opacity="0.5"/>
-                            <Line X1="4"  Y1="9"  X2="28" Y2="9"  Stroke="#4fc3f7" StrokeThickness="0.6" Opacity="0.45"/>
-                            <Line X1="1"  Y1="16" X2="31" Y2="16" Stroke="#4fc3f7" StrokeThickness="0.7" Opacity="0.55"/>
-                            <Line X1="4"  Y1="23" X2="28" Y2="23" Stroke="#4fc3f7" StrokeThickness="0.6" Opacity="0.45"/>
-                        </Canvas>
-                    </Viewbox>
-                    <TextBlock Text="WAN" FontSize="9" FontWeight="Bold"
-                               Foreground="#4fc3f7" HorizontalAlignment="Center" Margin="0,0,0,2"/>
-                    <TextBlock FontFamily="Consolas" FontSize="13" FontWeight="Bold"
-                               HorizontalAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text"       Value="{Binding Wan.Ip}"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Wan.IsLoading}" Value="True">
-                                        <Setter Property="Foreground" Value="#2A4060"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                    <TextBlock Text="{Binding Wan.Isp}" FontSize="9" Foreground="#2A4A5A"
-                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               MaxWidth="190" Margin="6,2,6,0"/>
-                    <TextBlock FontSize="9" Foreground="#1E3A4A"
-                               HorizontalAlignment="Center" MaxWidth="190" Margin="6,1,6,4">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="{Binding Wan.Country}"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Wan.IsLoading}" Value="True">
-                                        <Setter Property="Text" Value=""/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                    <!-- Ping-tider -->
-                    <Rectangle Height="1" Fill="#1a3040" Width="170" Margin="0,0,0,5"/>
-                    <ItemsControl ItemsSource="{Binding InternetChecks}" HorizontalAlignment="Center">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Width="170" Margin="0,1.5">
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                        <Ellipse Width="5" Height="5" VerticalAlignment="Center" Margin="0,0,5,0">
-                                            <Ellipse.Style>
-                                                <Style TargetType="Ellipse">
-                                                    <Setter Property="Fill" Value="#2A1A1A"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                                            <Setter Property="Fill" Value="#4CAF50"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsChecking}" Value="True">
-                                                            <Setter Property="Fill" Value="#2A3A4A"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Ellipse.Style>
-                                        </Ellipse>
-                                        <TextBlock Text="{Binding Host}" FontFamily="Consolas" FontSize="10"
-                                                   Foreground="#3A5060" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding LatencyDisplay}" FontFamily="Consolas" FontSize="10"
-                                               HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#2A3A4A"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                                        <Setter Property="Foreground" Value="#2E7D32"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
-        </Grid>
-
-            <!-- ── NETVÆRKSSCORE ── -->
-            <Border Grid.Row="1" Grid.Column="1" Height="148" Margin="16,0,0,0"
-                    Background="#080f14" BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6"
+                    VerticalAlignment="Center"
                     ToolTipService.ShowDuration="30000" Cursor="Help">
                 <Border.ToolTip>
                     <ToolTip Background="#060E18" BorderBrush="#1A3A5A" BorderThickness="1" Padding="18,14">
@@ -477,292 +126,296 @@
                         </StackPanel>
                     </ToolTip>
                 </Border.ToolTip>
-                <Grid Margin="16,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                <Grid>
+                    <!-- Refresh button top-right (overlay, tager ikke layout-plads) -->
+                    <Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Panel.ZIndex="1"
+                            Background="Transparent" BorderThickness="0" Padding="3"
+                            Cursor="Hand" Command="{Binding ResetScoreCommand}"
+                            ToolTip="Nulstil målinger" Margin="0,4,4,0">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#1A2A3A"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <ContentPresenter/>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <materialDesign:PackIcon Kind="Refresh" Width="13" Height="13" Foreground="#3A5A6A"/>
+                    </Button>
 
-                    <!-- Score-cirkel -->
-                    <Border Grid.Column="0" Width="76" Height="76" CornerRadius="38"
-                            VerticalAlignment="Center" BorderThickness="2.5"
-                            BorderBrush="{Binding Health.ColorHex}" Background="#0A1420">
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock FontFamily="Consolas" FontSize="24" FontWeight="Bold"
-                                       Foreground="{Binding Health.ColorHex}" HorizontalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="{Binding Health.Score}"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Health.IsValid}" Value="False">
-                                                <Setter Property="Text" Value="…"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="12,8">
+                    <!-- Top row: Score circle + Verdict -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- Score-cirkel -->
+                        <Border Grid.Column="0" Width="76" Height="76" CornerRadius="38"
+                                BorderThickness="2.5" BorderBrush="{Binding Health.ColorHex}"
+                                Background="#0A1420" Margin="0,0,12,0">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock FontFamily="Consolas" FontSize="28" FontWeight="Bold"
+                                           Foreground="{Binding Health.ColorHex}" HorizontalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="{Binding Health.Score}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Health.IsValid}" Value="False">
+                                                    <Setter Property="Text" Value="…"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding Health.Grade}" FontSize="12" FontWeight="Bold"
+                                           Foreground="{Binding Health.ColorHex}" HorizontalAlignment="Center"
+                                           Margin="0,-2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <!-- Info text -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="// NETVÆRKSSCORE" FontFamily="Consolas" FontSize="10"
+                                       Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,3"/>
+                            <TextBlock Text="{Binding Health.Verdict}" FontSize="11" Foreground="White"
+                                       TextWrapping="Wrap" Margin="0,0,0,4"/>
+                            <TextBlock FontSize="9" Foreground="#3A5A6A">
+                                <Run Text="Tab: "/><Run Text="{Binding WanSeries.LossPercent, Mode=OneWay, StringFormat=F0}" Foreground="#5A8AAA"/>
+                                <Run Text="% · Jitter: "/><Run Text="{Binding WanSeries.JitterMs, Mode=OneWay, StringFormat=F1}" Foreground="#5A8AAA"/>
+                                <Run Text="ms"/>
                             </TextBlock>
-                            <TextBlock Text="{Binding Health.Grade}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{Binding Health.ColorHex}" HorizontalAlignment="Center"
-                                       Margin="0,-2,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                    <!-- Metrics row -->
+                    <Border Background="#0A1420" CornerRadius="3" Padding="8,4">
+                        <StackPanel>
+                            <TextBlock FontSize="9" Foreground="#3A5A6A">
+                                <Run Text="Ping avg: "/><Run Text="{Binding WanSeries.AvgDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
+                                <Run Text=" · Max: "/><Run Text="{Binding WanSeries.MaxDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
+                </StackPanel>
+                </Grid>
+            </Border>
 
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0">
-                        <Grid>
-                            <TextBlock Text="// NETVÆRKSSCORE" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#1565C0" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Button HorizontalAlignment="Right" VerticalAlignment="Center"
-                                    Background="Transparent" BorderThickness="0" Padding="2"
-                                    Cursor="Hand" Command="{Binding ResetScoreCommand}"
-                                    ToolTip="Nulstil målinger">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
+            <!-- TOPOLOGI-KÆDE: Adapter → Router → WAN -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0"
+                       VerticalAlignment="Center" HorizontalAlignment="Left">
+
+                <!-- NODE 1: ADAPTER -->
+                <Border Width="240" Height="168" Background="#080f14"
+                        BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6" Padding="6">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Viewbox Width="28" Height="28" HorizontalAlignment="Center" Margin="0,0,0,4">
+                            <Canvas Width="32" Height="32">
+                                <Rectangle Canvas.Left="2" Canvas.Top="2" Width="28" Height="19"
+                                           Stroke="#4CAF50" StrokeThickness="1" Fill="Transparent"/>
+                                <Rectangle Canvas.Left="5" Canvas.Top="5" Width="22" Height="13"
+                                           Fill="#071207"/>
+                                <Rectangle Canvas.Left="10"   Canvas.Top="14" Width="3" Height="3" Fill="#4CAF50" Opacity="0.4"/>
+                                <Rectangle Canvas.Left="14.5" Canvas.Top="12" Width="3" Height="5" Fill="#4CAF50" Opacity="0.65"/>
+                                <Rectangle Canvas.Left="19"   Canvas.Top="10" Width="3" Height="7" Fill="#4CAF50" Opacity="0.9"/>
+                                <Line X1="16" Y1="21" X2="16" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
+                                <Line X1="9" Y1="26" X2="23" Y2="26" Stroke="#4CAF50" StrokeThickness="1.5"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="{Binding DefaultAdapter.Name, FallbackValue='ADAPTER'}"
+                                   FontSize="9" FontWeight="Bold" Foreground="#4CAF50"
+                                   HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   MaxWidth="220" Margin="0,0,0,1"/>
+                        <TextBlock Text="{Binding DefaultAdapter.IpAddress, FallbackValue='—'}"
+                                   FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                                   Foreground="White" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding DefaultAdapter.SubnetMask, FallbackValue='—'}"
+                                   FontFamily="Consolas" FontSize="9" Foreground="#5A8A6A"
+                                   HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                        <TextBlock Text="{Binding DefaultAdapter.SpeedText, FallbackValue='—'}"
+                                   FontFamily="Consolas" FontSize="9" FontWeight="Bold" Foreground="#4CAF50"
+                                   HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                        <TextBlock Text="{Binding DefaultAdapter.Description, FallbackValue='—'}"
+                                   FontSize="8" Foreground="#6A9A7A"
+                                   HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   MaxWidth="220" Margin="0,1,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- CHEVRON 1 (Adapter → Router) -->
+                <Canvas Width="28" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                        Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Margin="6,0">
+                    <Line X1="2" Y1="8" X2="24" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
+                    <Polygon Points="24,2 28,8 24,14" Fill="#4fc3f7"/>
+                </Canvas>
+
+                <!-- NODE 2: ROUTER (skjult hvis ingen gateway) -->
+                <Border Width="240" Height="168" Background="#080f14"
+                        BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6" Padding="6"
+                        Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Viewbox Width="28" Height="28" HorizontalAlignment="Center" Margin="0,0,0,4">
+                            <Canvas Width="32" Height="32">
+                                <Rectangle Canvas.Left="3" Canvas.Top="14" Width="26" Height="11"
+                                           Stroke="#4fc3f7" StrokeThickness="1" Fill="Transparent"/>
+                                <Line X1="9"  Y1="14" X2="8"  Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
+                                <Ellipse Canvas.Left="6"  Canvas.Top="2" Width="4" Height="4"
+                                         Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                                <Line X1="16" Y1="14" X2="16" Y2="2" Stroke="#4fc3f7" StrokeThickness="1"/>
+                                <Ellipse Canvas.Left="14" Canvas.Top="0" Width="4" Height="4"
+                                         Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                                <Line X1="23" Y1="14" X2="24" Y2="4" Stroke="#4fc3f7" StrokeThickness="1"/>
+                                <Ellipse Canvas.Left="22" Canvas.Top="2" Width="4" Height="4"
+                                         Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                                <Ellipse Canvas.Left="6"  Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.7"/>
+                                <Ellipse Canvas.Left="14" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.4"/>
+                                <Ellipse Canvas.Left="22" Canvas.Top="18" Width="4" Height="4" Fill="#4fc3f7" Opacity="0.2"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="ROUTER" FontSize="9" FontWeight="Bold"
+                                   Foreground="#4fc3f7" HorizontalAlignment="Center" Margin="0,0,0,1"/>
+                        <TextBlock Text="{Binding GatewayCheck.Host, FallbackValue='—'}"
+                                   FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                                   Foreground="White" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding GatewayCheck.LatencyDisplay, FallbackValue='—'}"
+                                   FontSize="9" HorizontalAlignment="Center" Foreground="#2E7D32" Margin="0,1,0,0"/>
+                        <TextBlock Text="{Binding RouterVendor}" FontSize="8" Foreground="#6A9AAA"
+                                   HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   MaxWidth="220" Margin="0,2,0,0"
+                                   Visibility="{Binding HasRouterVendor, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- CHEVRON 2 (Router → WAN) -->
+                <Canvas Width="28" Height="16" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                        Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Margin="6,0">
+                    <Line X1="2" Y1="8" X2="24" Y2="8" Stroke="#4fc3f7" StrokeThickness="2"/>
+                    <Polygon Points="24,2 28,8 24,14" Fill="#4fc3f7"/>
+                </Canvas>
+
+                <!-- NODE 3: WAN -->
+                <Border Width="240" Height="168" Background="#080f14"
+                        BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6" Padding="6">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Viewbox Width="22" Height="22" HorizontalAlignment="Center" Margin="0,0,0,2">
+                            <Canvas Width="32" Height="32">
+                                <Ellipse Canvas.Left="1" Canvas.Top="1" Width="30" Height="30"
+                                         Stroke="#4fc3f7" StrokeThickness="1" Fill="Transparent"/>
+                                <Ellipse Canvas.Left="7" Canvas.Top="1" Width="18" Height="30"
+                                         Stroke="#4fc3f7" StrokeThickness="0.8" Fill="Transparent"/>
+                                <Line X1="4"  Y1="9"  X2="28" Y2="9"  Stroke="#4fc3f7" StrokeThickness="0.6" Opacity="0.45"/>
+                                <Line X1="1"  Y1="16" X2="31" Y2="16" Stroke="#4fc3f7" StrokeThickness="0.7" Opacity="0.55"/>
+                                <Line X1="4"  Y1="23" X2="28" Y2="23" Stroke="#4fc3f7" StrokeThickness="0.6" Opacity="0.45"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="WAN" FontSize="9" FontWeight="Bold"
+                                   Foreground="#4fc3f7" HorizontalAlignment="Center" Margin="0,0,0,1"/>
+                        <TextBlock Text="{Binding Wan.Ip, FallbackValue='—'}"
+                                   FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                                   Foreground="White" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding Wan.Isp, FallbackValue='—'}"
+                                   FontSize="8" Foreground="#6A9AAA" HorizontalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" MaxWidth="220" Margin="0,1,0,0"/>
+                        <TextBlock Text="{Binding Wan.Country, FallbackValue=''}"
+                                   FontSize="8" Foreground="#5A8AAA" HorizontalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" MaxWidth="220" Margin="0,0,0,3"/>
+                        <!-- Ping-tider -->
+                        <Rectangle Height="1" Fill="#1a3040" Width="160" Margin="0,0,0,3"/>
+                        <ItemsControl ItemsSource="{Binding InternetChecks}" HorizontalAlignment="Center">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Width="160" Margin="0,0.5">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,5,0">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="#2A1A1A"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                                                <Setter Property="Fill" Value="#4CAF50"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsChecking}" Value="True">
+                                                                <Setter Property="Fill" Value="#2A3A4A"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="{Binding Host}" FontFamily="Consolas" FontSize="10"
+                                                       Foreground="#5A7A8A" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding LatencyDisplay}" FontFamily="Consolas" FontSize="10"
+                                                   HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#3A5060"/>
                                                     <Style.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter Property="Background" Value="#1A2A3A"/>
-                                                        </Trigger>
+                                                        <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                                            <Setter Property="Foreground" Value="#2E7D32"/>
+                                                        </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </Border.Style>
-                                            <ContentPresenter/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Button.Template>
-                                <materialDesign:PackIcon Kind="Refresh" Width="13" Height="13" Foreground="#3A5A6A"/>
-                            </Button>
-                        </Grid>
-                        <TextBlock Text="{Binding Health.Verdict}" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="White" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                        <TextBlock Text="{Binding HealthSubline}" FontFamily="Consolas" FontSize="10"
-                                   Foreground="#3A5A6A" Margin="0,5,0,0"/>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
-                </Grid>
-            </Border>
+                </Border>
+            </StackPanel>
         </Grid>
 
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- DIAGNOSTIK                                             -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <Button Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
-                BorderThickness="0" Padding="0" Margin="0" MinHeight="0" Height="16" Cursor="Hand"
-                Command="{Binding ToggleDiagnosticsCommand}">
-            <Button.Template>
-                <ControlTemplate TargetType="Button">
-                    <Border Background="Transparent" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter/>
-                    </Border>
-                </ControlTemplate>
-            </Button.Template>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                           Foreground="#1565C0" VerticalAlignment="Center">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="// Diagnostik  ▼"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding DiagnosticsVisible}" Value="False">
-                                    <Setter Property="Text" Value="// Diagnostik  ▶"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </StackPanel>
-        </Button>
-        <WrapPanel Grid.Row="3">
-            <WrapPanel.Style>
-                <Style TargetType="WrapPanel">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding DiagnosticsVisible}" Value="False">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </WrapPanel.Style>
-                <!-- DHCP-lease -->
-                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,0">
-                    <StackPanel>
-                        <TextBlock Text="DHCP-LEASE" FontFamily="Consolas" FontSize="9"
-                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <StackPanel Visibility="{Binding DhcpIsDhcp, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <Grid Margin="0,1.5">
-                                <TextBlock Text="DHCP-server" FontSize="11" Foreground="#3A5A6A"/>
-                                <TextBlock Text="{Binding DhcpServerText}" FontFamily="Consolas" FontSize="11"
-                                           Foreground="#64B5F6" HorizontalAlignment="Right"/>
-                            </Grid>
-                            <Grid Margin="0,1.5">
-                                <TextBlock Text="Tildelt" FontSize="11" Foreground="#3A5A6A"/>
-                                <TextBlock Text="{Binding DhcpObtainedText}" FontFamily="Consolas" FontSize="11"
-                                           Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                            </Grid>
-                            <Grid Margin="0,1.5">
-                                <TextBlock Text="Udløber" FontSize="11" Foreground="#3A5A6A"/>
-                                <TextBlock Text="{Binding DhcpExpiresText}" FontFamily="Consolas" FontSize="11"
-                                           Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                            </Grid>
-                        </StackPanel>
-                        <TextBlock Text="Statisk IP — ingen lease" FontSize="11" Foreground="#3A5A6A"
-                                   Visibility="{Binding DhcpIsDhcp, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- IPv6 + Captive portal -->
-                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,0">
-                    <StackPanel>
-                        <TextBlock Text="IPV6 + PORTAL" FontFamily="Consolas" FontSize="9"
-                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,1.5">
-                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#5C5C2A"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Ipv6Ok}" Value="True">
-                                                <Setter Property="Fill" Value="#4CAF50"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                            <TextBlock FontSize="11" Foreground="#5A8AAA">
-                                <Run Text="IPv6: "/><Run Text="{Binding Ipv6Text, Mode=OneWay}"/>
-                            </TextBlock>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#4CAF50"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding PortalWarning}" Value="True">
-                                                <Setter Property="Fill" Value="#FF9800"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                            <TextBlock Text="{Binding PortalText}" FontSize="11" Foreground="#5A8AAA"
-                                       TextWrapping="Wrap" MaxWidth="200"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- Hastighedstest -->
-                <Border Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                        BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,0">
-                    <StackPanel>
-                        <TextBlock Text="HASTIGHEDSTEST" FontFamily="Consolas" FontSize="9"
-                                   Foreground="#3A6A9A" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <WrapPanel Visibility="{Binding HasSpeedTestResult, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock Text="{Binding SpeedTestDownText}" FontFamily="Consolas" FontSize="12"
-                                       FontWeight="Bold" Foreground="#4CAF50" Margin="0,0,10,0"/>
-                            <TextBlock Text="{Binding SpeedTestUpText}" FontFamily="Consolas" FontSize="12"
-                                       FontWeight="Bold" Foreground="#64B5F6"
-                                       ToolTip="Upload er et estimat — hele POST-requesten times"/>
-                        </WrapPanel>
-                        <TextBlock Text="{Binding SpeedTestTimeText}" FontSize="9" Foreground="#2A3A4A"
-                                   Margin="0,2,0,4"
-                                   Visibility="{Binding HasSpeedTestResult, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                        <ProgressBar Height="3" Margin="0,2,0,4" Maximum="100"
-                                     Value="{Binding SpeedTestProgressPercent, Mode=OneWay}"
-                                     Foreground="#1565C0" Background="#0C1A2C" BorderThickness="0"
-                                     Visibility="{Binding IsSpeedTesting, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                        <TextBlock Text="{Binding SpeedTestPhaseText}" FontFamily="Consolas" FontSize="10"
-                                   Foreground="#5A8AAA" Margin="0,0,0,4"
-                                   Visibility="{Binding IsSpeedTesting, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                        <Button Style="{StaticResource MaterialDesignOutlinedButton}"
-                                Height="24" Padding="10,0" Margin="0" HorizontalAlignment="Left"
-                                Command="{Binding TestSpeedCommand}"
-                                Content="{Binding SpeedTestButtonText}" FontSize="11"/>
-                    </StackPanel>
-                </Border>
-        </WrapPanel>
-
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- GRAPH-HEADER (klikbar toggle)                          -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <Button Grid.Row="5" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
-                BorderThickness="0" Padding="0" Margin="0" MinHeight="0" Height="16" Cursor="Hand"
-                Command="{Binding ToggleGraphsCommand}">
-            <Button.Template>
-                <ControlTemplate TargetType="Button">
-                    <Border Background="Transparent" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter/>
-                    </Border>
-                </ControlTemplate>
-            </Button.Template>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                           Foreground="#1565C0" VerticalAlignment="Center">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="// Graph  ▼"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding GraphsVisible}" Value="False">
-                                    <Setter Property="Text" Value="// Graph  ▶"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </StackPanel>
-        </Button>
-
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- FORBINDELSESKVALITET — LIVE SPARKLINES                 -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <Grid x:Name="GraphSparklineGrid" Grid.Row="6" HorizontalAlignment="Left">
-            <Grid.Style>
-                <Style TargetType="Grid">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding GraphsVisible}" Value="False">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Grid.Style>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- NIVEAU 2: BEVIS (GATEWAY + INTERNET) — RESIZABLE  -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="120"/>
-                <ColumnDefinition Width="6"/>
-                <ColumnDefinition Width="*" MinWidth="120"/>
-                <ColumnDefinition Width="6"/>
-                <ColumnDefinition Width="0" MinWidth="0"/>
+                <ColumnDefinition Width="1*" MinWidth="100"/>  <!-- Gateway -->
+                <ColumnDefinition Width="6"/>                  <!-- Splitter -->
+                <ColumnDefinition Width="1*" MinWidth="100"/>  <!-- Internet -->
+                <ColumnDefinition Width="6"/>                  <!-- Splitter -->
+                <ColumnDefinition Width="0" MinWidth="0"/>     <!-- Buffer for resize -->
             </Grid.ColumnDefinitions>
 
-            <!-- Gateway-serien -->
-            <Border Grid.Column="0" Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                    BorderThickness="0.5" Padding="12,8">
+            <!-- GATEWAY-KORT -->
+            <Border Grid.Column="0" Background="#080f14" BorderBrush="#1a3040"
+                    BorderThickness="0.5" CornerRadius="6" Padding="14,12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" Margin="0,0,0,4">
-                        <TextBlock Text="{Binding GatewaySeriesTitle}" FontFamily="Consolas" FontSize="10"
-                                   Foreground="#1565C0" FontWeight="SemiBold" HorizontalAlignment="Left"/>
-                        <TextBlock Text="{Binding GatewaySeries.CurrentDisplay}" FontFamily="Consolas"
-                                   FontSize="11" FontWeight="Bold" Foreground="#64B5F6"
-                                   HorizontalAlignment="Right"/>
-                    </Grid>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Gateway" FontFamily="Consolas" FontSize="11"
+                                   Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                        <TextBlock Text="{Binding GatewayCheck.LatencyDisplay}"
+                                   FontFamily="Consolas" FontSize="20" FontWeight="Bold"
+                                   Foreground="#64B5F6" Margin="0,2,0,6"/>
+                    </StackPanel>
                     <controls:SparklineControl Grid.Row="1" Values="{Binding GatewaySeries.Values}"
-                                               Stroke="#4CAF50" MinHeight="20"/>
-                    <TextBlock Grid.Row="2" FontFamily="Consolas" FontSize="10" Foreground="#3A5A6A" Margin="0,4,0,0">
-                        <Run Text="Gns "/><Run Text="{Binding GatewaySeries.AvgDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
-                        <Run Text=" · Maks "/><Run Text="{Binding GatewaySeries.MaxDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
-                        <Run Text=" · Jitter "/><Run Text="{Binding GatewaySeries.JitterDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
-                        <Run Text=" · Tab "/><Run Text="{Binding GatewaySeries.LossDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
+                                               Stroke="#4CAF50" Margin="0,0,0,6"
+                                               Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <TextBlock Grid.Row="2" FontFamily="Consolas" FontSize="10" Foreground="#3A5A6A"
+                               Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Run Text="Jitter: "/><Run Text="{Binding GatewaySeries.JitterDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
+                        <Run Text=" · Tab: "/><Run Text="{Binding GatewaySeries.LossDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
                     </TextBlock>
                 </Grid>
             </Border>
 
-            <!-- Splitter midt (usynlig, cursor ↔) -->
-            <GridSplitter x:Name="GraphMidSplitter" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            <!-- Splitter 1 (midt mellom Gateway og Internet) -->
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                           Background="Transparent" Cursor="SizeWE">
                 <GridSplitter.Template>
@@ -782,35 +435,35 @@
                 </GridSplitter.Template>
             </GridSplitter>
 
-            <!-- WAN-serien -->
-            <Border Grid.Column="2" Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
-                    BorderThickness="0.5" Padding="12,8">
+            <!-- INTERNET-KORT -->
+            <Border Grid.Column="2" Background="#080f14" BorderBrush="#1a3040"
+                    BorderThickness="0.5" CornerRadius="6" Padding="14,12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" Margin="0,0,0,4">
-                        <TextBlock Text="{Binding WanSeriesTitle, Mode=OneWay}" FontFamily="Consolas" FontSize="10"
-                                   Foreground="#1565C0" FontWeight="SemiBold" HorizontalAlignment="Left"/>
-                        <TextBlock Text="{Binding WanSeries.CurrentDisplay}" FontFamily="Consolas"
-                                   FontSize="11" FontWeight="Bold" Foreground="#64B5F6"
-                                   HorizontalAlignment="Right"/>
-                    </Grid>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Internet" FontFamily="Consolas" FontSize="11"
+                                   Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                        <TextBlock Text="{Binding WanSeries.CurrentDisplay}"
+                                   FontFamily="Consolas" FontSize="20" FontWeight="Bold"
+                                   Foreground="#64B5F6" Margin="0,2,0,6"/>
+                    </StackPanel>
                     <controls:SparklineControl Grid.Row="1" Values="{Binding WanSeries.Values}"
-                                               Stroke="#64B5F6" MinHeight="20"/>
-                    <TextBlock Grid.Row="2" FontFamily="Consolas" FontSize="10" Foreground="#3A5A6A" Margin="0,4,0,0">
-                        <Run Text="Gns "/><Run Text="{Binding WanSeries.AvgDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
-                        <Run Text=" · Maks "/><Run Text="{Binding WanSeries.MaxDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
-                        <Run Text=" · Jitter "/><Run Text="{Binding WanSeries.JitterDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
-                        <Run Text=" · Tab "/><Run Text="{Binding WanSeries.LossDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
+                                               Stroke="#64B5F6" Margin="0,0,0,6"
+                                               Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <TextBlock Grid.Row="2" FontFamily="Consolas" FontSize="10" Foreground="#3A5A6A"
+                               Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Run Text="Jitter: "/><Run Text="{Binding WanSeries.JitterDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
+                        <Run Text=" · Tab: "/><Run Text="{Binding WanSeries.LossDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
                     </TextBlock>
                 </Grid>
             </Border>
 
-            <!-- Right splitter — træk højre kant på Internet for at gøre den større/mindre -->
-            <GridSplitter x:Name="GraphRightSplitter" Grid.Column="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            <!-- Splitter 2 (høj kant på Internet for at vokse) -->
+            <GridSplitter Grid.Column="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                           Background="Transparent" Cursor="SizeWE">
                 <GridSplitter.Template>
@@ -830,16 +483,14 @@
                 </GridSplitter.Template>
             </GridSplitter>
 
-            <!-- Usynlig buffer-kolonne — Internet kan vokse ud i denne -->
+            <!-- Buffer-kolonne for Internet resize -->
             <Border Grid.Column="4" Background="Transparent"/>
-
         </Grid>
 
-        <!-- Højde-splitter (usynlig, cursor ↕) -->
-        <GridSplitter x:Name="GraphSplitter" Grid.Row="7" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+        <!-- Vertikal resize-handle mellem Gateway/Internet og Hastighed -->
+        <GridSplitter Grid.Row="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
-                      Background="Transparent" Cursor="SizeNS" Height="8"
-                      Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                      Background="Transparent" Cursor="SizeNS">
             <GridSplitter.Template>
                 <ControlTemplate TargetType="GridSplitter">
                     <Border Background="Transparent">
@@ -857,351 +508,224 @@
             </GridSplitter.Template>
         </GridSplitter>
 
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- MINE ADAPTERE                                          -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <StackPanel Grid.Row="9" Margin="0">
-            <TextBlock Text="// MINE ADAPTERE" FontFamily="Consolas" FontSize="10"
-                       Foreground="#1565C0" FontWeight="SemiBold" Margin="0,0,0,8"/>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- NIVEAU 3: DETALJER (EXPANDER)                      -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Border Grid.Row="6" Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
+                BorderThickness="0.5" Padding="14,10">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="1"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-            <ItemsControl x:Name="AdaptersItemsControl" ItemsSource="{Binding ActiveAdapters}">
-                <ItemsControl.Style>
-                    <Style TargetType="ItemsControl">
-                        <Setter Property="Visibility" Value="Visible"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ActiveAdapters.Count}" Value="0">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </ItemsControl.Style>
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <materialDesign:Card Padding="14,12" Margin="0,0,12,12" Width="200"
-                                             materialDesign:ElevationAssist.Elevation="Dp2">
-                            <materialDesign:Card.Style>
-                                <Style TargetType="materialDesign:Card">
-                                    <Setter Property="Background"      Value="#151E2C"/>
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsDefaultRoute}" Value="True">
-                                            <Setter Property="Background"      Value="#0C1A2C"/>
-                                            <Setter Property="BorderThickness" Value="1"/>
-                                            <Setter Property="BorderBrush"     Value="#1A4A80"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </materialDesign:Card.Style>
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                    <Ellipse Width="7" Height="7" Fill="#4CAF50"
-                                             VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Text="{Binding Name}" FontSize="11"
-                                               Foreground="#5A7A9A" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
-                                <TextBlock Text="{Binding IpAddress}"
-                                           FontFamily="Consolas" FontSize="17" FontWeight="Bold"
-                                           Foreground="#64B5F6"/>
-                                <TextBlock Text="{Binding SubnetMask}"
-                                           FontFamily="Consolas" FontSize="11"
-                                           Foreground="#3A5A6A" Margin="0,2,0,0"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                    <TextBlock Text="GW " FontFamily="Consolas" FontSize="11" Foreground="#2A3A4A"/>
-                                    <TextBlock Text="{Binding Gateway}"
-                                               FontFamily="Consolas" FontSize="11" Foreground="#6AAA8A"/>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                    <TextBlock Text="Link " FontFamily="Consolas" FontSize="11" Foreground="#2A3A4A"/>
-                                    <TextBlock Text="{Binding SpeedText}"
-                                               FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="#4CAF50"/>
-                                </StackPanel>
-                                <TextBlock Text="{Binding Description}" FontSize="10"
-                                           Foreground="#2A3A4A" TextTrimming="CharacterEllipsis"
-                                           Margin="0,5,0,0"/>
-                            </StackPanel>
-                        </materialDesign:Card>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                    <!-- VENSTRE HALVDEL: Detaljer (klikbar toggle) -->
+                    <Button Grid.Column="0" HorizontalContentAlignment="Stretch" Background="Transparent"
+                            BorderThickness="0" Padding="0" Margin="0" Cursor="Hand"
+                            Command="{Binding ToggleDiagnosticsCommand}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <ContentPresenter/>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Grid.Column="0" Kind="ChevronRight" Width="14" Height="14"
+                                                     Foreground="#3A6A9A" VerticalAlignment="Center"
+                                                     Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5">
+                                <materialDesign:PackIcon.RenderTransform>
+                                    <RotateTransform Angle="0"/>
+                                </materialDesign:PackIcon.RenderTransform>
+                                <materialDesign:PackIcon.Style>
+                                    <Style TargetType="materialDesign:PackIcon">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DiagnosticsVisible}" Value="True">
+                                                <Setter Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="90"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:PackIcon.Style>
+                            </materialDesign:PackIcon>
+                            <TextBlock Grid.Column="1" Text="Detaljer" FontFamily="Consolas" FontSize="12"
+                                       Foreground="#64B5F6" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
 
-            <!-- Ingen aktiv adapter -->
-            <materialDesign:Card Background="#0E1520" Padding="14,12" MinWidth="190"
-                                 materialDesign:ElevationAssist.Elevation="Dp1">
-                <materialDesign:Card.Style>
-                    <Style TargetType="materialDesign:Card">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ActiveAdapters.Count}" Value="0">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </materialDesign:Card.Style>
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <Ellipse Width="7" Height="7" Fill="#5C2A2A"
-                                 VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBlock Text="Ingen forbindelse" FontSize="11" Foreground="#4A3A3A"/>
-                    </StackPanel>
-                    <TextBlock Text="Ingen Aktiv Adapter"
-                               FontFamily="Consolas" FontSize="15" FontWeight="Bold"
-                               Foreground="#3A3A4A"/>
-                    <TextBlock Text="Kontroller netværksforbindelsen"
-                               FontSize="10" Foreground="#2A2A3A" Margin="0,5,0,0"/>
+                    <!-- IPv6/portal-preview, centreret i venstre halvdel -->
+                    <TextBlock Grid.Column="0" FontSize="10" Foreground="#5A8AAA"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                               Visibility="{Binding DiagnosticsVisible, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <Run Text="IPv6: "/><Run Text="{Binding Ipv6Text, Mode=OneWay}" Foreground="#7AAACA"/>
+                        <Run Text=" · "/><Run Text="{Binding PortalText, Mode=OneWay}" Foreground="#7AAACA"/>
+                    </TextBlock>
+
+                    <!-- Skillelinje midt på headeren -->
+                    <Rectangle Grid.Column="1" Width="1" Fill="#1a3040" Margin="8,-2"/>
+
+                    <!-- HØJRE HALVDEL: Hastighed (label + værdi + test-knap) -->
+                    <Grid Grid.Column="2" Margin="12,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Hastighed" FontFamily="Consolas" FontSize="12"
+                                   Foreground="#64B5F6" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                                   Foreground="#64B5F6" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0">
+                            <Run Text="{Binding SpeedTestDownText, Mode=OneWay}"/>
+                        </TextBlock>
+                        <Button Grid.Column="2" Content="Test igen" Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Height="26" Padding="8,0" FontSize="10"
+                                Command="{Binding TestSpeedCommand}"/>
+                    </Grid>
+                </Grid>
+
+                <StackPanel Margin="0,8,0,0"
+                           Visibility="{Binding DiagnosticsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="DHCP Server" FontSize="11" Foreground="#3A5A6A"/>
+                        <TextBlock Grid.Column="1" Text="{Binding DhcpServerText}" FontFamily="Consolas"
+                                   FontSize="11" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Tildelt" FontSize="10" Foreground="#3A5A6A"/>
+                        <TextBlock Grid.Column="1" Text="{Binding DhcpObtainedText}" FontFamily="Consolas"
+                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Udløber" FontSize="10" Foreground="#3A5A6A"/>
+                        <TextBlock Grid.Column="1" Text="{Binding DhcpExpiresText}" FontFamily="Consolas"
+                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="IPv6" FontSize="10" Foreground="#3A5A6A"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Ipv6Text}" FontFamily="Consolas"
+                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Captive Portal" FontSize="10" Foreground="#3A5A6A"/>
+                        <TextBlock Grid.Column="1" Text="{Binding PortalText}" FontFamily="Consolas"
+                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                    </Grid>
+
+                    <!-- Skillelinje mellem netværks- og hastighedsdetaljer -->
+                    <Rectangle Height="1" Fill="#1a3040" Margin="0,8"/>
+
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Download" FontSize="11" Foreground="#3A5A6A"/>
+                        <TextBlock Grid.Column="1" Text="{Binding SpeedTestDownText}" FontFamily="Consolas"
+                                   FontSize="11" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Upload" FontSize="10" Foreground="#3A5A6A"/>
+                        <TextBlock Grid.Column="1" Text="{Binding SpeedTestUpText}" FontFamily="Consolas"
+                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Senest testet" FontSize="10" Foreground="#3A5A6A"/>
+                        <TextBlock Grid.Column="1" Text="{Binding SpeedTestTimeText}" FontFamily="Consolas"
+                                   FontSize="10" Foreground="#FF9800" HorizontalAlignment="Right"/>
+                    </Grid>
                 </StackPanel>
-            </materialDesign:Card>
-        </StackPanel>
+            </StackPanel>
+        </Border>
 
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- NÆRLIGGENDE ENHEDER — GRUPPERT PER SUBNET             -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="13">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-                <TextBlock Text="// KENDTE ENHEDER  —  ARP cache (ikke live scan)"
-                           FontFamily="Consolas" FontSize="10"
-                           Foreground="#1565C0" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <TextBlock FontFamily="Consolas" FontSize="10"
-                           Foreground="#2A3A4A" VerticalAlignment="Center">
-                    <Run Text="  —  "/>
-                    <Run Text="{Binding TotalNearby, Mode=OneWay}"/>
-                    <Run Text=" enheder i "/>
-                    <Run Text="{Binding NearbyGroups.Count, Mode=OneWay}"/>
-                    <Run Text=" subnet(s)"/>
-                </TextBlock>
-                <Button Command="{Binding AcknowledgeAllCommand}"
-                        Visibility="{Binding HasNewDevices, Converter={StaticResource BoolToVisibilityConverter}}"
-                        Cursor="Hand" Focusable="False" Margin="14,0,0,0" Padding="0"
-                        Background="Transparent" BorderThickness="0" VerticalAlignment="Center">
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- NIVEAU 3: KENDTE ENHEDER (EXPANDER)               -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Border Grid.Row="8" Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
+                BorderThickness="0.5" Padding="14,10">
+            <StackPanel>
+                <Button HorizontalContentAlignment="Stretch" Background="Transparent"
+                        BorderThickness="0" Padding="0" Margin="0" Cursor="Hand"
+                        Command="{Binding ToggleDevicesCommand}">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <ContentPresenter/>
                         </ControlTemplate>
                     </Button.Template>
-                    <TextBlock Text="Markér alle som kendte" FontFamily="Consolas" FontSize="10"
-                               Foreground="#FF9800" TextDecorations="Underline"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <materialDesign:PackIcon Grid.Column="0" Kind="ChevronRight" Width="14" Height="14"
+                                                 Foreground="#3A6A9A" VerticalAlignment="Center"
+                                                 Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5">
+                            <materialDesign:PackIcon.RenderTransform>
+                                <RotateTransform Angle="0"/>
+                            </materialDesign:PackIcon.RenderTransform>
+                            <materialDesign:PackIcon.Style>
+                                <Style TargetType="materialDesign:PackIcon">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DevicesVisible}" Value="True">
+                                            <Setter Property="RenderTransform">
+                                                <Setter.Value>
+                                                    <RotateTransform Angle="90"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialDesign:PackIcon.Style>
+                        </materialDesign:PackIcon>
+                        <TextBlock Grid.Column="1" Text="Kendte enheder" FontFamily="Consolas" FontSize="12"
+                                   Foreground="#64B5F6" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" HorizontalAlignment="Right" Text="{Binding TotalNearby, Mode=OneWay}"
+                                   FontSize="10" Foreground="#5A8AAA" VerticalAlignment="Center" Margin="0,0,0,0"/>
+                    </Grid>
                 </Button>
+
+                <TextBlock Margin="0,6,0,0" FontSize="10" Foreground="#3A5A6A"
+                          Visibility="{Binding DevicesVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Run Text="{Binding TotalNearby, Mode=OneWay}"/> <Run Text="enheder i"/>
+                    <Run Text="{Binding NearbyGroups.Count, Mode=OneWay}"/> <Run Text="subnet(s)"/>
+                </TextBlock>
             </StackPanel>
-
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding NearbyGroups}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Margin="0,0,0,10" BorderBrush="#1C2A3A" BorderThickness="1" CornerRadius="4">
-                                <StackPanel>
-                                    <Button Command="{Binding ToggleCommand}"
-                                            Cursor="Hand"
-                                            HorizontalContentAlignment="Stretch"
-                                            Focusable="False">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border Background="#111C2A" CornerRadius="4,4,0,0" Padding="12,7">
-                                                    <ContentPresenter HorizontalAlignment="Stretch"/>
-                                                </Border>
-                                            </ControlTemplate>
-                                        </Button.Template>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <Border Grid.Column="5"
-                                                    Background="#3A2A10" CornerRadius="10"
-                                                    Padding="8,2" VerticalAlignment="Center" Margin="6,0,0,0">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding NewCount}" Value="0">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <TextBlock FontFamily="Consolas" FontSize="10" FontWeight="Bold"
-                                                           Foreground="#FF9800">
-                                                    <Run Text="{Binding NewCount, Mode=OneWay}"/>
-                                                    <Run Text=" NYE"/>
-                                                </TextBlock>
-                                            </Border>
-
-                                            <materialDesign:PackIcon Grid.Column="0"
-                                                                     Kind="ChevronRight" Width="14" Height="14"
-                                                                     Foreground="#3A6A9A" VerticalAlignment="Center"
-                                                                     Margin="0,0,6,0"
-                                                                     RenderTransformOrigin="0.5,0.5">
-                                                <materialDesign:PackIcon.RenderTransform>
-                                                    <RotateTransform Angle="0"/>
-                                                </materialDesign:PackIcon.RenderTransform>
-                                                <materialDesign:PackIcon.Style>
-                                                    <Style TargetType="materialDesign:PackIcon">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
-                                                                <Setter Property="RenderTransform">
-                                                                    <Setter.Value>
-                                                                        <RotateTransform Angle="90"/>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </materialDesign:PackIcon.Style>
-                                            </materialDesign:PackIcon>
-
-                                            <materialDesign:PackIcon Grid.Column="1"
-                                                                     Kind="NetworkOutline" Width="14" Height="14"
-                                                                     Foreground="#1565C0" VerticalAlignment="Center"
-                                                                     Margin="0,0,8,0"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding Display}"
-                                                       FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
-                                                       Foreground="#64B5F6" VerticalAlignment="Center"/>
-
-                                            <Border Grid.Column="3"
-                                                    Background="#0D1E30" CornerRadius="10"
-                                                    Padding="7,2" VerticalAlignment="Center" Margin="0,0,6,0">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding AdapterName}" Value="">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="EthernetCable" Width="11" Height="11"
-                                                                             Foreground="#1565C0" VerticalAlignment="Center"
-                                                                             Margin="0,0,4,0"/>
-                                                    <TextBlock Text="{Binding AdapterName}"
-                                                               FontFamily="Consolas" FontSize="10"
-                                                               Foreground="#3A6A9A" VerticalAlignment="Center"
-                                                               TextTrimming="CharacterEllipsis" MaxWidth="160"/>
-                                                </StackPanel>
-                                            </Border>
-
-                                            <Border Grid.Column="4"
-                                                    Background="#0D1E30" CornerRadius="10"
-                                                    Padding="8,2" VerticalAlignment="Center">
-                                                <TextBlock FontFamily="Consolas" FontSize="10" Foreground="#3A6A9A">
-                                                    <Run Text="{Binding Devices.Count, Mode=OneWay}"/>
-                                                    <Run Text=" enheder"/>
-                                                </TextBlock>
-                                            </Border>
-                                        </Grid>
-                                    </Button>
-
-                                    <Grid Background="#0C1520" Height="24"
-                                          Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="120"/>
-                                            <ColumnDefinition Width="148"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="IP-adresse"
-                                                   FontSize="10" FontWeight="SemiBold" Foreground="#444444"
-                                                   VerticalAlignment="Center" Margin="14,0,0,0"/>
-                                        <TextBlock Grid.Column="1" Text="MAC-adresse"
-                                                   FontSize="10" FontWeight="SemiBold" Foreground="#444444"
-                                                   VerticalAlignment="Center"/>
-                                        <TextBlock Grid.Column="2" Text="Vendor / Producent"
-                                                   FontSize="10" FontWeight="SemiBold" Foreground="#444444"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-
-                                    <ItemsControl ItemsSource="{Binding Devices}"
-                                                  Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border BorderBrush="#0C1520" BorderThickness="0,1,0,0">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="Transparent"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsNew}" Value="True">
-                                                                    <Setter Property="Background" Value="#2A1E0D"/>
-                                                                </DataTrigger>
-                                                                <Trigger Property="IsMouseOver" Value="True">
-                                                                    <Setter Property="Background" Value="#0E1A28"/>
-                                                                </Trigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <Grid Height="26">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="120"/>
-                                                            <ColumnDefinition Width="148"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" Text="{Binding IpAddress}"
-                                                                   FontFamily="Consolas" FontSize="12"
-                                                                   Foreground="#64B5F6" VerticalAlignment="Center"
-                                                                   Margin="14,0,0,0"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding MacAddress}"
-                                                                   FontFamily="Consolas" FontSize="11"
-                                                                   Foreground="#3A5060" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="2" Text="{Binding Vendor}"
-                                                                   FontSize="12" Foreground="#AAAAAA"
-                                                                   VerticalAlignment="Center"
-                                                                   TextTrimming="CharacterEllipsis"/>
-                                                        <StackPanel Grid.Column="3" Orientation="Horizontal"
-                                                                    Margin="0,0,10,0"
-                                                                    Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                            <Button Command="{Binding DataContext.AcknowledgeDeviceCommand,
-                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                    CommandParameter="{Binding}"
-                                                                    Cursor="Hand" Focusable="False" Padding="0"
-                                                                    Background="Transparent" BorderThickness="0"
-                                                                    VerticalAlignment="Center" Margin="0,0,8,0"
-                                                                    ToolTip="Markér som kendt">
-                                                                <Button.Template>
-                                                                    <ControlTemplate TargetType="Button">
-                                                                        <ContentPresenter/>
-                                                                    </ControlTemplate>
-                                                                </Button.Template>
-                                                                <TextBlock Text="Markér som kendt" FontFamily="Consolas"
-                                                                           FontSize="10" Foreground="#5A8AAA"
-                                                                           TextDecorations="Underline"
-                                                                           VerticalAlignment="Center"/>
-                                                            </Button>
-                                                            <Border Background="#3A2A10" CornerRadius="3"
-                                                                    Padding="6,1" VerticalAlignment="Center"
-                                                                    ToolTip="{Binding FirstSeenDisplay}">
-                                                                <TextBlock Text="NY" FontFamily="Consolas" FontSize="10"
-                                                                           FontWeight="Bold" Foreground="#FF9800"/>
-                                                            </Border>
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Grid>
-        <!-- Connector overlay: WAN Node1 → aktiv adapter i MINE ADAPTERE -->
-        <Canvas x:Name="ConnectorCanvas" Grid.Row="8" Grid.RowSpan="2"
-                IsHitTestVisible="False" Panel.ZIndex="10"
-                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+        </Border>
 
     </Grid>
 </UserControl>
