@@ -4,6 +4,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:controls="clr-namespace:M1Scan.Controls">
 
+    <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
     <Grid x:Name="RootGrid" Margin="20,12,20,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- 0: Overskrift -->
@@ -514,15 +515,16 @@
         <Border Grid.Row="6" Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
                 BorderThickness="0.5" Padding="14,10">
             <StackPanel>
-                <Grid>
+                <!-- SAMMENFOLDET HEADER: chevron+Detaljer, IPv6/portal-info, mellemrum, Hastighed -->
+                <Grid Visibility="{Binding DiagnosticsVisible, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="1"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- VENSTRE HALVDEL: Detaljer (klikbar toggle) -->
-                    <Button Grid.Column="0" HorizontalContentAlignment="Stretch" Background="Transparent"
+                    <Button Grid.Column="0" Background="Transparent"
                             BorderThickness="0" Padding="0" Margin="0" Cursor="Hand"
                             Command="{Binding ToggleDiagnosticsCommand}">
                         <Button.Template>
@@ -530,145 +532,159 @@
                                 <ContentPresenter/>
                             </ControlTemplate>
                         </Button.Template>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <materialDesign:PackIcon Grid.Column="0" Kind="ChevronRight" Width="14" Height="14"
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ChevronRight" Width="14" Height="14"
                                                      Foreground="#3A6A9A" VerticalAlignment="Center"
                                                      Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5">
                                 <materialDesign:PackIcon.RenderTransform>
                                     <RotateTransform Angle="0"/>
                                 </materialDesign:PackIcon.RenderTransform>
-                                <materialDesign:PackIcon.Style>
-                                    <Style TargetType="materialDesign:PackIcon">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DiagnosticsVisible}" Value="True">
-                                                <Setter Property="RenderTransform">
-                                                    <Setter.Value>
-                                                        <RotateTransform Angle="90"/>
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </materialDesign:PackIcon.Style>
                             </materialDesign:PackIcon>
-                            <TextBlock Grid.Column="1" Text="Detaljer" FontFamily="Consolas" FontSize="12"
+                            <TextBlock Text="Detaljer" FontFamily="Consolas" FontSize="12"
                                        Foreground="#64B5F6" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        </Grid>
+                        </StackPanel>
                     </Button>
 
-                    <!-- IPv6/portal-preview, centreret i venstre halvdel -->
-                    <TextBlock Grid.Column="0" FontSize="10" Foreground="#5A8AAA"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
-                               Visibility="{Binding DiagnosticsVisible, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                    <TextBlock Grid.Column="1" FontSize="10" Foreground="#5A8AAA"
+                               VerticalAlignment="Center" Margin="16,0,0,0" IsHitTestVisible="False">
                         <Run Text="IPv6: "/><Run Text="{Binding Ipv6Text, Mode=OneWay}" Foreground="#7AAACA"/>
                         <Run Text=" · "/><Run Text="{Binding PortalText, Mode=OneWay}" Foreground="#7AAACA"/>
                     </TextBlock>
 
-                    <!-- Skillelinje midt på headeren -->
-                    <Rectangle Grid.Column="1" Width="1" Fill="#1a3040" Margin="8,-2"/>
-
-                    <!-- HØJRE HALVDEL: Hastighed (label + værdi + test-knap) -->
-                    <Grid Grid.Column="2" Margin="12,0,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Hastighed" FontFamily="Consolas" FontSize="12"
-                                   Foreground="#64B5F6" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
-                                   Foreground="#64B5F6" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0">
-                            <Run Text="{Binding SpeedTestDownText, Mode=OneWay}"/>
-                        </TextBlock>
-                        <Button Grid.Column="2" Content="Test igen" Style="{StaticResource MaterialDesignOutlinedButton}"
-                                Height="26" Padding="8,0" FontSize="10"
-                                Command="{Binding TestSpeedCommand}"/>
-                    </Grid>
+                    <TextBlock Grid.Column="3" FontFamily="Consolas" FontSize="11"
+                               VerticalAlignment="Center" IsHitTestVisible="False">
+                        <Run Text="Hastighed: " FontWeight="SemiBold" Foreground="#64B5F6"/>
+                        <Run Text="{Binding SpeedTestDownText, Mode=OneWay}" FontWeight="Bold" Foreground="#64B5F6"/>
+                    </TextBlock>
                 </Grid>
 
-                <StackPanel Margin="0,8,0,0"
+                <!-- Toggle-chevron når udfoldet (headerlinje bliver til simpel titel + kort nedenfor) -->
+                <Button HorizontalContentAlignment="Left" Background="Transparent"
+                        BorderThickness="0" Padding="0" Margin="0"  Cursor="Hand"
+                        Command="{Binding ToggleDiagnosticsCommand}"
+                        Visibility="{Binding DiagnosticsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <ContentPresenter/>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ChevronRight" Width="14" Height="14"
+                                                 Foreground="#3A6A9A" VerticalAlignment="Center"
+                                                 Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5">
+                            <materialDesign:PackIcon.RenderTransform>
+                                <RotateTransform Angle="90"/>
+                            </materialDesign:PackIcon.RenderTransform>
+                        </materialDesign:PackIcon>
+                        <TextBlock Text="Detaljer" FontFamily="Consolas" FontSize="12"
+                                   Foreground="#64B5F6" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- UDFOLDET: tre kort (DHCP-LEASE / IPV6+PORTAL / HASTIGHEDSTEST), v1.3.45-stil -->
+                <WrapPanel Margin="0,10,0,0"
                            Visibility="{Binding DiagnosticsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="DHCP Server" FontSize="11" Foreground="#3A5A6A"/>
-                        <TextBlock Grid.Column="1" Text="{Binding DhcpServerText}" FontFamily="Consolas"
-                                   FontSize="11" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                    </Grid>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Tildelt" FontSize="10" Foreground="#3A5A6A"/>
-                        <TextBlock Grid.Column="1" Text="{Binding DhcpObtainedText}" FontFamily="Consolas"
-                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                    </Grid>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Udløber" FontSize="10" Foreground="#3A5A6A"/>
-                        <TextBlock Grid.Column="1" Text="{Binding DhcpExpiresText}" FontFamily="Consolas"
-                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                    </Grid>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="IPv6" FontSize="10" Foreground="#3A5A6A"/>
-                        <TextBlock Grid.Column="1" Text="{Binding Ipv6Text}" FontFamily="Consolas"
-                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                    </Grid>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Captive Portal" FontSize="10" Foreground="#3A5A6A"/>
-                        <TextBlock Grid.Column="1" Text="{Binding PortalText}" FontFamily="Consolas"
-                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                    </Grid>
 
-                    <!-- Skillelinje mellem netværks- og hastighedsdetaljer -->
-                    <Rectangle Height="1" Fill="#1a3040" Margin="0,8"/>
+                    <!-- DHCP-LEASE -->
+                    <Border Background="#0A1A26" CornerRadius="4" BorderBrush="#1a3040"
+                            BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="DHCP-LEASE" FontFamily="Consolas" FontSize="13"
+                                       Foreground="#3A6A9A" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <StackPanel Visibility="{Binding DhcpIsDhcp, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid Margin="0,1.5">
+                                    <TextBlock Text="DHCP-server" FontSize="11" Foreground="#3A5A6A"/>
+                                    <TextBlock Text="{Binding DhcpServerText}" FontFamily="Consolas" FontSize="11"
+                                               Foreground="#64B5F6" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Grid Margin="0,1.5">
+                                    <TextBlock Text="Tildelt" FontSize="11" Foreground="#3A5A6A"/>
+                                    <TextBlock Text="{Binding DhcpObtainedText}" FontFamily="Consolas" FontSize="11"
+                                               Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Grid Margin="0,1.5">
+                                    <TextBlock Text="Udløber" FontSize="11" Foreground="#3A5A6A"/>
+                                    <TextBlock Text="{Binding DhcpExpiresText}" FontFamily="Consolas" FontSize="11"
+                                               Foreground="#5A8AAA" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </StackPanel>
+                            <TextBlock Text="Statisk IP — ingen lease" FontSize="11" Foreground="#3A5A6A"
+                                       Visibility="{Binding DhcpIsDhcp, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </Border>
 
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Download" FontSize="11" Foreground="#3A5A6A"/>
-                        <TextBlock Grid.Column="1" Text="{Binding SpeedTestDownText}" FontFamily="Consolas"
-                                   FontSize="11" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                    </Grid>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Upload" FontSize="10" Foreground="#3A5A6A"/>
-                        <TextBlock Grid.Column="1" Text="{Binding SpeedTestUpText}" FontFamily="Consolas"
-                                   FontSize="10" Foreground="#5A8AAA" HorizontalAlignment="Right"/>
-                    </Grid>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Senest testet" FontSize="10" Foreground="#3A5A6A"/>
-                        <TextBlock Grid.Column="1" Text="{Binding SpeedTestTimeText}" FontFamily="Consolas"
-                                   FontSize="10" Foreground="#FF9800" HorizontalAlignment="Right"/>
-                    </Grid>
-                </StackPanel>
+                    <!-- IPv6 + Captive Portal -->
+                    <Border Background="#0A1A26" CornerRadius="4" BorderBrush="#1a3040"
+                            BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="IPV6 + PORTAL" FontFamily="Consolas" FontSize="13"
+                                       Foreground="#3A6A9A" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,1.5">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#5C5C2A"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Ipv6Ok}" Value="True">
+                                                    <Setter Property="Fill" Value="#4CAF50"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock FontSize="11" Foreground="#5A8AAA">
+                                    <Run Text="IPv6: "/><Run Text="{Binding Ipv6Text, Mode=OneWay}"/>
+                                </TextBlock>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#4CAF50"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding PortalWarning}" Value="True">
+                                                    <Setter Property="Fill" Value="#FF9800"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="{Binding PortalText}" FontSize="11" Foreground="#5A8AAA"
+                                           TextWrapping="Wrap" MaxWidth="200"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Hastighedstest -->
+                    <Border Background="#0A1A26" CornerRadius="4" BorderBrush="#1a3040"
+                            BorderThickness="0.5" Padding="12,8" Width="250" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="HASTIGHEDSTEST" FontFamily="Consolas" FontSize="13"
+                                       Foreground="#3A6A9A" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <WrapPanel Visibility="{Binding HasSpeedTestResult, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <TextBlock Text="{Binding SpeedTestDownText}" FontFamily="Consolas" FontSize="12"
+                                           FontWeight="Bold" Foreground="#4CAF50" Margin="0,0,10,0"/>
+                                <TextBlock Text="{Binding SpeedTestUpText}" FontFamily="Consolas" FontSize="12"
+                                           FontWeight="Bold" Foreground="#64B5F6"
+                                           ToolTip="Upload er et estimat — hele POST-requesten times"/>
+                            </WrapPanel>
+                            <TextBlock Text="{Binding SpeedTestTimeText}" FontSize="9" Foreground="#3A5A6A"
+                                       Margin="0,2,0,4"
+                                       Visibility="{Binding HasSpeedTestResult, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <ProgressBar Height="3" Margin="0,2,0,4" Maximum="100"
+                                         Value="{Binding SpeedTestProgressPercent, Mode=OneWay}"
+                                         Foreground="#1565C0" Background="#0C1A2C" BorderThickness="0"
+                                         Visibility="{Binding IsSpeedTesting, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock Text="{Binding SpeedTestPhaseText}" FontFamily="Consolas" FontSize="10"
+                                       Foreground="#5A8AAA" Margin="0,0,0,4"
+                                       Visibility="{Binding IsSpeedTesting, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Height="24" Padding="10,0" Margin="0" HorizontalAlignment="Left"
+                                    Command="{Binding TestSpeedCommand}"
+                                    Content="{Binding SpeedTestButtonText}" FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+                </WrapPanel>
             </StackPanel>
         </Border>
 
@@ -719,13 +735,148 @@
                     </Grid>
                 </Button>
 
-                <TextBlock Margin="0,6,0,0" FontSize="10" Foreground="#3A5A6A"
-                          Visibility="{Binding DevicesVisible, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <Run Text="{Binding TotalNearby, Mode=OneWay}"/> <Run Text="enheder i"/>
-                    <Run Text="{Binding NearbyGroups.Count, Mode=OneWay}"/> <Run Text="subnet(s)"/>
-                </TextBlock>
+                <StackPanel Margin="0,6,0,0"
+                            Visibility="{Binding DevicesVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock FontSize="10" Foreground="#3A5A6A" Margin="0,0,0,8">
+                        <Run Text="{Binding TotalNearby, Mode=OneWay}"/> <Run Text="enheder i"/>
+                        <Run Text="{Binding NearbyGroups.Count, Mode=OneWay}"/> <Run Text="subnet(s)"/>
+                    </TextBlock>
+
+                    <ItemsControl ItemsSource="{Binding NearbyGroups}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,8" BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="4">
+                                    <StackPanel>
+                                        <!-- Gruppe-header (subnet), klikbar toggle -->
+                                        <Button Command="{Binding ToggleCommand}" Cursor="Hand"
+                                                HorizontalContentAlignment="Stretch" Focusable="False"
+                                                Background="Transparent" BorderThickness="0" Padding="10,6">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <ContentPresenter/>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <materialDesign:PackIcon Grid.Column="0" Kind="ChevronRight" Width="12" Height="12"
+                                                                         Foreground="#3A6A9A" VerticalAlignment="Center"
+                                                                         Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5">
+                                                    <materialDesign:PackIcon.RenderTransform>
+                                                        <RotateTransform Angle="0"/>
+                                                    </materialDesign:PackIcon.RenderTransform>
+                                                    <materialDesign:PackIcon.Style>
+                                                        <Style TargetType="materialDesign:PackIcon">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                    <Setter Property="RenderTransform">
+                                                                        <Setter.Value>
+                                                                            <RotateTransform Angle="90"/>
+                                                                        </Setter.Value>
+                                                                    </Setter>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </materialDesign:PackIcon.Style>
+                                                </materialDesign:PackIcon>
+                                                <TextBlock Grid.Column="1" Text="{Binding Display}" FontFamily="Consolas" FontSize="11"
+                                                           Foreground="#64B5F6" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding Devices.Count}" FontFamily="Consolas"
+                                                           FontSize="10" Foreground="#5A8AAA" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <Border Grid.Column="4" Background="#3A2A10" CornerRadius="3" Padding="6,1"
+                                                        VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding NewCount}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock FontFamily="Consolas" FontSize="9" FontWeight="Bold" Foreground="#FF9800">
+                                                        <Run Text="{Binding NewCount, Mode=OneWay}"/><Run Text=" NYE"/>
+                                                    </TextBlock>
+                                                </Border>
+                                            </Grid>
+                                        </Button>
+
+                                        <!-- Kolonne-header, kun synlig når udfoldet -->
+                                        <Grid Background="#0C1520" Height="22"
+                                              Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="120"/>
+                                                <ColumnDefinition Width="148"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="IP-adresse" FontSize="9" FontWeight="SemiBold"
+                                                       Foreground="#3A6A9A" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                            <TextBlock Grid.Column="1" Text="MAC-adresse" FontSize="9" FontWeight="SemiBold"
+                                                       Foreground="#3A6A9A" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="Vendor / Producent" FontSize="9" FontWeight="SemiBold"
+                                                       Foreground="#3A6A9A" VerticalAlignment="Center"/>
+                                        </Grid>
+
+                                        <!-- Enheds-liste -->
+                                        <ItemsControl ItemsSource="{Binding Devices}"
+                                                      Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#0C1520" BorderThickness="0,1,0,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="Transparent"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsNew}" Value="True">
+                                                                        <Setter Property="Background" Value="#2A1E0D"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <Grid Height="24">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="120"/>
+                                                                <ColumnDefinition Width="148"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding IpAddress}"
+                                                                       FontFamily="Consolas" FontSize="11"
+                                                                       Foreground="#64B5F6" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding MacAddress}"
+                                                                       FontFamily="Consolas" FontSize="10"
+                                                                       Foreground="#3A5A6A" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding Vendor}"
+                                                                       FontSize="11" Foreground="#5A8AAA"
+                                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,0,10,0"
+                                                                        Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                <Border Background="#3A2A10" CornerRadius="3" Padding="6,1"
+                                                                        VerticalAlignment="Center" ToolTip="{Binding FirstSeenDisplay}">
+                                                                    <TextBlock Text="NY" FontFamily="Consolas" FontSize="9"
+                                                                               FontWeight="Bold" Foreground="#FF9800"/>
+                                                                </Border>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </StackPanel>
         </Border>
 
     </Grid>
+    </ScrollViewer>
 </UserControl>
