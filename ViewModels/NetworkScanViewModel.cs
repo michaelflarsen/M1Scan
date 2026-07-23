@@ -40,7 +40,7 @@ namespace M1Scan.ViewModels
         private CancellationTokenSource? _scanCts;
 
         // OUI-lookup cache per scan — holds (vendor, originalOui) tuples to avoid redundant lookups
-        private readonly Dictionary<string, (string vendor, string originalOui)> _ouiCache = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, (string vendor, string originalOui)> _ouiCache = new(StringComparer.OrdinalIgnoreCase);
 
         private DateTime _scanStartTime;
         private string _scanElapsedTime = string.Empty;
@@ -195,6 +195,7 @@ namespace M1Scan.ViewModels
 
         public RelayCommand PingSingleCommand { get; }
         public RelayCommand ScanNetworkCommand { get; }
+        public RelayCommand AddScanCommand { get; }
         public RelayCommand CancelScanCommand { get; }
         public RelayCommand ClearResultsCommand { get; }
         public RelayCommand RefreshAdaptersCommand { get; }
@@ -216,6 +217,7 @@ namespace M1Scan.ViewModels
 
             PingSingleCommand = new RelayCommand(async _ => await PingSingleAsync(), _ => !IsScanning && !string.IsNullOrEmpty(IpAddressInput));
             ScanNetworkCommand = new RelayCommand(async _ => await ScanNetworkAsync(), _ => !IsScanning);
+            AddScanCommand = new RelayCommand(async _ => await ScanNetworkAsync(merge: true), _ => !IsScanning);
             CancelScanCommand = new RelayCommand(_ => _scanCts?.Cancel(), _ => IsScanning);
             ClearResultsCommand = new RelayCommand(_ => DiscoveredHosts.Clear());
             RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
@@ -571,84 +573,77 @@ namespace M1Scan.ViewModels
                 // Bind all scan traffic to the selected adapter's source IP.
                 var srcIp = ScanSrcIp;
 
-                // ===== FASE 0+1: ARP-flood + ping-sweep (samtidige) =====
+                // ===== FASE 0+1: ARP-flood + to-faset ping-sweep =====
                 var floodTask = _networkService.FloodArpAsync(SubnetInput, StartIp, EndIp, ct);
 
                 int totalTasks = EndIp - StartIp + 1;
                 var onlineCount = 0;
-                var reachableHosts = new ConcurrentBag<HostInfo>();
                 var allIps = Enumerable.Range(StartIp, totalTasks)
                                        .Select(i => $"{SubnetInput}.{i}").ToList();
 
-                if (!string.IsNullOrEmpty(srcIp))
+                // Shared enrichment (MAC via ARP, derefter port-tjek + NetBIOS) — bruges for
+                // både fase 1- og fase 2-hosts, så logikken ikke duplikeres.
+                async Task EnrichHostsAsync(List<HostInfo> hosts, Dictionary<string, string> arpTable, string enrichSrcIp)
                 {
-                    // Fast path: sweep the whole range on one bound raw socket.
-                    StatusMessage = $"Ping-scanning af {totalTasks} IP'er...";
-                    var sweep = await _networkService.PingSweepBoundAsync(allIps, srcIp, 800, ct);
-                    onlineCount = sweep.Count;
-                    foreach (var (ip, r) in sweep)
-                    {
-                        var host = new HostInfo
-                        {
-                            IpAddress = ip,
-                            HostName = ip,
-                            IsReachable = true,
-                            Status = "Online",
-                            ResponseTime = (int)r.rttMs,
-                            AdapterName = SelectedAdapter?.Name ?? string.Empty,
-                            OsGuess = r.ttl switch
-                            {
-                                > 0 and <= 64   => "Linux / Mac",
-                                > 64 and <= 128 => "Windows",
-                                > 128           => "Netværksenhed",
-                                _               => string.Empty
-                            },
-                            LastSeen = DateTime.Now
-                        };
-                        reachableHosts.Add(host);
-                        _uiQueue.Enqueue(host);
-                    }
-                    ScanProgress = 40;
+                    if (hosts.Count == 0) return;
 
-                    // TCP-fallback for hosts der blokerer ICMP (routere, firewalls, IoT):
-                    // prøv et par almindelige porte på de IP'er der ikke svarede på ping.
-                    var noReply = allIps.Where(ip => !sweep.ContainsKey(ip)).ToList();
-                    var tcpPorts = new[] { 80, 443, 445 };
-                    using var tcpSem = new SemaphoreSlim(150);
-                    var tcpTasks = noReply.Select(ip => Task.Run(async () =>
+                    using var arpSem = new SemaphoreSlim(100);
+                    var macTasks = hosts.Select(async host =>
                     {
-                        await tcpSem.WaitAsync(ct).ConfigureAwait(false);
+                        await arpSem.WaitAsync(ct).ConfigureAwait(false);
                         try
                         {
-                            foreach (var p in tcpPorts)
+                            var mac = await _networkService.SendArpRequestAsync(host.IpAddress, enrichSrcIp, ct);
+                            if (string.IsNullOrEmpty(mac) &&
+                                arpTable.TryGetValue(host.IpAddress, out var cachedMac))
                             {
-                                if (await _networkService.CheckPortAsync(ip, p, srcIp, 200, ct))
-                                {
-                                    var host = new HostInfo
-                                    {
-                                        IpAddress = ip,
-                                        HostName = ip,
-                                        IsReachable = true,
-                                        Status = $"Online (TCP:{p})",
-                                        AdapterName = SelectedAdapter?.Name ?? string.Empty,
-                                        LastSeen = DateTime.Now
-                                    };
-                                    reachableHosts.Add(host);
-                                    _uiQueue.Enqueue(host);
-                                    Interlocked.Increment(ref onlineCount);
-                                    break;
-                                }
+                                mac = cachedMac;
                             }
+                            return (host, mac);
                         }
-                        finally { tcpSem.Release(); }
-                    }, ct)).ToList();
-                    await Task.WhenAll(tcpTasks);
+                        finally { arpSem.Release(); }
+                    });
 
-                    // Resolve hostnames (reverse-DNS/mDNS) for all online hosts — the sweep
-                    // path builds HostInfo directly, so this step must be done explicitly.
-                    StatusMessage = "Slår værtsnavne op...";
+                    foreach (var (host, mac) in await Task.WhenAll(macTasks))
+                    {
+                        if (!string.IsNullOrEmpty(mac))
+                        {
+                            host.MacAddress = mac;
+                            if (!_ouiCache.TryGetValue(mac, out var cached))
+                            {
+                                var (vendor, originalOui) = OuiLookup.LookupWithOriginal(mac);
+                                cached = (vendor, originalOui);
+                                _ouiCache[mac] = cached;
+                            }
+                            host.Vendor = cached.vendor;
+                            host.OriginalVendor = cached.originalOui;
+                            _uiQueue.Enqueue(host);
+                        }
+                    }
+
+                    FlushUiQueue();
+
+                    using var portSem = new SemaphoreSlim(150);
+                    var enrichmentTasks = hosts.Select(async host =>
+                    {
+                        var portResults = await Task.WhenAll(
+                            CheckPortBounded(portSem, host.IpAddress, 80, enrichSrcIp, ct),
+                            CheckPortBounded(portSem, host.IpAddress, 443, enrichSrcIp, ct),
+                            CheckPortBounded(portSem, host.IpAddress, 8080, enrichSrcIp, ct),
+                            CheckPortBounded(portSem, host.IpAddress, 502, enrichSrcIp, ct));
+
+                        var netbios = await _networkService.GetNetBiosNameAsync(host.IpAddress, enrichSrcIp, ct);
+                        await UpdateHostInUI(host, portResults, netbios);
+                    });
+                    await Task.WhenAll(enrichmentTasks);
+                }
+
+                // Resolve hostnames (reverse-DNS/mDNS) — sweep-baserede HostInfo har ikke
+                // fået dette fra en managed Ping, så det gøres eksplicit.
+                async Task ResolveHostNamesAsync(IEnumerable<HostInfo> hosts)
+                {
                     using var dnsSem = new SemaphoreSlim(150);
-                    var dnsTasks = reachableHosts.Select(host => Task.Run(async () =>
+                    var dnsTasks = hosts.Select(host => Task.Run(async () =>
                     {
                         await dnsSem.WaitAsync(ct).ConfigureAwait(false);
                         try
@@ -664,12 +659,149 @@ namespace M1Scan.ViewModels
                         finally { dnsSem.Release(); }
                     }, ct)).ToList();
                     await Task.WhenAll(dnsTasks);
+                }
 
-                    ScanProgress = 50;
+                HostInfo BuildSweepHost(string ip, long rttMs, int ttl) => new()
+                {
+                    IpAddress = ip,
+                    HostName = ip,
+                    IsReachable = true,
+                    Status = "Online",
+                    ResponseTime = (int)rttMs,
+                    AdapterName = SelectedAdapter?.Name ?? string.Empty,
+                    OsGuess = ttl switch
+                    {
+                        > 0 and <= 64   => "Linux / Mac",
+                        > 64 and <= 128 => "Windows",
+                        > 128           => "Netværksenhed",
+                        _               => string.Empty
+                    },
+                    LastSeen = DateTime.Now
+                };
+
+                // Fase 2: baggrunds-sweep (500ms) for IP'er der ikke svarede i fase 1 —
+                // fanger langsomme ESP/IoT-enheder uden at forsinke fase 1's berigelse.
+                async Task<List<HostInfo>> RunPhase2Async(List<string> targets, string phase2SrcIp, Dictionary<string, string> arpTable)
+                {
+                    var phase2Hosts = new List<HostInfo>();
+                    if (targets.Count == 0) return phase2Hosts;
+
+                    const int Phase2TimeoutMs = 3000;
+                    var sweep2 = await _networkService.PingSweepBoundAsync(targets, phase2SrcIp, Phase2TimeoutMs, ct);
+                    foreach (var (ip, r) in sweep2)
+                    {
+                        var host = BuildSweepHost(ip, r.rttMs, r.ttl);
+                        phase2Hosts.Add(host);
+                        _uiQueue.Enqueue(host);
+                    }
+                    Interlocked.Add(ref onlineCount, sweep2.Count);
+
+                    // TCP-fallback for hosts der stadig ikke svarer på ICMP efter begge faser.
+                    var noReply2 = targets.Where(ip => !sweep2.ContainsKey(ip)).ToList();
+                    var tcpPorts = new[] { 80, 443, 445 };
+                    var tcpFound = new ConcurrentBag<HostInfo>();
+                    using var tcpSem = new SemaphoreSlim(150);
+                    var tcpTasks = noReply2.Select(ip => Task.Run(async () =>
+                    {
+                        await tcpSem.WaitAsync(ct).ConfigureAwait(false);
+                        try
+                        {
+                            foreach (var p in tcpPorts)
+                            {
+                                if (await _networkService.CheckPortAsync(ip, p, phase2SrcIp, 200, ct))
+                                {
+                                    var host = new HostInfo
+                                    {
+                                        IpAddress = ip,
+                                        HostName = ip,
+                                        IsReachable = true,
+                                        Status = $"Online (TCP:{p})",
+                                        AdapterName = SelectedAdapter?.Name ?? string.Empty,
+                                        LastSeen = DateTime.Now
+                                    };
+                                    tcpFound.Add(host);
+                                    _uiQueue.Enqueue(host);
+                                    Interlocked.Increment(ref onlineCount);
+                                    break;
+                                }
+                            }
+                        }
+                        finally { tcpSem.Release(); }
+                    }, ct)).ToList();
+                    await Task.WhenAll(tcpTasks);
+                    phase2Hosts.AddRange(tcpFound);
+
+                    await ResolveHostNamesAsync(phase2Hosts);
+                    await EnrichHostsAsync(phase2Hosts, arpTable, phase2SrcIp);
+
+                    return phase2Hosts;
+                }
+
+                List<HostInfo> onlineList;
+
+                if (!string.IsNullOrEmpty(srcIp))
+                {
+                    // ---- Fase 1: hurtig sweep (100ms) — finder normale enheder næsten instant ----
+                    const int Phase1TimeoutMs = 100;
+                    StatusMessage = $"Hurtig ping-scanning af {totalTasks} IP'er...";
+                    var sweep1 = await _networkService.PingSweepBoundAsync(allIps, srcIp, Phase1TimeoutMs, ct);
+                    onlineCount = sweep1.Count;
+                    var phase1Hosts = new List<HostInfo>();
+                    foreach (var (ip, r) in sweep1)
+                    {
+                        var host = BuildSweepHost(ip, r.rttMs, r.ttl);
+                        phase1Hosts.Add(host);
+                        _uiQueue.Enqueue(host);
+                    }
+                    ScanProgress = 25;
+
+                    // Non-respondenter fra fase 1 bliver fase 2's mål. Kun ægte echo-replies
+                    // (ICMP type 0) havner i sweep1 (se IcmpSweepBound) — "destination
+                    // unreachable" og andre ICMP-fejl er allerede filtreret fra, så de korrekt
+                    // falder igennem til fase 2 sammen med reelle timeouts.
+                    var noReply1 = allIps.Where(ip => !sweep1.ContainsKey(ip)).ToList();
+
+                    // ARP-cachen læses én gang (fallback-kilde kun — primær MAC-opløsning er
+                    // det blokerende SendArpRequestAsync pr. host) og deles af begge faser.
+                    var arpTable = _networkService.GetArpTableNative();
+
+                    // Start fase 2 nu (uden at afvente den), så den kører samtidig med fase 1's
+                    // DNS-opslag og berigelse nedenfor.
+                    var phase2Task = RunPhase2Async(noReply1, srcIp, arpTable);
+                    var phase2Hosts = new List<HostInfo>();
+
+                    try
+                    {
+                        StatusMessage = "Slår værtsnavne op...";
+                        await ResolveHostNamesAsync(phase1Hosts);
+                        ScanProgress = 35;
+
+                        await floodTask;
+                        FlushUiQueue();
+
+                        StatusMessage = $"Ping-fase færdig — {onlineCount} online indtil videre. Henter MAC-adresser... (baggrundsscan for langsomme enheder kører)";
+                        await EnrichHostsAsync(phase1Hosts, arpTable, srcIp);
+                        ScanProgress = 70;
+                    }
+                    finally
+                    {
+                        // Uanset om ovenstående blev annulleret eller fejlede, skal fase 2
+                        // altid joines her — ellers kører den videre løsrevet fra scannets
+                        // livscyklus og kan skrive forældede resultater ind i en senere scanning.
+                        try { phase2Hosts = await phase2Task; }
+                        catch (OperationCanceledException) { /* forventet ved annullering */ }
+                    }
+
+                    onlineList = phase1Hosts.Concat(phase2Hosts).ToList();
+                    onlineCount = onlineList.Count;
+                    ScanProgress = 90;
                 }
                 else
                 {
                     // Fallback path (no adapter/src IP): managed Ping per host, bounded.
+                    // Efterlades enkelt-faset — den looper allerede pr. host med egen timeout,
+                    // og to-fasning ville blot fordoble ping-trafikken uden reel gevinst.
+                    var reachableHosts = new ConcurrentBag<HostInfo>();
                     var completedCount = 0;
                     using var semaphore = new SemaphoreSlim(150);
                     var pingTasks = allIps.Select(ip => Task.Run(async () =>
@@ -698,76 +830,17 @@ namespace M1Scan.ViewModels
                     }, ct)).ToList();
 
                     await Task.WhenAll(pingTasks);
+                    onlineList = reachableHosts.ToList();
+
+                    await floodTask;
+                    FlushUiQueue();
+
+                    StatusMessage = $"Ping-fase færdig — {onlineCount} online. Henter MAC-adresser...";
+                    ScanProgress = 55;
+                    var arpTable = _networkService.GetArpTableNative();
+                    await EnrichHostsAsync(onlineList, arpTable, srcIp);
+                    ScanProgress = 70;
                 }
-
-                await floodTask;
-
-                FlushUiQueue(); // Flush resterende ping-resultater
-
-                // ===== FASE 2: MAC via native ARP-tabel (instant) =====
-                StatusMessage = $"Ping-fase færdig — {onlineCount} online. Henter MAC-adresser...";
-                ScanProgress = 55;
-
-                var onlineList = reachableHosts.ToList();
-
-                // Read the ARP cache first (populated by the flood + ping sweep) — instant.
-                var arpTable = _networkService.GetArpTableNative();
-
-                // Resolve MAC per host: prefer a direct blocking SendARP (returns the MAC
-                // even for slow devices like Shelly), fall back to the cache snapshot.
-                using var arpSem = new SemaphoreSlim(100);
-                var macTasks = onlineList.Select(async host =>
-                {
-                    await arpSem.WaitAsync(ct).ConfigureAwait(false);
-                    try
-                    {
-                        var mac = await _networkService.SendArpRequestAsync(host.IpAddress, srcIp, ct);
-                        if (string.IsNullOrEmpty(mac) &&
-                            arpTable.TryGetValue(host.IpAddress, out var cachedMac))
-                        {
-                            mac = cachedMac;
-                        }
-                        return (host, mac);
-                    }
-                    finally { arpSem.Release(); }
-                });
-
-                foreach (var (host, mac) in await Task.WhenAll(macTasks))
-                {
-                    if (!string.IsNullOrEmpty(mac))
-                    {
-                        host.MacAddress = mac;
-                        if (!_ouiCache.TryGetValue(mac, out var cached))
-                        {
-                            var (vendor, originalOui) = OuiLookup.LookupWithOriginal(mac);
-                            cached = (vendor, originalOui);
-                            _ouiCache[mac] = cached;
-                        }
-                        host.Vendor = cached.vendor;
-                        host.OriginalVendor = cached.originalOui;
-                        _uiQueue.Enqueue(host);
-                    }
-                }
-
-                FlushUiQueue();
-
-                // ===== FASE 3+4: Port-tjek + NetBIOS (paralleliseret) =====
-                StatusMessage = "MAC-adresser hentet. Tjekker porte og NetBIOS...";
-                ScanProgress = 70;
-
-                using var portSem = new SemaphoreSlim(150);
-                var enrichmentTasks = onlineList.Select(async host =>
-                {
-                    var portResults = await Task.WhenAll(
-                        CheckPortBounded(portSem, host.IpAddress, 80, srcIp, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 443, srcIp, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 8080, srcIp, ct),
-                        CheckPortBounded(portSem, host.IpAddress, 502, srcIp, ct));
-
-                    var netbios = await _networkService.GetNetBiosNameAsync(host.IpAddress, srcIp, ct);
-                    await UpdateHostInUI(host, portResults, netbios);
-                });
-                await Task.WhenAll(enrichmentTasks);
 
                 // ===== FASE 5: Endelig MAC-reconciliation =====
                 // Efter alt netværkstrafik er Windows' ARP-cache fuldt populeret. Fyld MAC
