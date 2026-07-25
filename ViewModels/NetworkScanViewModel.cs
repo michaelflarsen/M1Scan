@@ -697,6 +697,36 @@ namespace M1Scan.ViewModels
 
                 // Resolve hostnames (reverse-DNS/mDNS) — sweep-baserede HostInfo har ikke
                 // fået dette fra en managed Ping, så det gøres eksplicit.
+                // Spørger enheden selv først (mDNS), derefter netværket (reverse-DNS).
+                //
+                // Rækkefølgen er bevidst: en PTR-record i routeren sættes af en
+                // administrator og bliver forældet — på dette netværk pegede .4's
+                // PTR på "seer.dk", som er en TJENESTE der kører på maskinen (port
+                // 5055), mens maskinen selv hedder TechnoBunker (port 9000).
+                // mDNS-navnet kommer fra maskinen i det øjeblik vi spørger.
+                //
+                // Enheder der ikke svarer på mDNS (fx de fleste Android-telefoner)
+                // falder tilbage til reverse-DNS, hvor routerens DHCP-registrerede
+                // navne stadig giver gode resultater.
+                async Task<string> ResolveBestNameAsync(string hostIp, string nameSrcIp, int dnsTimeoutMs)
+                {
+                    // Begge opslag startes SAMTIDIGT og vi vælger bagefter. Kørte de i
+                    // rækkefølge, ville hver enhed der ikke svarer på mDNS (fx de fleste
+                    // Android-telefoner) betale hele mDNS-timeouten før reverse-DNS
+                    // overhovedet gik i gang. De bruger hver sin protokol — multicast UDP
+                    // og unicast DNS — så de konkurrerer ikke nævneværdigt.
+                    var mdnsTask = _networkService.ResolveMdnsNameAsync(hostIp, nameSrcIp, 700, ct);
+                    var dnsTask  = _networkService.ResolveHostNameAsync(hostIp, dnsTimeoutMs, ct);
+
+                    await Task.WhenAll(mdnsTask, dnsTask);
+
+                    var mdns = mdnsTask.Result;
+                    if (!string.IsNullOrEmpty(mdns) && mdns != hostIp)
+                        return mdns;
+
+                    return dnsTask.Result;
+                }
+
                 async Task ResolveHostNamesAsync(IEnumerable<HostInfo> hosts)
                 {
                     // 16 samtidige opslag, ikke 150. Reverse-DNS på et LAN besvares af
@@ -715,7 +745,7 @@ namespace M1Scan.ViewModels
                         await dnsSem.WaitAsync(ct).ConfigureAwait(false);
                         try
                         {
-                            var name = await _networkService.ResolveHostNameAsync(host.IpAddress, DnsTimeoutMs, ct);
+                            var name = await ResolveBestNameAsync(host.IpAddress, srcIp, DnsTimeoutMs);
                             if (!string.IsNullOrEmpty(name) && name != host.IpAddress)
                             {
                                 // HostInfo is bound to the grid — mutate it on the UI thread so

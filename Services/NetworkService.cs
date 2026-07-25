@@ -51,6 +51,9 @@ namespace M1Scan.Services
         Task<string> GetNetBiosNameAsync(string ipAddress, string srcIp, CancellationToken ct = default);
         Task<string> GetMacAddressAsync(string ipAddress, CancellationToken ct = default);
         Task<string> ResolveHostNameAsync(string ip, int timeoutMs = 2000, CancellationToken ct = default);
+        // Spørger enheden selv om dens navn via mDNS. Foretrækkes over reverse-DNS,
+        // se ResolveMdnsNameAsync.
+        Task<string> ResolveMdnsNameAsync(string ip, string srcIp, int timeoutMs = 1000, CancellationToken ct = default);
         Task FloodArpAsync(string subnet, int startIp, int endIp, CancellationToken ct = default);
         Task<string> SendArpRequestAsync(string ip, CancellationToken ct = default);
         Task<string> SendArpRequestAsync(string ip, string srcIp, CancellationToken ct = default);
@@ -395,6 +398,211 @@ namespace M1Scan.Services
         public Task<string> ResolveHostNameAsync(string ip, int timeoutMs = 2000,
                                                  CancellationToken ct = default)
             => GetHostNameWithTimeoutAsync(ip, timeoutMs, ct);
+
+        // ── Reverse mDNS ─────────────────────────────────────────────────────
+        //
+        // Spørger ENHEDEN SELV hvad den hedder, i stedet for at spørge netværket.
+        //
+        // Hvorfor det er nødvendigt: Dns.GetHostEntryAsync sender både en almindelig
+        // PTR-forespørgsel til DNS-serveren OG et mDNS/LLMNR-opslag, og returnerer det
+        // svar der kommer først. Det er et kapløb, ikke et valg — på et testnetværk gav
+        // 192.168.5.4 skiftevis "seer.dk" (routerens PTR-record, som peger på en tjeneste
+        // der kører på maskinen) og "TechnoBunker.local" (maskinens eget annoncerede navn),
+        // alt efter hvor travlt DNS-serveren havde. Samme host, to navne, afhængigt af
+        // belastning.
+        //
+        // Enhedens eget navn er den mere pålidelige kilde: en PTR-record sættes af en
+        // administrator én gang og bliver forældet, mens mDNS-navnet kommer fra maskinen
+        // i det øjeblik vi spørger. Derfor slås mDNS op eksplicit og foretrækkes.
+        //
+        // Protokol: DNS-PTR-forespørgsel på <omvendte oktetter>.in-addr.arpa sendt til
+        // multicast 224.0.0.251:5353 med QU-bit sat, så svaret kommer unicast tilbage til
+        // vores egen port (ellers skulle vi dele port 5353 med Windows' egen mDNS-service).
+        public async Task<string> ResolveMdnsNameAsync(string ip, string srcIp,
+                                                        int timeoutMs = 1000,
+                                                        CancellationToken ct = default)
+        {
+            if (!IPAddress.TryParse(ip, out var target) ||
+                target.AddressFamily != AddressFamily.InterNetwork)
+                return string.Empty;
+
+            return await Task.Run(() =>
+            {
+                if (ct.IsCancellationRequested) return string.Empty;
+                try
+                {
+                    var query = BuildReversePtrQuery(target);
+
+                    UdpClient udp;
+                    if (!string.IsNullOrEmpty(srcIp) && IPAddress.TryParse(srcIp, out var srcAddr))
+                    {
+                        try { udp = new UdpClient(new IPEndPoint(srcAddr, 0)); }
+                        catch { udp = new UdpClient(); }
+                    }
+                    else udp = new UdpClient();
+
+                    using var _udp = udp;
+                    udp.Client.ReceiveTimeout = timeoutMs;
+                    udp.Send(query, query.Length, new IPEndPoint(MdnsGroup, MdnsPort));
+
+                    // Læs indtil vi ser et brugbart svar eller løber tør for tid.
+                    // Andre enheder kan sende multicast-trafik til vores port imens.
+                    var deadline = Environment.TickCount64 + timeoutMs;
+                    while (Environment.TickCount64 < deadline && !ct.IsCancellationRequested)
+                    {
+                        var remote = new IPEndPoint(IPAddress.Any, 0);
+                        byte[] response;
+                        try { response = udp.Receive(ref remote); }
+                        catch (SocketException) { break; } // timeout
+
+                        // Kun svar fra selve målet tæller — ellers kunne en anden enhed
+                        // på segmentet navngive en host den ikke ejer.
+                        if (!remote.Address.Equals(target)) continue;
+
+                        var name = ParsePtrAnswer(response);
+                        if (!string.IsNullOrEmpty(name)) return name;
+                    }
+                }
+                catch { /* mDNS er en bonus-kilde; fejl falder tilbage til reverse-DNS */ }
+                return string.Empty;
+            }, ct);
+        }
+
+        private static readonly IPAddress MdnsGroup = IPAddress.Parse("224.0.0.251");
+        private const int MdnsPort = 5353;
+
+        /// <summary>Bygger en DNS-PTR-forespørgsel for "&lt;d.c.b.a&gt;.in-addr.arpa".</summary>
+        private static byte[] BuildReversePtrQuery(IPAddress target)
+        {
+            var o = target.GetAddressBytes();
+            var qname = $"{o[3]}.{o[2]}.{o[1]}.{o[0]}.in-addr.arpa";
+
+            var packet = new List<byte>(64)
+            {
+                0x00, 0x00,             // ID = 0 (mDNS bruger ikke transaktions-ID)
+                0x00, 0x00,             // Flags: standard query
+                0x00, 0x01,             // QDCOUNT = 1
+                0x00, 0x00,             // ANCOUNT
+                0x00, 0x00,             // NSCOUNT
+                0x00, 0x00              // ARCOUNT
+            };
+
+            foreach (var label in qname.Split('.'))
+            {
+                packet.Add((byte)label.Length);
+                packet.AddRange(Encoding.ASCII.GetBytes(label));
+            }
+            packet.Add(0x00);           // rod-label afslutter QNAME
+
+            packet.Add(0x00); packet.Add(0x0C);   // QTYPE = PTR (12)
+            packet.Add(0x80); packet.Add(0x01);   // QCLASS = IN, QU-bit → bed om unicast svar
+
+            return packet.ToArray();
+        }
+
+        /// <summary>
+        /// Læser navnet ud af første PTR-svar i en DNS-besked. Returnerer tom streng
+        /// hvis beskeden ikke indeholder et brugbart svar.
+        /// </summary>
+        internal static string ParsePtrAnswer(byte[] msg)
+        {
+            const int HeaderSize = 12;
+            if (msg.Length < HeaderSize) return string.Empty;
+
+            int qdCount = (msg[4] << 8) | msg[5];
+            int anCount = (msg[6] << 8) | msg[7];
+            if (anCount == 0) return string.Empty;
+
+            int pos = HeaderSize;
+
+            // Spring spørgsmålene over: QNAME + QTYPE(2) + QCLASS(2)
+            for (int i = 0; i < qdCount; i++)
+            {
+                if (!SkipName(msg, ref pos)) return string.Empty;
+                pos += 4;
+                if (pos > msg.Length) return string.Empty;
+            }
+
+            for (int i = 0; i < anCount; i++)
+            {
+                if (!SkipName(msg, ref pos)) return string.Empty;
+                if (pos + 10 > msg.Length) return string.Empty;
+
+                int type = (msg[pos] << 8) | msg[pos + 1];
+                int rdLength = (msg[pos + 8] << 8) | msg[pos + 9];
+                pos += 10;
+
+                if (pos + rdLength > msg.Length) return string.Empty;
+
+                if (type == 12) // PTR
+                {
+                    int namePos = pos;
+                    var name = ReadName(msg, ref namePos, 0);
+                    if (!string.IsNullOrEmpty(name)) return name;
+                }
+
+                pos += rdLength;
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>Springer et (evt. komprimeret) DNS-navn over.</summary>
+        private static bool SkipName(byte[] msg, ref int pos)
+        {
+            while (true)
+            {
+                if (pos >= msg.Length) return false;
+                int len = msg[pos];
+
+                if (len == 0) { pos++; return true; }
+
+                // 0xC0-præfiks = komprimeringspointer; navnet slutter her (2 bytes).
+                if ((len & 0xC0) == 0xC0)
+                {
+                    pos += 2;
+                    return pos <= msg.Length;
+                }
+
+                pos += 1 + len;
+            }
+        }
+
+        /// <summary>
+        /// Læser et DNS-navn, inkl. komprimeringspointere. depth begrænser hvor mange
+        /// pointere vi følger — en besked kan pege på sig selv og give en uendelig løkke.
+        /// </summary>
+        private static string ReadName(byte[] msg, ref int pos, int depth)
+        {
+            if (depth > 10) return string.Empty;
+
+            var labels = new List<string>();
+            while (true)
+            {
+                if (pos >= msg.Length) return string.Empty;
+                int len = msg[pos];
+
+                if (len == 0) { pos++; break; }
+
+                if ((len & 0xC0) == 0xC0)
+                {
+                    if (pos + 1 >= msg.Length) return string.Empty;
+                    int pointer = ((len & 0x3F) << 8) | msg[pos + 1];
+                    pos += 2;
+
+                    int inner = pointer;
+                    var rest = ReadName(msg, ref inner, depth + 1);
+                    if (!string.IsNullOrEmpty(rest)) labels.Add(rest);
+                    break;
+                }
+
+                if (pos + 1 + len > msg.Length) return string.Empty;
+                labels.Add(Encoding.UTF8.GetString(msg, pos + 1, len));
+                pos += 1 + len;
+            }
+
+            return string.Join('.', labels);
+        }
 
         private async Task<string> GetHostNameWithTimeoutAsync(string ip,
             int timeoutMs = 2000, CancellationToken ct = default)
