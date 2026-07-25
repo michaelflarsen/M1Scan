@@ -168,6 +168,34 @@ if (-not (Test-Path $NotesFile)) {
     Fail "Release notes-filen findes ikke: $NotesFile"
 }
 
+# ---------------------------------------------------------------------------
+# SHA-256 tilføjes automatisk til release-noterne.
+#
+# Appens indbyggede opdatering NÆGTER at installere en release hvis noterne ikke
+# indeholder en "SHA256:"-linje, og hvis den hentede exe ikke matcher hashen
+# (se Services/UpdateService.cs). Uden hashen ser brugerne aldrig "Update now" —
+# og de får ingen fejlbesked, opdateringen bliver bare aldrig tilbudt.
+#
+# Derfor beregnes og tilføjes den her i stedet for at bede mennesket om at huske
+# det i en Notepad-dialog. Et krav der kan glemmes i stilhed er ikke et krav.
+# ---------------------------------------------------------------------------
+$sha256 = (Get-FileHash -LiteralPath $exePath -Algorithm SHA256).Hash.ToLower()
+
+$notesContent = Get-Content -Path $NotesFile -Raw
+if ($notesContent -match 'SHA-?256\s*[:=]\s*([0-9a-fA-F]{64})') {
+    # Allerede en hash i noterne (fx en håndskrevet fra et tidligere forsøg) —
+    # kontrollér at den passer til den exe vi rent faktisk uploader.
+    if ($Matches[1].ToLower() -ne $sha256) {
+        Fail "Release-noterne indeholder en SHA-256 der IKKE matcher den byggede exe.`n  I noterne: $($Matches[1].ToLower())`n  Faktisk:   $sha256`nRet eller fjern linjen og kør igen."
+    }
+    Write-Host "SHA-256 i noterne matcher den byggede exe." -ForegroundColor Green
+}
+else {
+    $notesContent = $notesContent.TrimEnd() + "`n`n---`nSHA256: $sha256`n"
+    Set-Content -Path $NotesFile -Value $notesContent -Encoding utf8 -NoNewline
+    Write-Host "SHA-256 tilføjet til release-noterne: $sha256" -ForegroundColor Green
+}
+
 # --repo angives eksplicit, så gh ikke gætter forkert repo ud fra den mappe
 # scriptet tilfældigvis køres fra.
 & gh release create "v$newVersion" "${exePath}#M1Scan.exe" `

@@ -76,9 +76,38 @@ Release notes skal indeholde:
 - Eventuelle breaking changes
 - En linje `SHA256: {SHA256}` (kræves af auto-opdateringen)
 
-## Trin 8 – Bekræft
+## Trin 8 – Verificér at hashen faktisk kom med (OBLIGATORISK)
+Læs release-noterne tilbage fra GitHub og bekræft at `SHA256:`-linjen er der og
+matcher den byggede fil:
+```
+gh release view v{NY_VERSION} --repo michaelflarsen/M1Scan --json body -q .body | Select-String "SHA256"
+(Get-FileHash "bin\Release\net8.0-windows\win-x64\publish\M1Scan.exe" -Algorithm SHA256).Hash.ToLower()
+```
+De to værdier skal være ens.
+
+Mangler linjen, eller er hashen forkert, så **ret releasen med det samme**:
+```
+gh release edit v{NY_VERSION} --repo michaelflarsen/M1Scan --notes "<noter>
+
+SHA256: {SHA256}"
+```
+En release uden korrekt hash er usynlig for auto-opdateringen — brugerne får
+ingen fejl, de bliver bare aldrig tilbudt opdateringen.
+
+## Trin 9 – Bekræft
 Fortæl brugeren:
 - `v{NY_VERSION}` er committet og pushet til GitHub
 - GitHub Release er oprettet med den self-contained `M1Scan.exe` som artifact (kører uden .NET-installation)
-- SHA-256 er offentliggjort i release-noterne, så auto-opdateringen kan verificere downloadet
+- SHA-256 er offentliggjort i release-noterne **og verificeret mod den uploadede fil**
 - Link til release: `https://github.com/michaelflarsen/M1Scan/releases/tag/v{NY_VERSION}`
+
+---
+
+## Alternativ: brug scriptet i stedet
+`scripts/release.ps1` gør alt ovenstående automatisk, inkl. version-bump,
+README-badge, SHA-256 i noterne og selve releasen:
+```
+.\scripts\release.ps1 -Summary "Kort beskrivelse"
+```
+Scriptet beregner og indsætter hashen selv, så den ikke kan glemmes. Kører du
+trinnene i hånden, er det dit ansvar at trin 6 og 8 bliver udført.
