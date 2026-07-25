@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using M1Scan.Models;
 using M1Scan.Services;
 using M1Scan.Utils;
+using M1Scan.Views;
 
 namespace M1Scan.ViewModels
 {
@@ -19,6 +20,7 @@ namespace M1Scan.ViewModels
     {
         private readonly INetworkService _networkService;
         private readonly IExportService _exportService;
+        private readonly IDeviceNameService _deviceNameService;
         private readonly DispatcherTimer _autoRefreshTimer;
 
         private ObservableCollection<HostInfo> _discoveredHosts = new();
@@ -223,11 +225,14 @@ namespace M1Scan.ViewModels
         public RelayCommand CopyMacCommand { get; }
         public AsyncRelayCommand PingHostCommand { get; }
         public AsyncRelayCommand ExportCommand { get; }
+        public AsyncRelayCommand RenameHostCommand { get; }
 
-        public NetworkScanViewModel(INetworkService networkService, IExportService exportService)
+        public NetworkScanViewModel(INetworkService networkService, IExportService exportService,
+                                     IDeviceNameService deviceNameService)
         {
             _networkService = networkService;
             _exportService = exportService;
+            _deviceNameService = deviceNameService;
 
             _autoRefreshTimer = new DispatcherTimer();
 
@@ -279,10 +284,45 @@ namespace M1Scan.ViewModels
                 _ => ExportAsync(),
                 _ => DiscoveredHosts.Count > 0,
                 OnCommandError);
+            RenameHostCommand = new AsyncRelayCommand(
+                param => RenameHostAsync(param as HostInfo),
+                onError: OnCommandError);
 
             _ = RefreshAdaptersAsync();
 
             NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
+        }
+
+        /// <summary>
+        /// Lader brugeren give enheden sit eget navn. Gemmes på MAC, så navnet følger
+        /// enheden når DHCP giver den en ny IP. Et tomt navn fjerner overstyringen og
+        /// lader det automatiske opslag gælde igen.
+        /// </summary>
+        private async Task RenameHostAsync(HostInfo? host)
+        {
+            if (host is null) return;
+
+            if (string.IsNullOrEmpty(host.MacAddress))
+            {
+                // Navnet gemmes på MAC. Uden en MAC har vi ingen stabil nøgle — IP'en
+                // kan skifte, og så ville navnet følge den forkerte enhed.
+                StatusMessage = $"{host.IpAddress} har ingen kendt MAC-adresse endnu — kan ikke navngives.";
+                return;
+            }
+
+            var dialog = new RenameDeviceDialog(host.DisplayName, host.CustomName, host.IpAddress, host.MacAddress)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            await _deviceNameService.SetAsync(host.MacAddress, dialog.EnteredName);
+            host.CustomName = dialog.EnteredName ?? string.Empty;
+
+            StatusMessage = string.IsNullOrWhiteSpace(dialog.EnteredName)
+                ? $"Navn fjernet for {host.IpAddress} — bruger nu automatisk opslag."
+                : $"{host.IpAddress} hedder nu \"{dialog.EnteredName}\".";
         }
 
         private async Task ExportAsync()
@@ -352,6 +392,18 @@ namespace M1Scan.ViewModels
         // over n elementer — O(n²) ved hvert flush, hver 100. ms under et scan.
         // Må kun berøres fra UI-tråden, ligesom DiscoveredHosts selv.
         private readonly Dictionary<string, HostInfo> _hostIndex = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Sætter brugerens gemte navn på en host, hvis der findes ét for dens MAC.
+        /// Kaldes hver gang en MAC bliver kendt — navnet er gemt på MAC og følger
+        /// derfor enheden selv når den får en ny IP fra DHCP.
+        /// </summary>
+        private void ApplyCustomName(HostInfo host)
+        {
+            if (string.IsNullOrEmpty(host.MacAddress)) return;
+            var name = _deviceNameService.Lookup(host.MacAddress);
+            if (!string.IsNullOrEmpty(name)) host.CustomName = name;
+        }
 
         /// <summary>Tilføjer eller fletter en host i den bundne liste. Kun UI-tråden.</summary>
         /// <param name="authoritative">Se <see cref="HostInfo.MergeFrom"/> — true ved et
@@ -562,6 +614,7 @@ namespace M1Scan.ViewModels
                         }
                         host.Vendor = cached.vendor;
                         host.OriginalVendor = cached.originalOui;
+                        ApplyCustomName(host);
                     }
                 }
 
@@ -674,6 +727,7 @@ namespace M1Scan.ViewModels
                             }
                             host.Vendor = cached.vendor;
                             host.OriginalVendor = cached.originalOui;
+                            ApplyCustomName(host);
                             _uiQueue.Enqueue(host);
                         }
                     }
@@ -962,6 +1016,7 @@ namespace M1Scan.ViewModels
                         }
                         host.Vendor = cached.vendor;
                         host.OriginalVendor = cached.originalOui;
+                        ApplyCustomName(host);
                         await UpdateHostInUI(host);
                     }
                 }

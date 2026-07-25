@@ -83,9 +83,14 @@ namespace M1Scan.ViewModels
             IGeoIpService geoIpService = new GeoIpService();
             IFindIpService findIpService = new FindIpService();
             IMacAliasService macAliasService = new MacAliasService();
+            IDeviceNameService deviceNameService = new DeviceNameService();
+
+            // Brugerens egne enhedsnavne skal være indlæst før det første scan
+            // begynder at slå MAC-adresser op, ellers vises de først efter næste scan.
+            _ = deviceNameService.LoadAsync();
 
             HomeVm        = new HomeViewModel(_networkService, diagnosticsService);
-            NetworkScanVm = new NetworkScanViewModel(_networkService, exportService);
+            NetworkScanVm = new NetworkScanViewModel(_networkService, exportService, deviceNameService);
             IpConfigVm    = new IpConfigViewModel(_ipConfigService, _networkService);
             WorkspaceVm   = new WorkspaceViewModel(_ipConfigService, exportService);
             UpdateVm      = new UpdateViewModel(updateService);

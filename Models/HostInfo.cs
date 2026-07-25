@@ -13,6 +13,7 @@ namespace M1Scan.Models
         private string _status = "Unknown";
         private DateTime _lastSeen = DateTime.Now;
         private string _adapterName = string.Empty;
+        private string _customName = string.Empty;
 
         public string HostName
         {
@@ -21,16 +22,41 @@ namespace M1Scan.Models
         }
 
         /// <summary>
-        /// Navnet der vises i Scan-tabellen. Reverse-DNS svigter for de fleste
-        /// LAN-enheder (routeren udleverer sjældent PTR-records for DHCP-klienter),
-        /// og så stod kolonnen med en rå IP selvom NetBIOS-opslaget faktisk havde
-        /// fundet et navn — resultatet blev hentet og derefter smidt væk visuelt.
-        /// Rækkefølge: DNS-navn → NetBIOS-navn → IP.
+        /// Brugerens eget navn på enheden (fra DeviceNameService, slået op på MAC).
+        /// Tomt hvis brugeren ikke har navngivet den.
+        /// </summary>
+        public string CustomName
+        {
+            get => _customName;
+            set
+            {
+                if (!SetProperty(ref _customName, value)) return;
+                OnPropertyChanged(nameof(DisplayName));
+                OnPropertyChanged(nameof(HasCustomName));
+            }
+        }
+
+        /// <summary>
+        /// Navnet der vises i Scan-tabellen.
+        ///
+        /// Rækkefølge: brugerens eget navn → mDNS/DNS-navn → NetBIOS-navn → IP.
+        ///
+        /// De tre automatiske kilder er ofte uenige, og ingen af dem har altid ret:
+        /// en PTR-record kan pege på en tjeneste frem for maskinen, og et mDNS-navn
+        /// kan være en generisk fabriksstreng hvor routerens DHCP-navn er det
+        /// brugeren selv satte. Derfor står brugerens eget navn øverst — det er den
+        /// eneste kilde der pr. definition er rigtig.
+        ///
+        /// Reverse-DNS svigter desuden helt for mange LAN-enheder, og uden
+        /// NetBIOS-faldbacket stod kolonnen med en rå IP selvom NetBIOS-opslaget
+        /// faktisk havde fundet et navn.
         /// </summary>
         public string DisplayName
         {
             get
             {
+                if (!string.IsNullOrWhiteSpace(_customName))
+                    return _customName;
                 if (!string.IsNullOrWhiteSpace(_hostName) && _hostName != _ipAddress)
                     return _hostName;
                 if (!string.IsNullOrWhiteSpace(_netBiosName))
@@ -38,6 +64,10 @@ namespace M1Scan.Models
                 return _ipAddress;
             }
         }
+
+        /// <summary>True når brugeren selv har navngivet enheden — bruges til at
+        /// markere rækken i UI'et, så et manuelt navn kan skelnes fra et opslag.</summary>
+        public bool HasCustomName => !string.IsNullOrWhiteSpace(_customName);
         public string IpAddress
         {
             get => _ipAddress;
@@ -175,6 +205,7 @@ namespace M1Scan.Models
             if (!string.IsNullOrEmpty(other.Vendor))         Vendor         = other.Vendor;
             if (!string.IsNullOrEmpty(other.OriginalVendor)) OriginalVendor = other.OriginalVendor;
             if (!string.IsNullOrEmpty(other.NetBiosName))    NetBiosName    = other.NetBiosName;
+            if (!string.IsNullOrEmpty(other.CustomName))     CustomName     = other.CustomName;
 
             // Åbne porte er kumulative inden for et scan: to faser tjekker samme host,
             // og den sidste må ikke nulstille hvad den første fandt. En autoritativ

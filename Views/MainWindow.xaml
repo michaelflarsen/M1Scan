@@ -968,6 +968,12 @@
                                 <Setter Property="ContextMenu">
                                     <Setter.Value>
                                         <ContextMenu>
+                                            <!-- Navngiv: gemmes på MAC, så navnet følger enheden
+                                                 når DHCP giver den en ny IP. Overstyrer mDNS/DNS/NetBIOS. -->
+                                            <MenuItem Header="Navngiv enhed…"
+                                                      Command="{Binding Source={StaticResource VmProxy}, Path=Data.RenameHostCommand}"
+                                                      CommandParameter="{Binding}"/>
+                                            <Separator/>
                                             <MenuItem Header="Ping denne host"
                                                       Command="{Binding Source={StaticResource VmProxy}, Path=Data.PingHostCommand}"
                                                       CommandParameter="{Binding IpAddress}"/>
