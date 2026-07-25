@@ -135,5 +135,66 @@ namespace M1Scan.Models
         public string Url8080 => _isPort8080Open ? $"http://{IpAddress}:8080" : string.Empty;
 
         public string LastSeenFormatted => _lastSeen == default ? "-" : _lastSeen.ToString("HH:mm:ss");
+
+        /// <summary>
+        /// Fletter et nyere observationsresultat ind i denne (bundne) instans.
+        ///
+        /// Denne logik fandtes tidligere tre steder — FlushUiQueue, PingSingleAsync og
+        /// UpdateHostInUI — med indbyrdes forskellige regler: kun én af dem beskyttede
+        /// HostName mod at blive overskrevet med IP'en, og én satte IsReachable
+        /// ubetinget, så et forsinket berigelsessvar kunne markere en levende host som
+        /// offline. Én implementering fjerner den divergens.
+        ///
+        /// Grundregel: tom/ukendt data overskriver aldrig data vi allerede har, og
+        /// IsReachable kan kun løftes til true — aldrig sænkes af et sent svar.
+        /// </summary>
+        /// <param name="authoritative">
+        /// Sæt true når resultatet er en frisk, komplet måling af netop denne host
+        /// (fx et eksplicit gen-ping), hvor "ikke længere online" er et gyldigt svar
+        /// der SKAL slå igennem. Under et sweep er den false: der ankommer
+        /// berigelsessvar ud af rækkefølge, og et sent svar må ikke markere en host
+        /// offline blot fordi berigelsen ikke selv målte tilgængelighed.
+        /// </param>
+        public void MergeFrom(HostInfo other, bool authoritative = false)
+        {
+            if (ReferenceEquals(this, other)) return;
+
+            // Et hostname der blot gentager IP'en er en placeholder, ikke et navn.
+            if (!string.IsNullOrEmpty(other.HostName) && other.HostName != other.IpAddress)
+                HostName = other.HostName;
+
+            if (other.ResponseTime > 0)               ResponseTime   = other.ResponseTime;
+            if (!string.IsNullOrEmpty(other.Status))  Status         = other.Status;
+            if (!string.IsNullOrEmpty(other.OsGuess)) OsGuess        = other.OsGuess;
+
+            // Tilgængelighed: kun en autoritativ måling må sænke den igen, ellers
+            // ville statusteksten kunne sige "Timeout" mens prikken blev grøn.
+            if (authoritative)          IsReachable = other.IsReachable;
+            else if (other.IsReachable) IsReachable = true;
+            if (!string.IsNullOrEmpty(other.MacAddress))     MacAddress     = other.MacAddress;
+            if (!string.IsNullOrEmpty(other.Vendor))         Vendor         = other.Vendor;
+            if (!string.IsNullOrEmpty(other.OriginalVendor)) OriginalVendor = other.OriginalVendor;
+            if (!string.IsNullOrEmpty(other.NetBiosName))    NetBiosName    = other.NetBiosName;
+
+            // Åbne porte er kumulative inden for et scan: to faser tjekker samme host,
+            // og den sidste må ikke nulstille hvad den første fandt. En autoritativ
+            // måling har tjekket alle fire porte og må gerne lukke dem igen.
+            if (authoritative)
+            {
+                IsPort80Open   = other.IsPort80Open;
+                IsPort443Open  = other.IsPort443Open;
+                IsPort8080Open = other.IsPort8080Open;
+                IsPort502Open  = other.IsPort502Open;
+            }
+            else
+            {
+                if (other.IsPort80Open)   IsPort80Open   = true;
+                if (other.IsPort443Open)  IsPort443Open  = true;
+                if (other.IsPort8080Open) IsPort8080Open = true;
+                if (other.IsPort502Open)  IsPort502Open  = true;
+            }
+
+            LastSeen = other.LastSeen;
+        }
     }
 }

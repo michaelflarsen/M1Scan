@@ -112,7 +112,12 @@ namespace M1Scan.Services
                 _cts = new CancellationTokenSource();
                 IsCapturing = true;
 
-                _ = Task.Run(() => ReceiveLoopAsync(socket, _cts.Token));
+                // Token'et hentes HER, ikke inde i lambdaen. Blev _cts.Token først
+                // læst på trådpuljen, kunne et Stop() imellem have sat _cts = null,
+                // og lambdaen ville kaste NullReferenceException i en task ingen
+                // observerer.
+                var token = _cts.Token;
+                _ = Task.Run(() => ReceiveLoopAsync(socket, token));
             }
         }
 

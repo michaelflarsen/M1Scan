@@ -20,7 +20,7 @@ using M1Scan.Views;
 
 namespace M1Scan.ViewModels
 {
-    public class WorkspaceViewModel : ObservableObject, IDisposable
+    public class WorkspaceViewModel : ObservableObject, IDisposable, IActivatablePage
     {
         private readonly IIpConfigService _ipConfigService;
         private readonly IExportService _exportService;
@@ -187,14 +187,16 @@ namespace M1Scan.ViewModels
             _ipConfigService = ipConfigService;
             _exportService = exportService;
 
+            // Timerne startes IKKE her. De starter i OnActivated() når siden bliver
+            // synlig — se IActivatablePage. Tidligere kørte de fra app-opstart, så
+            // hele watchlisten blev pinget hvert 3. sekund selvom brugeren måske
+            // aldrig åbnede Device Follow.
             _pingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_pingIntervalSeconds) };
-            _pingTimer.Tick += async (_, _) => await PingAllAsync();
-            _pingTimer.Start();
+            _pingTimer.Tick += OnPingTick;
 
             // Safety poll every 30s in case network-change event is missed
             _adapterTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
             _adapterTimer.Tick += (_, _) => RefreshMyIp();
-            _adapterTimer.Start();
 
             AddEntryCommand = new RelayCommand(
                 _ => AddEntry(),
@@ -550,10 +552,42 @@ namespace M1Scan.ViewModels
             catch { }
         }
 
+        // ── IActivatablePage ─────────────────────────────────────────────────
+
+        /// <summary>Device Follow er blevet synlig — begynd at pinge watchlisten.</summary>
+        public void OnActivated()
+        {
+            if (_pingTimer.IsEnabled) return;
+
+            RefreshMyIp();
+            _pingTimer.Start();
+            _adapterTimer.Start();
+
+            // Ping med det samme, så listen ikke står tom i op til 3 sekunder.
+            OnPingTick(null, EventArgs.Empty);
+        }
+
+        /// <summary>Siden er skjult — stop al løbende netværkstrafik.</summary>
+        public void OnDeactivated()
+        {
+            _pingTimer.Stop();
+            _adapterTimer.Stop();
+        }
+
+        // DispatcherTimer.Tick er en async void-flade; alt skal fanges her, ellers
+        // ender en fejl som en uhåndteret Dispatcher-undtagelse.
+        private async void OnPingTick(object? sender, EventArgs e)
+        {
+            try { await PingAllAsync(); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { CrashLog.Write("WorkspaceViewModel.PingAll", ex); }
+        }
+
         public void Dispose()
         {
             NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
             _pingTimer.Stop();
+            _pingTimer.Tick -= OnPingTick;
             _adapterTimer.Stop();
             _clearConfirmTimer?.Stop();
             _clearConfirmTimer = null;

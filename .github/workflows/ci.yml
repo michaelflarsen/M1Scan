@@ -1,0 +1,46 @@
+name: CI
+
+# Byg og test på hver push og pull request. Uden dette kunne en brudt build eller
+# en fejlende test blive committet og udgivet uopdaget — der ER et testprojekt,
+# men intet kørte det automatisk.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    # WPF (net8.0-windows, UseWPF) kan kun bygges på Windows.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Opsæt .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      # -warnaserror: kodebasen bygger i dag med 0 warnings, og det skal den blive
+      # ved med. Nullable er slået til, så en ny nullable-advarsel er reelt en
+      # potentiel NullReferenceException.
+      - name: Build (warnings er fejl)
+        run: dotnet build --no-restore --configuration Release -warnaserror
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      # Fanger at den self-contained single-file exe faktisk kan produceres.
+      # Det er den artefakt brugerne henter, og den bygges med andre flag end
+      # et almindeligt build — så en fejl her ville først blive opdaget ved release.
+      - name: Verificér self-contained publish
+        run: >
+          dotnet publish M1Scan.csproj -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true

@@ -134,7 +134,7 @@ namespace M1Scan.ViewModels
         public string Country   { get => _country;   set => SetProperty(ref _country,   value); }
     }
 
-    public class HomeViewModel : ObservableObject, IDisposable
+    public class HomeViewModel : ObservableObject, IDisposable, IActivatablePage
     {
         private const int NetworkChangeDebounceMs = 1500;
         private const string WanProbeHost = "1.1.1.1";
@@ -164,12 +164,22 @@ namespace M1Scan.ViewModels
         private readonly SemaphoreSlim       _loadLock = new SemaphoreSlim(1, 1);
         private readonly DispatcherTimer     _sampleTimer;
 
+        // VM'ens levetid. Sættes i Dispose(), så igangværende baggrundsarbejde kan
+        // se at det skal stoppe i stedet for at skrive mod en Dispatcher der lukker.
+        private readonly CancellationTokenSource _lifetime = new();
+
+        // Sat i Dispose() før _loadLock må røres. LoadAsync's finally kaldte
+        // _loadLock.Release() på en allerede disposed semafor ved luk under
+        // indlæsning, og den ObjectDisposedException kom fra en baggrundstråd.
+        private volatile bool _disposed;
+
         private int _sampleInFlight;
         private int _diagInFlight;
         private volatile string?   _samplerGatewayIp;
         private string[]           _diagDnsServers  = Array.Empty<string>();
         private string             _diagAdapterName = string.Empty;
         private double?            _fastestDnsMs;
+        private bool               _dnsAttempted;
         private CancellationTokenSource? _speedCts;
 
         private ObservableCollection<AdapterDisplay>      _activeAdapters = new();
@@ -486,6 +496,7 @@ namespace M1Scan.ViewModels
                 GatewaySeries.Reset();
                 WanSeries.Reset();
                 _fastestDnsMs = null;
+                _dnsAttempted = false;
                 Health = HealthScore.Measuring;
                 OnPropertyChanged(nameof(HealthSubline));
                 OnPropertyChanged(nameof(HeaderScoreText));
@@ -528,11 +539,23 @@ namespace M1Scan.ViewModels
 
         public void Dispose()
         {
+            // Rækkefølgen betyder noget: markér som disposed og aflys FØR noget
+            // disposes, så in-flight arbejde ser flaget i stedet for at ramme et
+            // disposed objekt.
+            _disposed = true;
+            try { _lifetime.Cancel(); } catch (ObjectDisposedException) { }
+
             NetworkChange.NetworkAddressChanged -= OnNetworkChanged;
             _sampleTimer.Stop();
             _sampleTimer.Tick -= OnSampleTick;
-            _speedCts?.Cancel();
-            _loadLock.Dispose();
+
+            try { _speedCts?.Cancel(); } catch (ObjectDisposedException) { }
+
+            _lifetime.Dispose();
+
+            // _loadLock disposes IKKE her: LoadAsync kan stadig være i gang og ville
+            // så kalde Release() på en disposed semafor. _disposed-flaget lukker
+            // adgangen, og semaforen ryddes op af GC sammen med VM'en.
         }
 
         /// <summary>Kaldes fra HomeView ved IsVisibleChanged — styrer sampler-timeren.</summary>
@@ -540,6 +563,7 @@ namespace M1Scan.ViewModels
         {
             if (visible)
             {
+                if (_disposed) return;
                 _sampleTimer.Start();
                 _ = SampleOnceAsync();
             }
@@ -549,17 +573,27 @@ namespace M1Scan.ViewModels
             }
         }
 
+        // ── IActivatablePage ─────────────────────────────────────────────────
+        // Samme kontrakt som de øvrige sider. HomeView kalder også
+        // SetDashboardVisible via IsVisibleChanged; begge veje er idempotente.
+        public void OnActivated()   => SetDashboardVisible(true);
+        public void OnDeactivated() => SetDashboardVisible(false);
+
         private void OnSampleTick(object? sender, EventArgs e) => _ = SampleOnceAsync();
 
         private async void OnNetworkChanged(object? sender, EventArgs e)
         {
-            await Task.Delay(NetworkChangeDebounceMs);
+            // async void: ALT skal fanges her. En undtagelse der slipper ud havner på
+            // AppDomain-niveau fra en pool-tråd, hvor den ikke kan håndteres.
             try
             {
-                if (Application.Current != null)
+                await Task.Delay(NetworkChangeDebounceMs, _lifetime.Token);
+                if (Application.Current != null && !_disposed)
                     await LoadAsync();
             }
-            catch { }
+            catch (OperationCanceledException) { /* VM'en er lukket ned */ }
+            catch (ObjectDisposedException) { /* _lifetime disposed under nedlukning */ }
+            catch (Exception ex) { CrashLog.Write("HomeViewModel.OnNetworkChanged", ex); }
         }
 
         // ── Live latency-sampler ─────────────────────────────────────────────
@@ -609,7 +643,8 @@ namespace M1Scan.ViewModels
             Health = HealthScore.Compute(
                 WanSeries,
                 _samplerGatewayIp != null ? GatewaySeries : null,
-                _fastestDnsMs);
+                _fastestDnsMs,
+                _dnsAttempted);
             OnPropertyChanged(nameof(HealthSubline));
         }
 
@@ -617,6 +652,8 @@ namespace M1Scan.ViewModels
 
         public async Task LoadAsync()
         {
+            if (_disposed) return;
+
             // FIX #1: SemaphoreSlim(1,1) sikrer atomisk adgang — ingen race condition
             if (!await _loadLock.WaitAsync(0)) return;
 
@@ -826,8 +863,16 @@ namespace M1Scan.ViewModels
             finally
             {
                 // FIX #4: IsRefreshing = false altid på UI-thread; lås frigives bagefter
-                await dispatcher.InvokeAsync(() => IsRefreshing = false);
-                _loadLock.Release();
+                if (!_disposed)
+                {
+                    try
+                    {
+                        await dispatcher.InvokeAsync(() => IsRefreshing = false);
+                        _loadLock.Release();
+                    }
+                    catch (ObjectDisposedException) { /* VM'en blev lukket undervejs */ }
+                    catch (TaskCanceledException) { /* Dispatcher lukker ned */ }
+                }
             }
         }
 
@@ -856,9 +901,14 @@ namespace M1Scan.ViewModels
                 var portal     = await portalTask;
                 var lease      = await leaseTask;
 
+                // Kun sandt når vi faktisk har spurgt mindst én DNS-server. Skelner
+                // "ikke målt endnu" fra "målt, men ingen svarede" i sundhedsscoren.
+                _dnsAttempted = dnsResults.Count > 0;
+
                 _fastestDnsMs = dnsResults
                     .Where(r => r.ResponseMs.HasValue)
                     .Select(r => r.ResponseMs)
+                    .DefaultIfEmpty(null)
                     .Min();
 
                 await dispatcher.InvokeAsync(() =>

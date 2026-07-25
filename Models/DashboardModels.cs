@@ -37,7 +37,11 @@ namespace M1Scan.Models
         public double  JitterMs    { get => _jitterMs;    private set { if (SetProperty(ref _jitterMs, value)) OnPropertyChanged(nameof(JitterDisplay)); } }
         public double  LossPercent { get => _lossPercent; private set { if (SetProperty(ref _lossPercent, value)) OnPropertyChanged(nameof(LossDisplay)); } }
 
-        public int SampleCount => _samples.Count;
+        // Spejlet af _samples.Count, opdateret under låsen. En direkte _samples.Count
+        // herfra var et ubeskyttet læs af en Queue der muteres på en anden tråd.
+        private volatile int _sampleCount;
+
+        public int SampleCount => _sampleCount;
 
         public string CurrentDisplay => Current.HasValue ? $"{Current.Value:F0} ms" : "—";
         public string AvgDisplay     => SampleCount > 0 ? $"{Avg:F0} ms"      : "—";
@@ -47,7 +51,12 @@ namespace M1Scan.Models
 
         public void Reset()
         {
-            _samples.Clear();
+            lock (_lockObj)
+            {
+                _samples.Clear();
+                _sampleCount = 0;
+            }
+
             Current     = null;
             Avg         = 0;
             Max         = 0;
@@ -64,6 +73,16 @@ namespace M1Scan.Models
 
         public void Add(double? latencyMs)
         {
+            // Alt beregnes inde i låsen, men INTET publiceres derfra: property-setterne
+            // rejser PropertyChanged, og WPF's binding-maskineri (plus enhver anden
+            // subscriber) ville så køre vilkårlig kode mens vi holder _lockObj. En
+            // handler der rører serien igen — eller tager en anden lås — deadlocker.
+            // Derfor: beregn under lås, tildel og notificér bagefter.
+            double? current;
+            double avg, max, jitter, loss;
+            double?[] snapshot;
+            int count;
+
             lock (_lockObj)
             {
                 if (_samples.Count >= Capacity)
@@ -82,29 +101,38 @@ namespace M1Scan.Models
                         lossCount++;
                 }
 
-                Current = latencyMs;
+                current = latencyMs;
 
                 if (validSamples.Count > 0)
                 {
-                    Avg = validSamples.Average();
-                    Max = validSamples.Max();
-                    JitterMs = validSamples.Count > 1
-                        ? validSamples.Average(v => Math.Abs(v - Avg))
+                    avg = validSamples.Average();
+                    max = validSamples.Max();
+                    jitter = validSamples.Count > 1
+                        ? validSamples.Average(v => Math.Abs(v - avg))
                         : 0;
                 }
                 else
                 {
-                    Avg = 0;
-                    Max = 0;
-                    JitterMs = 0;
+                    avg = 0;
+                    max = 0;
+                    jitter = 0;
                 }
 
-                LossPercent = _samples.Count > 0
+                loss = _samples.Count > 0
                     ? 100.0 * lossCount / _samples.Count
                     : 0;
 
-                Values = _samples.ToArray();
+                snapshot = _samples.ToArray();
+                count = _samples.Count;
+                _sampleCount = count;
             }
+
+            Current     = current;
+            Avg         = avg;
+            Max         = max;
+            JitterMs    = jitter;
+            LossPercent = loss;
+            Values      = snapshot;
 
             OnPropertyChanged(nameof(SampleCount));
 
@@ -243,9 +271,14 @@ namespace M1Scan.Models
         public static readonly HealthScore Measuring = new();
 
         /// <param name="wan">WAN-serien (1.1.1.1)</param>
-        /// <param name="gateway">Gateway-serien eller null</param>
-        /// <param name="fastestDnsMs">Hurtigste målte DNS-svartid eller null hvis ikke målt endnu</param>
-        public static HealthScore Compute(LatencySeries wan, LatencySeries? gateway, double? fastestDnsMs)
+        /// <param name="gateway">Gateway-serien, eller null hvis der ikke er nogen gateway at måle</param>
+        /// <param name="fastestDnsMs">Hurtigste målte DNS-svartid, eller null hvis ingen DNS-server svarede</param>
+        /// <param name="dnsAttempted">
+        /// Om DNS-målingen faktisk er kørt. Adskiller "ikke målt endnu" (skal ikke
+        /// påvirke scoren) fra "målt, men ingen svarede" (skal koste point).
+        /// </param>
+        public static HealthScore Compute(LatencySeries wan, LatencySeries? gateway,
+                                          double? fastestDnsMs, bool dnsAttempted = false)
         {
             if (wan.SampleCount < 5)
                 return Measuring;
@@ -270,31 +303,55 @@ namespace M1Scan.Models
                              : J <= 30 ? 10 - 10 * (J - 10) / 20
                              : 0;
 
-            double lossPts = P == 0 ? 30
-                           : P <= 1 ? 24
-                           : P <= 5 ? 24 - 24 * (P - 1) / 4
+            // Kontinuerlig tabskurve. Før var 0 % = 30 point og alt over 0 % = 24, altså
+            // et spring på 6 point (8 % af scoren). Med Capacity = 150 samples er én
+            // tabt pakke 0,67 % — det udløste et øjeblikkeligt karakterskift som
+            // hoppede tilbage to samples senere.
+            //
+            // Nu falder scoren jævnt, og den første procent har en fladere hældning:
+            // enkelte tabte pakker i et 150-sample-vindue er måleusikkerhed, ikke et
+            // netværksproblem, mens vedvarende tab over ~1 % straffes hårdt (0 point
+            // ved 5 %). Kurven er kontinuerlig i begge knæk (1 % → 27, 5 % → 0).
+            double lossPts = P <= 1 ? 30 - 3 * P
+                           : P <= 5 ? 27 - 27 * (P - 1) / 4
                            : 0;
 
             double maxPts = 75; // latency + jitter + loss
 
+            // Vigtigt: en sonde der ER forsøgt men fejlede skal tælle 0 point OG tælle
+            // med i maxPts. Før blev nævneren kun udvidet når sonden havde data, så
+            // "DNS svarede aldrig" og "DNS svarede på 5 ms" gav samme normaliserede
+            // score — en manglende måling blev altså belønnet som en perfekt måling.
             double dnsPts = 0;
-            if (fastestDnsMs.HasValue)
+            // En målt værdi beviser i sig selv at målingen er kørt, så flaget er kun
+            // nødvendigt for at udtrykke "målt, men ingen svarede". Uden dette ||
+            // ville en kalder der oplyser en svartid men glemmer flaget få DNS
+            // udeladt af scoren helt.
+            if (dnsAttempted || fastestDnsMs.HasValue)
             {
-                double D = fastestDnsMs.Value;
-                dnsPts = D <= 20  ? 15
-                       : D <= 100 ? 15 - 10 * (D - 20) / 80
-                       : D <= 250 ? 5 - 5 * (D - 100) / 150
-                       : 0;
+                if (fastestDnsMs.HasValue)
+                {
+                    double D = fastestDnsMs.Value;
+                    dnsPts = D <= 20  ? 15
+                           : D <= 100 ? 15 - 10 * (D - 20) / 80
+                           : D <= 250 ? 5 - 5 * (D - 100) / 150
+                           : 0;
+                }
                 maxPts += 15;
             }
 
             double gwPts = 0;
-            if (gateway is { SampleCount: > 0 })
+            if (gateway is not null)
             {
-                gwPts = gateway.LossPercent == 0 && gateway.Avg <= 5  ? 10
-                      : gateway.LossPercent == 0 && gateway.Avg <= 20 ? 7
-                      : gateway.LossPercent <= 2 ? 4
-                      : 0;
+                // Gateway med 0 samples = forsøgt men uden svar. Det er et dårligt
+                // tegn, ikke en neutral tilstand, så den koster point.
+                if (gateway.SampleCount > 0)
+                {
+                    gwPts = gateway.LossPercent == 0 && gateway.Avg <= 5  ? 10
+                          : gateway.LossPercent == 0 && gateway.Avg <= 20 ? 7
+                          : gateway.LossPercent <= 2 ? 4
+                          : 0;
+                }
                 maxPts += 10;
             }
 

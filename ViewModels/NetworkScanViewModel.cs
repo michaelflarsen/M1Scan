@@ -240,7 +240,7 @@ namespace M1Scan.ViewModels
             _autoRefreshTimer.Tick += (_, _) => AddScanCommand.Execute(null);
 
             CancelScanCommand = new RelayCommand(_ => CancelScan(), _ => IsScanning);
-            ClearResultsCommand = new RelayCommand(_ => DiscoveredHosts.Clear());
+            ClearResultsCommand = new RelayCommand(_ => ClearResults());
             RefreshAdaptersCommand = new AsyncRelayCommand(_ => RefreshAdaptersAsync(), onError: OnCommandError);
             AutoDetectSubnetCommand = new AsyncRelayCommand(_ => AutoDetectSubnetAsync(), _ => !IsScanning, OnCommandError);
             ToggleAutoRefreshCommand = new RelayCommand(_ => IsAutoRefreshEnabled = !IsAutoRefreshEnabled);
@@ -347,35 +347,40 @@ namespace M1Scan.ViewModels
             _lifetime.Dispose();
         }
 
+        // Indeks over DiscoveredHosts (IP -> række). Uden det slog både FlushUiQueue og
+        // UpdateHostInUI op med FirstOrDefault pr. element, altså O(n) inde i en løkke
+        // over n elementer — O(n²) ved hvert flush, hver 100. ms under et scan.
+        // Må kun berøres fra UI-tråden, ligesom DiscoveredHosts selv.
+        private readonly Dictionary<string, HostInfo> _hostIndex = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Tilføjer eller fletter en host i den bundne liste. Kun UI-tråden.</summary>
+        /// <param name="authoritative">Se <see cref="HostInfo.MergeFrom"/> — true ved et
+        /// eksplicit gen-ping af én host, hvor "nu offline" skal slå igennem.</param>
+        private void UpsertHost(HostInfo host, bool authoritative = false)
+        {
+            if (_hostIndex.TryGetValue(host.IpAddress, out var existing))
+            {
+                existing.MergeFrom(host, authoritative);
+            }
+            else
+            {
+                _hostIndex[host.IpAddress] = host;
+                DiscoveredHosts.Add(host);
+            }
+        }
+
         // Flushes _uiQueue to DiscoveredHosts — must be called on UI thread.
         private void FlushUiQueue()
         {
             while (_uiQueue.TryDequeue(out var host))
-            {
-                var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
-                if (existing is null)
-                {
-                    DiscoveredHosts.Add(host);
-                }
-                else
-                {
-                    if (!string.IsNullOrEmpty(host.HostName) && host.HostName != host.IpAddress)
-                        existing.HostName = host.HostName;
-                    if (host.ResponseTime > 0) existing.ResponseTime = host.ResponseTime;
-                    if (!string.IsNullOrEmpty(host.Status)) existing.Status = host.Status;
-                    existing.LastSeen = host.LastSeen;
-                    if (host.IsReachable) existing.IsReachable = true;
-                    if (!string.IsNullOrEmpty(host.OsGuess)) existing.OsGuess = host.OsGuess;
-                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
-                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
-                    if (!string.IsNullOrEmpty(host.OriginalVendor)) existing.OriginalVendor = host.OriginalVendor;
-                    if (!string.IsNullOrEmpty(host.NetBiosName)) existing.NetBiosName = host.NetBiosName;
-                    if (host.IsPort80Open) existing.IsPort80Open = true;
-                    if (host.IsPort443Open) existing.IsPort443Open = true;
-                    if (host.IsPort8080Open) existing.IsPort8080Open = true;
-                    if (host.IsPort502Open) existing.IsPort502Open = true;
-                }
-            }
+                UpsertHost(host);
+        }
+
+        /// <summary>Rydder både listen og indekset — de skal aldrig komme ud af sync.</summary>
+        private void ClearResults()
+        {
+            DiscoveredHosts.Clear();
+            _hostIndex.Clear();
         }
 
         private async Task RefreshAdaptersAsync()
@@ -497,11 +502,25 @@ namespace M1Scan.ViewModels
         private void SortHostsByIp()
         {
             var sorted = DiscoveredHosts.OrderBy(h => IpToUint(h.IpAddress)).ToList();
-            for (int i = 0; i < sorted.Count; i++)
+
+            // Selection-sort på plads med Move, men uden IndexOf pr. trin: IndexOf er
+            // O(n) og gjorde sorteringen O(n²). Et positionsindeks holder styr på hvor
+            // hver række aktuelt ligger, så hvert trin er O(1) opslag.
+            var positions = new Dictionary<HostInfo, int>(DiscoveredHosts.Count);
+            for (int i = 0; i < DiscoveredHosts.Count; i++)
+                positions[DiscoveredHosts[i]] = i;
+
+            for (int target = 0; target < sorted.Count; target++)
             {
-                int current = DiscoveredHosts.IndexOf(sorted[i]);
-                if (current != i)
-                    DiscoveredHosts.Move(current, i);
+                var host = sorted[target];
+                int current = positions[host];
+                if (current == target) continue;
+
+                DiscoveredHosts.Move(current, target);
+
+                // Move skubber alt mellem target og current én plads ned.
+                for (int i = target; i <= current; i++)
+                    positions[DiscoveredHosts[i]] = i;
             }
         }
 
@@ -546,25 +565,9 @@ namespace M1Scan.ViewModels
                     }
                 }
 
-                var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
-                if (existing != null)
-                {
-                    existing.HostName = host.HostName;
-                    existing.ResponseTime = host.ResponseTime;
-                    existing.Status = host.Status;
-                    existing.LastSeen = host.LastSeen;
-                    existing.IsReachable = host.IsReachable;
-                    existing.IsPort80Open = host.IsPort80Open;
-                    existing.IsPort443Open = host.IsPort443Open;
-                    existing.IsPort8080Open = host.IsPort8080Open;
-                    existing.IsPort502Open = host.IsPort502Open;
-                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
-                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
-                }
-                else
-                {
-                    DiscoveredHosts.Add(host);
-                }
+                // Eksplicit gen-ping af netop denne host: resultatet er autoritativt,
+                // så en host der er gået offline skal også vises som offline.
+                UpsertHost(host, authoritative: true);
 
                 StatusMessage = host.IsReachable
                     ? $"{host.HostName} svarede på {host.ResponseTime}ms"
@@ -593,7 +596,7 @@ namespace M1Scan.ViewModels
             ScanProgress = 0;
             if (!merge)
             {
-                DiscoveredHosts.Clear();
+                ClearResults();
                 _ouiCache.Clear();
             }
             StatusMessage = merge
@@ -974,32 +977,24 @@ namespace M1Scan.ViewModels
 
         private async Task UpdateHostInUI(HostInfo host, bool[]? portResults = null, string? netbios = null)
         {
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null) return; // appen lukker ned
+
+            await dispatcher.InvokeAsync(() =>
             {
-                var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
-                if (existing != null)
+                // Portresultater og NetBIOS-navn hører til DENNE observation, så de
+                // skrives på host'en før fletningen — så gælder de samme merge-regler
+                // for dem som for alt andet (se HostInfo.MergeFrom).
+                if (!string.IsNullOrEmpty(netbios)) host.NetBiosName = netbios;
+                if (portResults != null)
                 {
-                    existing.HostName = host.HostName;
-                    existing.ResponseTime = host.ResponseTime;
-                    existing.Status = host.Status;
-                    existing.LastSeen = host.LastSeen;
-                    existing.IsReachable = host.IsReachable;
-                    existing.OsGuess = host.OsGuess;
-                    if (netbios != null) existing.NetBiosName = netbios;
-                    if (portResults != null)
-                    {
-                        existing.IsPort80Open = portResults[0];
-                        existing.IsPort443Open = portResults[1];
-                        existing.IsPort8080Open = portResults[2];
-                        existing.IsPort502Open = portResults[3];
-                    }
-                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
-                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
+                    host.IsPort80Open   = portResults[0];
+                    host.IsPort443Open  = portResults[1];
+                    host.IsPort8080Open = portResults[2];
+                    host.IsPort502Open  = portResults[3];
                 }
-                else
-                {
-                    DiscoveredHosts.Add(host);
-                }
+
+                UpsertHost(host);
             });
         }
     }

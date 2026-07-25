@@ -216,31 +216,49 @@ namespace M1Scan.Services
             return string.Empty;
         }
 
+        // Antal dedikerede tråde til ARP-floodet. SendARP er et BLOKERENDE P/Invoke —
+        // tidligere blev der lavet én Task.Run pr. IP (op til 254) med en semafor på
+        // 64, hvilket parkerede op til 64 trådpulje-tråde i kernekald. Samtidig vil
+        // sweep, DNS-opslag og porttjek hver have 16-150 samtidige operationer, og
+        // trådpuljen indsætter kun ~1 ny tråd pr. sekund ud over sit minimum. Resultatet
+        // var trådsult: scanningen ventede på tråde, ikke på netværket.
+        //
+        // Otte dedikerede LongRunning-tråde tager arbejdet uden at røre puljen.
+        private const int ArpFloodWorkers = 8;
+
         // Sends ARP requests to all IPs in range to seed the OS ARP cache.
         // Runs concurrently with the ping sweep; capped at 1500ms total.
         public async Task FloodArpAsync(string subnet, int startIp, int endIp,
                                          CancellationToken ct = default)
         {
-            using var sem = new SemaphoreSlim(64);
-            var tasks = Enumerable.Range(startIp, endIp - startIp + 1).Select(i =>
-                Task.Run(async () =>
-                {
-                    if (ct.IsCancellationRequested) return;
-                    await sem.WaitAsync(ct).ConfigureAwait(false);
-                    try
-                    {
-                        var bytes = IPAddress.Parse($"{subnet}.{i}").GetAddressBytes();
-                        int dest = BitConverter.ToInt32(bytes, 0);
-                        byte[] mac = new byte[6]; uint len = 6;
-                        SendARP(dest, 0, mac, ref len);
-                    }
-                    catch { }
-                    finally { sem.Release(); }
-                }, ct)).ToList();
-
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(1500);
-            try { await Task.WhenAll(tasks).WaitAsync(timeoutCts.Token); }
+            var token = timeoutCts.Token;
+
+            var queue = new ConcurrentQueue<int>(Enumerable.Range(startIp, endIp - startIp + 1));
+
+            var workers = Enumerable.Range(0, ArpFloodWorkers).Select(_ =>
+                Task.Factory.StartNew(() =>
+                {
+                    while (!token.IsCancellationRequested && queue.TryDequeue(out int i))
+                    {
+                        try
+                        {
+                            var bytes = IPAddress.Parse($"{subnet}.{i}").GetAddressBytes();
+                            int dest = BitConverter.ToInt32(bytes, 0);
+                            byte[] mac = new byte[6]; uint len = 6;
+                            SendARP(dest, 0, mac, ref len);
+                        }
+                        catch { /* enkelt IP der ikke kan ARP'es stopper ikke floodet */ }
+                    }
+                },
+                CancellationToken.None,           // workeren tjekker selv token'et og afslutter pænt
+                TaskCreationOptions.LongRunning,  // egen tråd, ikke en pulje-tråd
+                TaskScheduler.Default)).ToArray();
+
+            // Workerne afslutter selv ved timeout, så der er intet at "afbryde" —
+            // await'en her venter blot på at de otte tråde er løbet tør eller udløbet.
+            try { await Task.WhenAll(workers).ConfigureAwait(false); }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
         }
 

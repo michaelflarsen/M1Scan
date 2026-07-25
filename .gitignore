@@ -49,5 +49,19 @@ publish/
 ## Playwright / Claude screenshots
 .playwright-mcp/
 *.png
+ScreenShot/
 links.md
 link
+
+## Maskinspecifikke Claude Code-indstillinger.
+## settings.json (delt projektkonfiguration) SKAL committes;
+## *.local.json indeholder personlige stier og hører ikke i repoet.
+.claude/settings.local.json
+*.local.json
+
+## Agent-arbejdsmapper
+.kilo/
+
+## Undtag de logo-filer der er build-input (Resource i M1Scan.csproj),
+## så *.png-reglen ovenfor ikke gør et frisk clone ubygbart.
+!Resources/*.png

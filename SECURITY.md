@@ -2,10 +2,27 @@
 
 ## Understøttede versioner
 
+Kun den nyeste udgivne version får sikkerhedsrettelser. Der udsendes ikke
+backports til ældre versioner — opdatér i stedet via appens indbyggede
+"Update now", eller hent den nyeste release fra GitHub.
+
 | Version | Understøttet |
 |---------|-------------|
-| 1.0.x   | ✅ Ja       |
-| < 1.0   | ❌ Nej      |
+| Nyeste release (1.3.x) | ✅ Ja  |
+| Alle ældre versioner   | ❌ Nej |
+
+## Hvad du bør vide om M1Scan's sikkerhedsmodel
+
+- **Appen kører som administrator.** Det er nødvendigt for ARP, rå ICMP-sockets,
+  promiscuous capture og `netsh`. Kør den kun fra en kilde du stoler på.
+- **Auto-opdatering verificeres.** Den hentede `.exe` skal matche en SHA-256 der er
+  offentliggjort i release-noterne; hashen kontrolleres både under download og igen
+  lige før filen installeres. Mangler eller mismatcher hashen, afbrydes opdateringen.
+- **Geo-opslag er slået fra som standard.** Traceroute kan slå land/ASN op via
+  ip-api.com, men det sender rutens offentlige IP'er til en tredjepart over
+  ukrypteret HTTP. Funktionen skal aktiveres manuelt.
+- **Scanning er aktiv netværkstrafik.** Brug kun M1Scan på netværk du selv ejer
+  eller har tilladelse til at scanne.
 
 ## Rapportér en sårbarhed
 

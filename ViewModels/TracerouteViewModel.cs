@@ -25,6 +25,7 @@ namespace M1Scan.ViewModels
         private string _statusMessage = "Ready to trace";
         private int _traceProgress;
         private double _maxLatency = 100;
+        private bool _geoLookupEnabled; // default FRA — se GeoLookupEnabled
 
         public ObservableCollection<TraceHopInfo> Hops
         {
@@ -74,6 +75,29 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _maxLatency, value);
         }
 
+        /// <summary>
+        /// Slår opslag af land/ASN pr. hop til. Default FRA: opslaget sender rutens
+        /// offentlige IP'er — altså brugerens vej ud gennem ISP'en — til ip-api.com,
+        /// og gratisniveauet kan kun nås over HTTP (ukrypteret). Det skal være
+        /// brugerens eget valg, ikke en skjult sideeffekt af at køre en traceroute.
+        /// Valget huskes i %APPDATA%\M1Scan\traceroute_settings.json.
+        /// </summary>
+        public bool GeoLookupEnabled
+        {
+            get => _geoLookupEnabled;
+            set
+            {
+                if (!SetProperty(ref _geoLookupEnabled, value)) return;
+                _geoIpService.IsEnabled = value;
+                OnPropertyChanged(nameof(GeoLookupHint));
+                SaveSettings();
+            }
+        }
+
+        public string GeoLookupHint => _geoLookupEnabled
+            ? "Land/ASN slås op via ip-api.com over ukrypteret HTTP — rutens IP'er sendes til tredjepart."
+            : "Land/ASN vises ikke. Intet forlader maskinen.";
+
         public ICommand TraceCommand { get; }
         public ICommand ProbeLoopCommand { get; }
         public ICommand CancelTraceCommand { get; }
@@ -83,9 +107,52 @@ namespace M1Scan.ViewModels
             _tracerouteService = tracerouteService;
             _geoIpService = geoIpService;
 
+            LoadSettings();
+            _geoIpService.IsEnabled = _geoLookupEnabled;
+
             TraceCommand = new RelayCommand(_ => _ = ExecuteTraceAsync(), _ => !IsTracing && !IsProbing);
             ProbeLoopCommand = new RelayCommand(_ => _ = ToggleProbingAsync(), _ => IsTraceComplete || IsProbing);
             CancelTraceCommand = new RelayCommand(_ => CancelTrace(), _ => IsTracing || IsProbing);
+        }
+
+        // ── Persistering af geo-samtykket ────────────────────────────────────
+
+        private sealed class TracerouteSettings
+        {
+            public int version { get; set; } = 1;
+            public bool geoLookupEnabled { get; set; }
+        }
+
+        private static readonly string SettingsPath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "M1Scan", "traceroute_settings.json");
+
+        private void LoadSettings()
+        {
+            try
+            {
+                if (!System.IO.File.Exists(SettingsPath)) return;
+                var json = System.IO.File.ReadAllText(SettingsPath);
+                var s = System.Text.Json.JsonSerializer.Deserialize<TracerouteSettings>(json);
+                if (s != null) _geoLookupEnabled = s.geoLookupEnabled;
+            }
+            catch { /* korrupt fil → behold default (fra) */ }
+        }
+
+        private void SaveSettings()
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SettingsPath)!);
+                var json = System.Text.Json.JsonSerializer.Serialize(
+                    new TracerouteSettings { geoLookupEnabled = _geoLookupEnabled },
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                var tmp = SettingsPath + ".tmp";
+                System.IO.File.WriteAllText(tmp, json);
+                System.IO.File.Move(tmp, SettingsPath, overwrite: true);
+            }
+            catch { /* kan ikke gemme → valget gælder kun denne session */ }
         }
 
         private async Task ExecuteTraceAsync()
