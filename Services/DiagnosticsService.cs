@@ -46,15 +46,38 @@ namespace M1Scan.Services
         public async Task<List<DnsTimingResult>> MeasureDnsServersAsync(
             IEnumerable<(string Server, string Label)> servers, CancellationToken ct = default)
         {
-            var tasks = servers.Select(async s =>
+            // SEKVENTIELT, ikke parallelt. Målingerne deler samme uplink: kørte de
+            // samtidigt, konkurrerede de om båndbredden og skævvred hinanden — vi målte
+            // altså delvist vores egen trængsel i stedet for serverens svartid. Og
+            // resultatet er ikke kun kosmetisk: den hurtigste værdi går videre til
+            // HealthScore. Et par serier på nogle få hundrede ms hver er rigelig
+            // hurtigt til et dashboard der opdateres på interval.
+            var results = new List<DnsTimingResult>();
+
+            foreach (var s in servers)
             {
+                ct.ThrowIfCancellationRequested();
+
                 // Warm-up query (ARP/route cold-start skævvrider første måling)
                 await QueryDnsOnceAsync(s.Server, ct);
-                var ms = await QueryDnsOnceAsync(s.Server, ct);
-                return new DnsTimingResult { Server = s.Server, Label = s.Label, ResponseMs = ms };
-            }).ToList();
 
-            return (await Task.WhenAll(tasks)).ToList();
+                // Tag den bedste af to målinger: en enkelt måling rammer let et
+                // tilfældigt hik og får en fin server til at se langsom ud.
+                var first  = await QueryDnsOnceAsync(s.Server, ct);
+                var second = await QueryDnsOnceAsync(s.Server, ct);
+
+                double? best = (first, second) switch
+                {
+                    (null, null) => null,
+                    (null, var b) => b,
+                    (var a, null) => a,
+                    var (a, b) => Math.Min(a!.Value, b!.Value)
+                };
+
+                results.Add(new DnsTimingResult { Server = s.Server, Label = s.Label, ResponseMs = best });
+            }
+
+            return results;
         }
 
         private static async Task<double?> QueryDnsOnceAsync(string server, CancellationToken ct)
@@ -171,9 +194,13 @@ namespace M1Scan.Services
                 if (!hasGlobalV6) return Ipv6Status.NotAvailable;
 
                 using var ping = new Ping();
-                var reply = await ping.SendPingAsync("2606:4700:4700::1111", 2000);
+                // ct blev tidligere ignoreret her: en annulleret diagnostik hang stadig
+                // op til 2 s på dette ping. SendPingAsync-overloaden med token afbryder.
+                var reply = await ping.SendPingAsync(
+                    IPAddress.Parse("2606:4700:4700::1111"), TimeSpan.FromMilliseconds(2000), cancellationToken: ct);
                 return reply.Status == IPStatus.Success ? Ipv6Status.Connected : Ipv6Status.NotAvailable;
             }
+            catch (OperationCanceledException) { throw; }
             catch
             {
                 return Ipv6Status.NotAvailable;

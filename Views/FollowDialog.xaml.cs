@@ -63,16 +63,18 @@ namespace M1Scan.Views
 
                 string ip = _prefix + octetRaw;
 
-                bool ok = await _ipConfigService.SetStaticIpAsync(
+                var result = await _ipConfigService.SetStaticIpAsync(
                     _adapterSystemName,
                     ip,
                     MaskBox.Text.Trim(),
                     GatewayBox.Text.Trim());
 
-                if (ok)
+                if (result.Success)
                     DialogResult = true;
                 else
-                    ShowError("Kunne ikke anvende IP-ændringen.\nKontrollér at IP, maske og gateway er gyldige, og at appen kører som administrator.");
+                    // Vis netsh's egen fejltekst — den siger præcis hvad der gik galt,
+                    // i stedet for en generisk "kontrollér dine indtastninger".
+                    ShowError($"Kunne ikke anvende IP-ændringen.\n{result.Message}");
             }
             catch (Exception ex)
             {

@@ -4,8 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Security;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,21 +17,48 @@ namespace M1Scan.Services
     public interface IUpdateService
     {
         Task<UpdateCheckResult?> CheckForUpdateAsync(CancellationToken ct = default);
-        Task DownloadUpdateAsync(string downloadUrl, string destinationPath, IProgress<double> progress, CancellationToken ct = default);
-        void LaunchUpdaterAndRestart(string newExePath);
+        Task DownloadUpdateAsync(string downloadUrl, string destinationPath, string expectedSha256,
+            IProgress<double> progress, CancellationToken ct = default);
+        void LaunchUpdaterAndRestart(string newExePath, string expectedSha256);
     }
 
-    public sealed record UpdateCheckResult(Version LatestVersion, string TagName, string DownloadUrl, string ReleaseUrl);
+    public sealed record UpdateCheckResult(
+        Version LatestVersion, string TagName, string DownloadUrl, string ReleaseUrl, string Sha256);
 
     // Tjekker GitHub Releases for en nyere version af M1Scan og kan hente +
     // installere den. Appen kan ikke overskrive sin egen kørende .exe (fillås),
     // så selve installationen sker via et lille PowerShell-script der venter på
-    // at processen lukker, kopierer den nye exe ind, og genstarter.
+    // at processen lukker, verificerer den hentede fil, kopierer den ind og genstarter.
+    //
+    // SIKKERHED — appen kører elevated (requireAdministrator), så et opdaterings-
+    // flow uden verifikation er en direkte vej til kodeudførsel som administrator.
+    // Derfor gælder tre regler her:
+    //   1. Download-URL'en skal ligge på en GitHub-vært (allowlist nedenfor).
+    //   2. Den hentede exe skal matche en SHA-256 offentliggjort i release-noterne,
+    //      og hashen verificeres IGEN inde i det elevated script lige før kopiering
+    //      (filen ligger i en bruger-skrivbar mappe mellem de to trin — uden den
+    //      anden kontrol kunne den byttes i tidsvinduet).
+    //   3. Updater-scriptet sendes som -EncodedCommand, ikke som en .ps1 på disken,
+    //      så der ikke findes en scriptfil en angriber kan overskrive før den kører
+    //      med administrator-rettigheder.
     public class UpdateService : IUpdateService
     {
         private const string RepoOwner = "michaelflarsen";
         private const string RepoName = "M1Scan";
         private const string AssetName = "M1Scan.exe";
+
+        // Kun disse værter må levere en opdatering. browser_download_url kommer fra
+        // JSON og må ikke pege hvor som helst.
+        private static readonly string[] AllowedDownloadHosts =
+        {
+            "github.com",
+            "objects.githubusercontent.com",
+            "release-assets.githubusercontent.com"
+        };
+
+        // Release-noterne skal indeholde en linje med "SHA256: <64 hex>".
+        private static readonly Regex Sha256Pattern =
+            new(@"SHA-?256\s*[:=]\s*([0-9a-fA-F]{64})", RegexOptions.Compiled);
 
         // API-kaldet er en lille JSON-respons — 8s timeout er rigelig.
         private static readonly HttpClient _apiHttp = new() { Timeout = TimeSpan.FromSeconds(8) };
@@ -50,6 +80,7 @@ namespace M1Scan.Services
 
         private sealed record GitHubRelease(
             [property: JsonPropertyName("tag_name")] string TagName,
+            [property: JsonPropertyName("body")] string? Body,
             [property: JsonPropertyName("assets")] System.Collections.Generic.List<GitHubAsset>? Assets);
 
         private sealed record GitHubAsset(
@@ -60,10 +91,7 @@ namespace M1Scan.Services
         {
             try
             {
-                // M1SCAN_UPDATE_CHECK_URL: manuel test-override, se release.md-testplan —
-                // peger evt. på /releases/tags/{tag} i stedet for /releases/latest.
-                string url = Environment.GetEnvironmentVariable("M1SCAN_UPDATE_CHECK_URL")
-                             ?? $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
+                string url = ResolveCheckUrl();
 
                 var json = await _apiHttp.GetStringAsync(url, ct);
                 var release = System.Text.Json.JsonSerializer.Deserialize<GitHubRelease>(json);
@@ -75,6 +103,21 @@ namespace M1Scan.Services
                 var asset = release.Assets?.FirstOrDefault(a =>
                     string.Equals(a.Name, AssetName, StringComparison.OrdinalIgnoreCase));
                 if (asset is null) return null;
+
+                if (!IsAllowedDownloadUrl(asset.BrowserDownloadUrl))
+                {
+                    Debug.WriteLine($"UpdateService: afvist download-URL '{asset.BrowserDownloadUrl}'.");
+                    return null;
+                }
+
+                // Fail closed: uden en offentliggjort hash kan vi ikke afgøre om den
+                // hentede exe er den rigtige, og vi nægter at tilbyde opdateringen.
+                var sha = Sha256Pattern.Match(release.Body ?? string.Empty);
+                if (!sha.Success)
+                {
+                    Debug.WriteLine("UpdateService: release-noterne mangler en SHA256-linje — opdatering afvist.");
+                    return null;
+                }
 
                 // "1.3.29" parses med Build/Revision = -1 hvis tagget har færre end 4
                 // led, mens assembly-versionen fra csproj ("1.3.28.0") altid har alle
@@ -88,7 +131,8 @@ namespace M1Scan.Services
                 if (latestNormalized.CompareTo(current) <= 0) return null;
 
                 return new UpdateCheckResult(latestNormalized, release.TagName, asset.BrowserDownloadUrl,
-                    $"https://github.com/{RepoOwner}/{RepoName}/releases/tag/{release.TagName}");
+                    $"https://github.com/{RepoOwner}/{RepoName}/releases/tag/{release.TagName}",
+                    sha.Groups[1].Value.ToLowerInvariant());
             }
             catch (Exception ex)
             {
@@ -100,42 +144,102 @@ namespace M1Scan.Services
             }
         }
 
+        private static string ResolveCheckUrl()
+        {
+            const string defaultUrl =
+                $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
+#if DEBUG
+            // Test-override, se release.md-testplanen — peger evt. på
+            // /releases/tags/{tag} i stedet for /releases/latest.
+            // KUN i debug-builds: i en release-build ville en env-variabel kunne
+            // omdirigere opdateringstjekket til en vilkårlig server, og den hentede
+            // exe erstatter en proces der kører som administrator.
+            return Environment.GetEnvironmentVariable("M1SCAN_UPDATE_CHECK_URL") ?? defaultUrl;
+#else
+            return defaultUrl;
+#endif
+        }
+
+        private static bool IsAllowedDownloadUrl(string url) =>
+            Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+            uri.Scheme == Uri.UriSchemeHttps &&
+            AllowedDownloadHosts.Contains(uri.Host, StringComparer.OrdinalIgnoreCase);
+
         private static Version Normalize(Version v) =>
             new(v.Major, Math.Max(v.Minor, 0), Math.Max(v.Build, 0));
 
         public async Task DownloadUpdateAsync(string downloadUrl, string destinationPath,
-            IProgress<double> progress, CancellationToken ct = default)
+            string expectedSha256, IProgress<double> progress, CancellationToken ct = default)
         {
+            // Kontrollér igen her: metoden er public på interfacet, så den må ikke
+            // stole på at kalderen allerede har valideret URL'en.
+            if (!IsAllowedDownloadUrl(downloadUrl))
+                throw new SecurityException($"Download-URL er ikke tilladt: {downloadUrl}");
+            if (!IsValidSha256(expectedSha256))
+                throw new SecurityException("Ugyldig eller manglende SHA-256 for opdateringen.");
+
             Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
 
             using var resp = await _downloadHttp.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
             resp.EnsureSuccessStatusCode();
 
             long? total = resp.Content.Headers.ContentLength;
-            await using var src = await resp.Content.ReadAsStreamAsync(ct);
-            await using var dst = new FileStream(destinationPath, FileMode.Create, FileAccess.Write,
-                FileShare.None, 81920, useAsync: true);
 
-            var buffer = new byte[81920];
-            long done = 0;
-            int read;
-            while ((read = await src.ReadAsync(buffer, ct)) > 0)
+            // Hash beregnes mens vi streamer, så filen ikke skal læses igen bagefter
+            // (den er ~166 MB).
+            using var sha = SHA256.Create();
+            await using (var src = await resp.Content.ReadAsStreamAsync(ct))
+            await using (var dst = new FileStream(destinationPath, FileMode.Create, FileAccess.Write,
+                             FileShare.None, 81920, useAsync: true))
             {
-                await dst.WriteAsync(buffer.AsMemory(0, read), ct);
-                done += read;
-                if (total is > 0) progress.Report(done * 100.0 / total.Value);
+                var buffer = new byte[81920];
+                long done = 0;
+                int read;
+                while ((read = await src.ReadAsync(buffer, ct)) > 0)
+                {
+                    await dst.WriteAsync(buffer.AsMemory(0, read), ct);
+                    sha.TransformBlock(buffer, 0, read, null, 0);
+                    done += read;
+                    if (total is > 0) progress.Report(done * 100.0 / total.Value);
+                }
+                sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
             }
+
+            var actual = Convert.ToHexString(sha.Hash!).ToLowerInvariant();
+            if (!actual.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                TryDelete(destinationPath);
+                throw new SecurityException(
+                    $"Opdateringen blev afvist: SHA-256 stemmer ikke.\n" +
+                    $"Forventet: {expectedSha256}\nFaktisk:   {actual}");
+            }
+
             progress.Report(100);
         }
 
-        public void LaunchUpdaterAndRestart(string newExePath)
+        private static bool IsValidSha256(string? hex) =>
+            hex is { Length: 64 } && hex.All(Uri.IsHexDigit);
+
+        private static void TryDelete(string path)
         {
+            try { File.Delete(path); } catch { /* bedste forsøg */ }
+        }
+
+        public void LaunchUpdaterAndRestart(string newExePath, string expectedSha256)
+        {
+            if (!IsValidSha256(expectedSha256))
+                throw new SecurityException("Ugyldig SHA-256 — opdatering afbrudt.");
+
             string oldExePath = Environment.ProcessPath
                 ?? throw new InvalidOperationException("Kunne ikke finde kørende exe-sti.");
-            string updateDir = Path.GetDirectoryName(newExePath)!;
-            string scriptPath = Path.Combine(updateDir, "apply_update.ps1");
 
-            File.WriteAllText(scriptPath, UpdaterScript, Encoding.UTF8);
+            // Scriptet sendes som -EncodedCommand i stedet for at skrives som en .ps1.
+            // En scriptfil ville ligge i en bruger-skrivbar mappe i tidsrummet mellem
+            // at vi skriver den og PowerShell (elevated) læser den — altså en TOCTOU
+            // hvor enhver proces som brugeren kunne udskifte indholdet og få det kørt
+            // som administrator. -EncodedCommand efterlader ingen fil at bytte.
+            var script = BuildUpdaterScript(Environment.ProcessId, oldExePath, newExePath, expectedSha256);
+            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
 
             var psi = new ProcessStartInfo
             {
@@ -144,47 +248,64 @@ namespace M1Scan.Services
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             };
-            // ArgumentList undgår manuel citat-escaping af stier (fremfor en
-            // interpoleret Arguments-streng) — konsistent med projektets
-            // konvention for at undgå shell-injection i Process.Start-kald.
             psi.ArgumentList.Add("-NoProfile");
             psi.ArgumentList.Add("-NonInteractive");
             psi.ArgumentList.Add("-ExecutionPolicy");
             psi.ArgumentList.Add("Bypass");
             psi.ArgumentList.Add("-WindowStyle");
             psi.ArgumentList.Add("Hidden");
-            psi.ArgumentList.Add("-File");
-            psi.ArgumentList.Add(scriptPath);
-            psi.ArgumentList.Add("-ProcId");
-            psi.ArgumentList.Add(Environment.ProcessId.ToString());
-            psi.ArgumentList.Add("-OldExe");
-            psi.ArgumentList.Add(oldExePath);
-            psi.ArgumentList.Add("-NewExe");
-            psi.ArgumentList.Add(newExePath);
+            psi.ArgumentList.Add("-EncodedCommand");
+            psi.ArgumentList.Add(encoded);
 
             using var process = Process.Start(psi);
         }
 
-        private const string UpdaterScript = """
-            param([int]$ProcId, [string]$OldExe, [string]$NewExe)
+        // Stierne indsættes som single-quoted PowerShell-literaler; ' fordobles, så en
+        // sti med apostrof ikke kan bryde ud af strengen. Hashen er valideret til 64
+        // hex-tegn ovenfor og kan derfor ikke indeholde noget aktivt.
+        private static string BuildUpdaterScript(int procId, string oldExe, string newExe, string sha256)
+        {
+            static string Q(string s) => "'" + s.Replace("'", "''") + "'";
 
-            try {
-                $p = Get-Process -Id $ProcId -ErrorAction SilentlyContinue
-                if ($p) { $p.WaitForExit(30000) | Out-Null }
-            } catch {}
+            // $$""" — to dollartegn betyder at en interpolation kræver {{...}}, så
+            // PowerShells egne { } forbliver almindelige tegn og ikke skal dobles.
+            return $$"""
+                $ErrorActionPreference = 'Stop'
+                $procId = {{procId}}
+                $oldExe = {{Q(oldExe)}}
+                $newExe = {{Q(newExe)}}
+                $expected = {{Q(sha256)}}
 
-            Start-Sleep -Milliseconds 500
+                try {
+                    $p = Get-Process -Id $procId -ErrorAction SilentlyContinue
+                    if ($p) { $p.WaitForExit(30000) | Out-Null }
+                } catch {}
 
-            $copied = $false
-            for ($i = 0; $i -lt 20; $i++) {
-                try { Copy-Item -LiteralPath $NewExe -Destination $OldExe -Force; $copied = $true; break }
-                catch { Start-Sleep -Milliseconds 500 }
-            }
+                Start-Sleep -Milliseconds 500
 
-            if ($copied) { Start-Process -FilePath $OldExe }
+                # Anden hash-kontrol, nu i den elevated kontekst og umiddelbart før
+                # kopieringen. $newExe ligger i en bruger-skrivbar mappe, så uden denne
+                # kunne filen være byttet efter at appen verificerede den.
+                try {
+                    $actual = (Get-FileHash -LiteralPath $newExe -Algorithm SHA256).Hash
+                } catch {
+                    exit 1
+                }
+                if ($actual -ne $expected) {
+                    Remove-Item -LiteralPath $newExe -Force -ErrorAction SilentlyContinue
+                    exit 1
+                }
 
-            Remove-Item -LiteralPath $NewExe -Force -ErrorAction SilentlyContinue
-            Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-            """;
+                $copied = $false
+                for ($i = 0; $i -lt 20; $i++) {
+                    try { Copy-Item -LiteralPath $newExe -Destination $oldExe -Force; $copied = $true; break }
+                    catch { Start-Sleep -Milliseconds 500 }
+                }
+
+                if ($copied) { Start-Process -FilePath $oldExe }
+
+                Remove-Item -LiteralPath $newExe -Force -ErrorAction SilentlyContinue
+                """;
+        }
     }
 }

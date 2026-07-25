@@ -154,6 +154,10 @@ namespace M1Scan.Views
             if (string.IsNullOrWhiteSpace(_searchText)) return true;
             return h.IpAddress.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                 || h.HostName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                // NetBIOS-navnet er det der vises når reverse-DNS svigter, så det skal
+                // også kunne søges på — ellers kan man ikke finde en række på det navn
+                // man faktisk ser i tabellen.
+                || h.NetBiosName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                 || h.Vendor.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                 || h.MacAddress.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
         }
@@ -169,6 +173,28 @@ namespace M1Scan.Views
             if (FindIpPanel    != null) FindIpPanel.Visibility     = _selectedPage == "FindIp"       ? Visibility.Visible : Visibility.Collapsed;
             if (MacAliasPanel  != null) MacAliasPanel.Visibility   = _selectedPage == "MacAlias"     ? Visibility.Visible : Visibility.Collapsed;
             if (StatsRow       != null) StatsRow.Visibility       = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
+
+            UpdatePageActivation();
+        }
+
+        /// <summary>
+        /// Starter/stopper sidernes baggrundsarbejde. Alle side-ViewModels lever hele
+        /// appens levetid (navigationen slår kun Visibility til/fra), så uden dette
+        /// kørte deres timere fra opstart og for evigt — også for sider brugeren
+        /// aldrig åbnede. Se IActivatablePage.
+        /// </summary>
+        private void UpdatePageActivation()
+        {
+            if (_vm == null) return;
+
+            SetActive(_vm.HomeVm,      _selectedPage == "Dashboard");
+            SetActive(_vm.WorkspaceVm, _selectedPage == "DeviceFollow");
+
+            static void SetActive(IActivatablePage page, bool active)
+            {
+                if (active) page.OnActivated();
+                else        page.OnDeactivated();
+            }
         }
 
         private void AdapterDropdownButton_Click(object sender, RoutedEventArgs e)

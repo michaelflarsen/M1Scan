@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using M1Scan.Models;
 using M1Scan.Services;
 using M1Scan.Utils;
+using M1Scan.Views;
 
 namespace M1Scan.ViewModels
 {
@@ -19,6 +20,7 @@ namespace M1Scan.ViewModels
     {
         private readonly INetworkService _networkService;
         private readonly IExportService _exportService;
+        private readonly IDeviceNameService _deviceNameService;
         private readonly DispatcherTimer _autoRefreshTimer;
 
         private ObservableCollection<HostInfo> _discoveredHosts = new();
@@ -38,6 +40,10 @@ namespace M1Scan.ViewModels
         // Batch UI updates during scan — filled from background threads, flushed on UI thread
         private readonly ConcurrentQueue<HostInfo> _uiQueue = new();
         private CancellationTokenSource? _scanCts;
+
+        // VM'ens levetid. Alle scan-CTS'er linkes til denne, så Dispose() garanteret
+        // stopper alt baggrundsarbejde — uanset hvilken fase scanningen er i.
+        private readonly CancellationTokenSource _lifetime = new();
 
         // OUI-lookup cache per scan — holds (vendor, originalOui) tuples to avoid redundant lookups
         private readonly ConcurrentDictionary<string, (string vendor, string originalOui)> _ouiCache = new(StringComparer.OrdinalIgnoreCase);
@@ -129,7 +135,20 @@ namespace M1Scan.ViewModels
         public int ScanProgress
         {
             get => _scanProgress;
-            set => SetProperty(ref _scanProgress, value);
+            set
+            {
+                if (!SetProperty(ref _scanProgress, value)) return;
+
+                // EstimatedTimeRemaining er en beregnet property uden egen setter —
+                // uden denne notifikation blev den bundet én gang ved start og
+                // opdaterede sig aldrig, så feltet stod tomt hele scanningen.
+                OnPropertyChanged(nameof(EstimatedTimeRemaining));
+
+                // Hold også "forløbet tid" levende under scanningen; den blev
+                // tidligere først sat helt til sidst.
+                if (IsScanning)
+                    ScanElapsedTime = $"{(DateTime.UtcNow - _scanStartTime).TotalSeconds:F1}s";
+            }
         }
 
         public bool IsAutoRefreshEnabled
@@ -193,35 +212,42 @@ namespace M1Scan.ViewModels
             }
         }
 
-        public RelayCommand PingSingleCommand { get; }
-        public RelayCommand ScanNetworkCommand { get; }
-        public RelayCommand AddScanCommand { get; }
+        public AsyncRelayCommand PingSingleCommand { get; }
+        public AsyncRelayCommand ScanNetworkCommand { get; }
+        public AsyncRelayCommand AddScanCommand { get; }
         public RelayCommand CancelScanCommand { get; }
         public RelayCommand ClearResultsCommand { get; }
-        public RelayCommand RefreshAdaptersCommand { get; }
-        public RelayCommand AutoDetectSubnetCommand { get; }
+        public AsyncRelayCommand RefreshAdaptersCommand { get; }
+        public AsyncRelayCommand AutoDetectSubnetCommand { get; }
         public RelayCommand ToggleAutoRefreshCommand { get; }
         public RelayCommand OpenInBrowserCommand { get; }
         public RelayCommand CopyIpCommand { get; }
         public RelayCommand CopyMacCommand { get; }
-        public RelayCommand PingHostCommand { get; }
-        public RelayCommand ExportCommand { get; }
+        public AsyncRelayCommand PingHostCommand { get; }
+        public AsyncRelayCommand ExportCommand { get; }
+        public AsyncRelayCommand RenameHostCommand { get; }
 
-        public NetworkScanViewModel(INetworkService networkService, IExportService exportService)
+        public NetworkScanViewModel(INetworkService networkService, IExportService exportService,
+                                     IDeviceNameService deviceNameService)
         {
             _networkService = networkService;
             _exportService = exportService;
+            _deviceNameService = deviceNameService;
 
             _autoRefreshTimer = new DispatcherTimer();
-            _autoRefreshTimer.Tick += async (_, _) => await ScanNetworkAsync(merge: true);
 
-            PingSingleCommand = new RelayCommand(async _ => await PingSingleAsync(), _ => !IsScanning && !string.IsNullOrEmpty(IpAddressInput));
-            ScanNetworkCommand = new RelayCommand(async _ => await ScanNetworkAsync(), _ => !IsScanning);
-            AddScanCommand = new RelayCommand(async _ => await ScanNetworkAsync(merge: true), _ => !IsScanning);
-            CancelScanCommand = new RelayCommand(_ => _scanCts?.Cancel(), _ => IsScanning);
-            ClearResultsCommand = new RelayCommand(_ => DiscoveredHosts.Clear());
-            RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
-            AutoDetectSubnetCommand = new RelayCommand(async _ => await AutoDetectSubnetAsync(), _ => !IsScanning);
+            PingSingleCommand = new AsyncRelayCommand(_ => PingSingleAsync(), _ => !IsScanning && !string.IsNullOrEmpty(IpAddressInput), OnCommandError);
+            ScanNetworkCommand = new AsyncRelayCommand(_ => ScanNetworkAsync(), _ => !IsScanning, OnCommandError);
+            AddScanCommand = new AsyncRelayCommand(_ => ScanNetworkAsync(merge: true), _ => !IsScanning, OnCommandError);
+            // Abonneres FØRST når AddScanCommand findes. DispatcherTimer.Tick er en
+            // async void-flade: en fejl her ville ellers ryge direkte til Dispatcher'en,
+            // så tick'et går gennem kommandoen, som fanger og rapporterer den.
+            _autoRefreshTimer.Tick += (_, _) => AddScanCommand.Execute(null);
+
+            CancelScanCommand = new RelayCommand(_ => CancelScan(), _ => IsScanning);
+            ClearResultsCommand = new RelayCommand(_ => ClearResults());
+            RefreshAdaptersCommand = new AsyncRelayCommand(_ => RefreshAdaptersAsync(), onError: OnCommandError);
+            AutoDetectSubnetCommand = new AsyncRelayCommand(_ => AutoDetectSubnetAsync(), _ => !IsScanning, OnCommandError);
             ToggleAutoRefreshCommand = new RelayCommand(_ => IsAutoRefreshEnabled = !IsAutoRefreshEnabled);
             OpenInBrowserCommand = new RelayCommand(param =>
             {
@@ -244,23 +270,59 @@ namespace M1Scan.ViewModels
                 if (param is string mac && !string.IsNullOrEmpty(mac))
                     System.Windows.Clipboard.SetText(mac);
             });
-            PingHostCommand = new RelayCommand(
-                async param =>
+            PingHostCommand = new AsyncRelayCommand(
+                param =>
                 {
-                    if (param is string ip && !string.IsNullOrEmpty(ip))
-                    {
-                        IpAddressInput = ip;
-                        await PingSingleAsync();
-                    }
+                    if (param is not string ip || string.IsNullOrEmpty(ip))
+                        return Task.CompletedTask;
+                    IpAddressInput = ip;
+                    return PingSingleAsync();
                 },
-                _ => !IsScanning);
-            ExportCommand = new RelayCommand(
-                async _ => await ExportAsync(),
-                _ => DiscoveredHosts.Count > 0);
+                _ => !IsScanning,
+                OnCommandError);
+            ExportCommand = new AsyncRelayCommand(
+                _ => ExportAsync(),
+                _ => DiscoveredHosts.Count > 0,
+                OnCommandError);
+            RenameHostCommand = new AsyncRelayCommand(
+                param => RenameHostAsync(param as HostInfo),
+                onError: OnCommandError);
 
             _ = RefreshAdaptersAsync();
 
             NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
+        }
+
+        /// <summary>
+        /// Lader brugeren give enheden sit eget navn. Gemmes på MAC, så navnet følger
+        /// enheden når DHCP giver den en ny IP. Et tomt navn fjerner overstyringen og
+        /// lader det automatiske opslag gælde igen.
+        /// </summary>
+        private async Task RenameHostAsync(HostInfo? host)
+        {
+            if (host is null) return;
+
+            if (string.IsNullOrEmpty(host.MacAddress))
+            {
+                // Navnet gemmes på MAC. Uden en MAC har vi ingen stabil nøgle — IP'en
+                // kan skifte, og så ville navnet følge den forkerte enhed.
+                StatusMessage = $"{host.IpAddress} har ingen kendt MAC-adresse endnu — kan ikke navngives.";
+                return;
+            }
+
+            var dialog = new RenameDeviceDialog(host.DisplayName, host.CustomName, host.IpAddress, host.MacAddress)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            await _deviceNameService.SetAsync(host.MacAddress, dialog.EnteredName);
+            host.CustomName = dialog.EnteredName ?? string.Empty;
+
+            StatusMessage = string.IsNullOrWhiteSpace(dialog.EnteredName)
+                ? $"Navn fjernet for {host.IpAddress} — bruger nu automatisk opslag."
+                : $"{host.IpAddress} hedder nu \"{dialog.EnteredName}\".";
         }
 
         private async Task ExportAsync()
@@ -284,48 +346,93 @@ namespace M1Scan.ViewModels
             }
         }
 
+        // Fejl fra en kommando ender her i stedet for at dræbe processen. Brugeren
+        // ser årsagen i statuslinjen; detaljerne ligger i crash.log.
+        private void OnCommandError(Exception ex) => StatusMessage = $"Fejl: {ex.Message}";
+
+        // _scanCts må kun cancel'es hvis den stadig er levende — den disposes i
+        // ScanNetworkAsync's finally, og et klik lige derefter ville ellers kaste.
+        private void CancelScan()
+        {
+            try { _scanCts?.Cancel(); }
+            catch (ObjectDisposedException) { /* scanningen sluttede lige */ }
+        }
+
         private async void OnNetworkAddressChanged(object? sender, EventArgs e)
         {
-            await Task.Delay(1500); // let OS stabilise before re-enumerating
-            if (Application.Current != null)
-                await Application.Current.Dispatcher.InvokeAsync(RefreshAdaptersAsync);
+            // async void event-handler: alt skal fanges her, ellers ryger fejlen
+            // til AppDomain-niveau fra en pool-tråd.
+            try
+            {
+                await Task.Delay(1500, _lifetime.Token); // let OS stabilise before re-enumerating
+                if (_lifetime.IsCancellationRequested) return;
+
+                var dispatcher = Application.Current?.Dispatcher;
+                if (dispatcher != null)
+                    await dispatcher.InvokeAsync(() => RefreshAdaptersCommand.Execute(null));
+            }
+            catch (OperationCanceledException) { /* VM'en er lukket ned */ }
+            catch (Exception ex) { CrashLog.Write("OnNetworkAddressChanged", ex); }
         }
 
         public void Dispose()
         {
             NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
             _autoRefreshTimer.Stop();
+
+            // Afbryd en igangværende scanning FØR vi forsvinder — ellers kører ~150
+            // tasks videre og skriver mod en Dispatcher der er ved at lukke.
+            try { _lifetime.Cancel(); } catch (ObjectDisposedException) { }
+            CancelScan();
+            _lifetime.Dispose();
+        }
+
+        // Indeks over DiscoveredHosts (IP -> række). Uden det slog både FlushUiQueue og
+        // UpdateHostInUI op med FirstOrDefault pr. element, altså O(n) inde i en løkke
+        // over n elementer — O(n²) ved hvert flush, hver 100. ms under et scan.
+        // Må kun berøres fra UI-tråden, ligesom DiscoveredHosts selv.
+        private readonly Dictionary<string, HostInfo> _hostIndex = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Sætter brugerens gemte navn på en host, hvis der findes ét for dens MAC.
+        /// Kaldes hver gang en MAC bliver kendt — navnet er gemt på MAC og følger
+        /// derfor enheden selv når den får en ny IP fra DHCP.
+        /// </summary>
+        private void ApplyCustomName(HostInfo host)
+        {
+            if (string.IsNullOrEmpty(host.MacAddress)) return;
+            var name = _deviceNameService.Lookup(host.MacAddress);
+            if (!string.IsNullOrEmpty(name)) host.CustomName = name;
+        }
+
+        /// <summary>Tilføjer eller fletter en host i den bundne liste. Kun UI-tråden.</summary>
+        /// <param name="authoritative">Se <see cref="HostInfo.MergeFrom"/> — true ved et
+        /// eksplicit gen-ping af én host, hvor "nu offline" skal slå igennem.</param>
+        private void UpsertHost(HostInfo host, bool authoritative = false)
+        {
+            if (_hostIndex.TryGetValue(host.IpAddress, out var existing))
+            {
+                existing.MergeFrom(host, authoritative);
+            }
+            else
+            {
+                _hostIndex[host.IpAddress] = host;
+                DiscoveredHosts.Add(host);
+            }
         }
 
         // Flushes _uiQueue to DiscoveredHosts — must be called on UI thread.
         private void FlushUiQueue()
         {
             while (_uiQueue.TryDequeue(out var host))
-            {
-                var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
-                if (existing is null)
-                {
-                    DiscoveredHosts.Add(host);
-                }
-                else
-                {
-                    if (!string.IsNullOrEmpty(host.HostName) && host.HostName != host.IpAddress)
-                        existing.HostName = host.HostName;
-                    if (host.ResponseTime > 0) existing.ResponseTime = host.ResponseTime;
-                    if (!string.IsNullOrEmpty(host.Status)) existing.Status = host.Status;
-                    existing.LastSeen = host.LastSeen;
-                    if (host.IsReachable) existing.IsReachable = true;
-                    if (!string.IsNullOrEmpty(host.OsGuess)) existing.OsGuess = host.OsGuess;
-                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
-                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
-                    if (!string.IsNullOrEmpty(host.OriginalVendor)) existing.OriginalVendor = host.OriginalVendor;
-                    if (!string.IsNullOrEmpty(host.NetBiosName)) existing.NetBiosName = host.NetBiosName;
-                    if (host.IsPort80Open) existing.IsPort80Open = true;
-                    if (host.IsPort443Open) existing.IsPort443Open = true;
-                    if (host.IsPort8080Open) existing.IsPort8080Open = true;
-                    if (host.IsPort502Open) existing.IsPort502Open = true;
-                }
-            }
+                UpsertHost(host);
+        }
+
+        /// <summary>Rydder både listen og indekset — de skal aldrig komme ud af sync.</summary>
+        private void ClearResults()
+        {
+            DiscoveredHosts.Clear();
+            _hostIndex.Clear();
         }
 
         private async Task RefreshAdaptersAsync()
@@ -447,11 +554,25 @@ namespace M1Scan.ViewModels
         private void SortHostsByIp()
         {
             var sorted = DiscoveredHosts.OrderBy(h => IpToUint(h.IpAddress)).ToList();
-            for (int i = 0; i < sorted.Count; i++)
+
+            // Selection-sort på plads med Move, men uden IndexOf pr. trin: IndexOf er
+            // O(n) og gjorde sorteringen O(n²). Et positionsindeks holder styr på hvor
+            // hver række aktuelt ligger, så hvert trin er O(1) opslag.
+            var positions = new Dictionary<HostInfo, int>(DiscoveredHosts.Count);
+            for (int i = 0; i < DiscoveredHosts.Count; i++)
+                positions[DiscoveredHosts[i]] = i;
+
+            for (int target = 0; target < sorted.Count; target++)
             {
-                int current = DiscoveredHosts.IndexOf(sorted[i]);
-                if (current != i)
-                    DiscoveredHosts.Move(current, i);
+                var host = sorted[target];
+                int current = positions[host];
+                if (current == target) continue;
+
+                DiscoveredHosts.Move(current, target);
+
+                // Move skubber alt mellem target og current én plads ned.
+                for (int i = target; i <= current; i++)
+                    positions[DiscoveredHosts[i]] = i;
             }
         }
 
@@ -462,7 +583,7 @@ namespace M1Scan.ViewModels
 
             try
             {
-                _scanCts = new CancellationTokenSource();
+                _scanCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
                 var ct = _scanCts.Token;
 
                 var srcIp = ScanSrcIp;
@@ -493,28 +614,13 @@ namespace M1Scan.ViewModels
                         }
                         host.Vendor = cached.vendor;
                         host.OriginalVendor = cached.originalOui;
+                        ApplyCustomName(host);
                     }
                 }
 
-                var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
-                if (existing != null)
-                {
-                    existing.HostName = host.HostName;
-                    existing.ResponseTime = host.ResponseTime;
-                    existing.Status = host.Status;
-                    existing.LastSeen = host.LastSeen;
-                    existing.IsReachable = host.IsReachable;
-                    existing.IsPort80Open = host.IsPort80Open;
-                    existing.IsPort443Open = host.IsPort443Open;
-                    existing.IsPort8080Open = host.IsPort8080Open;
-                    existing.IsPort502Open = host.IsPort502Open;
-                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
-                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
-                }
-                else
-                {
-                    DiscoveredHosts.Add(host);
-                }
+                // Eksplicit gen-ping af netop denne host: resultatet er autoritativt,
+                // så en host der er gået offline skal også vises som offline.
+                UpsertHost(host, authoritative: true);
 
                 StatusMessage = host.IsReachable
                     ? $"{host.HostName} svarede på {host.ResponseTime}ms"
@@ -543,7 +649,7 @@ namespace M1Scan.ViewModels
             ScanProgress = 0;
             if (!merge)
             {
-                DiscoveredHosts.Clear();
+                ClearResults();
                 _ouiCache.Clear();
             }
             StatusMessage = merge
@@ -552,7 +658,7 @@ namespace M1Scan.ViewModels
                     ? $"Starter ping-scanning af {SubnetInput}.x på {SelectedAdapter.Description}..."
                     : $"Starter ping-scanning af {SubnetInput}.x...";
 
-            _scanCts = new CancellationTokenSource();
+            _scanCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
             var ct = _scanCts.Token;
             _scanStartTime = DateTime.UtcNow;
 
@@ -580,6 +686,10 @@ namespace M1Scan.ViewModels
                 var onlineCount = 0;
                 var allIps = Enumerable.Range(StartIp, totalTasks)
                                        .Select(i => $"{SubnetInput}.{i}").ToList();
+
+                // Første sweep-fejl (hvis nogen). Uden denne blev et blokeret raw-socket
+                // rapporteret som "Færdig — 0 online enheder fundet", altså en succes.
+                string? sweepError = null;
 
                 // Shared enrichment (MAC via ARP, derefter port-tjek + NetBIOS) — bruges for
                 // både fase 1- og fase 2-hosts, så logikken ikke duplikeres.
@@ -617,6 +727,7 @@ namespace M1Scan.ViewModels
                             }
                             host.Vendor = cached.vendor;
                             host.OriginalVendor = cached.originalOui;
+                            ApplyCustomName(host);
                             _uiQueue.Enqueue(host);
                         }
                     }
@@ -640,15 +751,55 @@ namespace M1Scan.ViewModels
 
                 // Resolve hostnames (reverse-DNS/mDNS) — sweep-baserede HostInfo har ikke
                 // fået dette fra en managed Ping, så det gøres eksplicit.
+                // Spørger enheden selv først (mDNS), derefter netværket (reverse-DNS).
+                //
+                // Rækkefølgen er bevidst: en PTR-record i routeren sættes af en
+                // administrator og bliver forældet — på dette netværk pegede .4's
+                // PTR på "seer.dk", som er en TJENESTE der kører på maskinen (port
+                // 5055), mens maskinen selv hedder TechnoBunker (port 9000).
+                // mDNS-navnet kommer fra maskinen i det øjeblik vi spørger.
+                //
+                // Enheder der ikke svarer på mDNS (fx de fleste Android-telefoner)
+                // falder tilbage til reverse-DNS, hvor routerens DHCP-registrerede
+                // navne stadig giver gode resultater.
+                async Task<string> ResolveBestNameAsync(string hostIp, string nameSrcIp, int dnsTimeoutMs)
+                {
+                    // Begge opslag startes SAMTIDIGT og vi vælger bagefter. Kørte de i
+                    // rækkefølge, ville hver enhed der ikke svarer på mDNS (fx de fleste
+                    // Android-telefoner) betale hele mDNS-timeouten før reverse-DNS
+                    // overhovedet gik i gang. De bruger hver sin protokol — multicast UDP
+                    // og unicast DNS — så de konkurrerer ikke nævneværdigt.
+                    var mdnsTask = _networkService.ResolveMdnsNameAsync(hostIp, nameSrcIp, 700, ct);
+                    var dnsTask  = _networkService.ResolveHostNameAsync(hostIp, dnsTimeoutMs, ct);
+
+                    await Task.WhenAll(mdnsTask, dnsTask);
+
+                    var mdns = mdnsTask.Result;
+                    if (!string.IsNullOrEmpty(mdns) && mdns != hostIp)
+                        return mdns;
+
+                    return dnsTask.Result;
+                }
+
                 async Task ResolveHostNamesAsync(IEnumerable<HostInfo> hosts)
                 {
-                    using var dnsSem = new SemaphoreSlim(150);
+                    // 16 samtidige opslag, ikke 150. Reverse-DNS på et LAN besvares af
+                    // routerens lille resolver (og af mDNS-responders på selve
+                    // enhederne); 150 parallelle forespørgsler mætter den, så næsten
+                    // alt løber ind i timeout. Målt på et /24 med 68 aktive hosts gav
+                    // 150-vejs parallelitet stort set kun timeouts, mens de samme navne
+                    // kunne slås op fint enkeltvis. Færre samtidige + længere timeout
+                    // giver flere navne på samme samlede tid.
+                    const int DnsConcurrency = 16;
+                    const int DnsTimeoutMs = 1500;
+
+                    using var dnsSem = new SemaphoreSlim(DnsConcurrency);
                     var dnsTasks = hosts.Select(host => Task.Run(async () =>
                     {
                         await dnsSem.WaitAsync(ct).ConfigureAwait(false);
                         try
                         {
-                            var name = await _networkService.ResolveHostNameAsync(host.IpAddress, 800, ct);
+                            var name = await ResolveBestNameAsync(host.IpAddress, srcIp, DnsTimeoutMs);
                             if (!string.IsNullOrEmpty(name) && name != host.IpAddress)
                             {
                                 // HostInfo is bound to the grid — mutate it on the UI thread so
@@ -688,16 +839,18 @@ namespace M1Scan.ViewModels
 
                     const int Phase2TimeoutMs = 3000;
                     var sweep2 = await _networkService.PingSweepBoundAsync(targets, phase2SrcIp, Phase2TimeoutMs, ct);
-                    foreach (var (ip, r) in sweep2)
+                    if (sweep2.Failed) sweepError ??= sweep2.Error;
+
+                    foreach (var (ip, r) in sweep2.Hosts)
                     {
                         var host = BuildSweepHost(ip, r.rttMs, r.ttl);
                         phase2Hosts.Add(host);
                         _uiQueue.Enqueue(host);
                     }
-                    Interlocked.Add(ref onlineCount, sweep2.Count);
+                    Interlocked.Add(ref onlineCount, sweep2.Hosts.Count);
 
                     // TCP-fallback for hosts der stadig ikke svarer på ICMP efter begge faser.
-                    var noReply2 = targets.Where(ip => !sweep2.ContainsKey(ip)).ToList();
+                    var noReply2 = targets.Where(ip => !sweep2.Hosts.ContainsKey(ip)).ToList();
                     var tcpPorts = new[] { 80, 443, 445 };
                     var tcpFound = new ConcurrentBag<HostInfo>();
                     using var tcpSem = new SemaphoreSlim(150);
@@ -745,9 +898,11 @@ namespace M1Scan.ViewModels
                     const int Phase1TimeoutMs = 100;
                     StatusMessage = $"Hurtig ping-scanning af {totalTasks} IP'er...";
                     var sweep1 = await _networkService.PingSweepBoundAsync(allIps, srcIp, Phase1TimeoutMs, ct);
-                    onlineCount = sweep1.Count;
+                    if (sweep1.Failed) sweepError ??= sweep1.Error;
+
+                    onlineCount = sweep1.Hosts.Count;
                     var phase1Hosts = new List<HostInfo>();
-                    foreach (var (ip, r) in sweep1)
+                    foreach (var (ip, r) in sweep1.Hosts)
                     {
                         var host = BuildSweepHost(ip, r.rttMs, r.ttl);
                         phase1Hosts.Add(host);
@@ -759,7 +914,7 @@ namespace M1Scan.ViewModels
                     // (ICMP type 0) havner i sweep1 (se IcmpSweepBound) — "destination
                     // unreachable" og andre ICMP-fejl er allerede filtreret fra, så de korrekt
                     // falder igennem til fase 2 sammen med reelle timeouts.
-                    var noReply1 = allIps.Where(ip => !sweep1.ContainsKey(ip)).ToList();
+                    var noReply1 = allIps.Where(ip => !sweep1.Hosts.ContainsKey(ip)).ToList();
 
                     // ARP-cachen læses én gang (fallback-kilde kun — primær MAC-opløsning er
                     // det blokerende SendArpRequestAsync pr. host) og deles af begge faser.
@@ -861,6 +1016,7 @@ namespace M1Scan.ViewModels
                         }
                         host.Vendor = cached.vendor;
                         host.OriginalVendor = cached.originalOui;
+                        ApplyCustomName(host);
                         await UpdateHostInUI(host);
                     }
                 }
@@ -870,7 +1026,14 @@ namespace M1Scan.ViewModels
                 var total = DiscoveredHosts.Count(h => h.IsReachable);
                 var elapsed = DateTime.UtcNow - _scanStartTime;
                 ScanElapsedTime = $"{elapsed.TotalSeconds:F1}s";
-                StatusMessage = $"Færdig — {total} online enheder fundet på {ScanElapsedTime}";
+
+                // Fejlede ping-sweep'et, må resultatet IKKE præsenteres som en færdig
+                // scanning — "0 online" ville da betyde "vi kunne ikke spørge", ikke
+                // "der er ingen enheder". TCP-fallbacket kan stadig have fundet noget,
+                // så vis begge dele.
+                StatusMessage = sweepError is null
+                    ? $"Færdig — {total} online enheder fundet på {ScanElapsedTime}"
+                    : $"Ufuldstændig scanning: {sweepError} — kun {total} enheder fundet via TCP-fallback.";
             }
             catch (OperationCanceledException)
             {
@@ -899,32 +1062,24 @@ namespace M1Scan.ViewModels
 
         private async Task UpdateHostInUI(HostInfo host, bool[]? portResults = null, string? netbios = null)
         {
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null) return; // appen lukker ned
+
+            await dispatcher.InvokeAsync(() =>
             {
-                var existing = DiscoveredHosts.FirstOrDefault(h => h.IpAddress == host.IpAddress);
-                if (existing != null)
+                // Portresultater og NetBIOS-navn hører til DENNE observation, så de
+                // skrives på host'en før fletningen — så gælder de samme merge-regler
+                // for dem som for alt andet (se HostInfo.MergeFrom).
+                if (!string.IsNullOrEmpty(netbios)) host.NetBiosName = netbios;
+                if (portResults != null)
                 {
-                    existing.HostName = host.HostName;
-                    existing.ResponseTime = host.ResponseTime;
-                    existing.Status = host.Status;
-                    existing.LastSeen = host.LastSeen;
-                    existing.IsReachable = host.IsReachable;
-                    existing.OsGuess = host.OsGuess;
-                    if (netbios != null) existing.NetBiosName = netbios;
-                    if (portResults != null)
-                    {
-                        existing.IsPort80Open = portResults[0];
-                        existing.IsPort443Open = portResults[1];
-                        existing.IsPort8080Open = portResults[2];
-                        existing.IsPort502Open = portResults[3];
-                    }
-                    if (!string.IsNullOrEmpty(host.MacAddress)) existing.MacAddress = host.MacAddress;
-                    if (!string.IsNullOrEmpty(host.Vendor)) existing.Vendor = host.Vendor;
+                    host.IsPort80Open   = portResults[0];
+                    host.IsPort443Open  = portResults[1];
+                    host.IsPort8080Open = portResults[2];
+                    host.IsPort502Open  = portResults[3];
                 }
-                else
-                {
-                    DiscoveredHosts.Add(host);
-                }
+
+                UpsertHost(host);
             });
         }
     }

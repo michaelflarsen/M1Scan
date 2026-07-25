@@ -68,6 +68,18 @@ $csprojContent = $csprojContent -replace '<Version>\d+\.\d+\.\d+</Version>', "<V
 Set-Content -Path $CsprojPath -Value $csprojContent -NoNewline
 Write-Host "Version: $oldVersion -> $newVersion" -ForegroundColor Green
 
+# README-badgen blev tidligere opdateret i hånden og var derfor bagud (stod 1.3.36
+# mens csproj var på 1.3.49). Den udledes nu af csproj-versionen, så den ikke kan drifte.
+$readmePath = Join-Path $RepoRoot "README.md"
+if (Test-Path $readmePath) {
+    $readme = Get-Content -Path $readmePath -Raw
+    $updated = $readme -replace 'badge/version-\d+\.\d+\.\d+-blue', "badge/version-$newVersion-blue"
+    if ($updated -ne $readme) {
+        Set-Content -Path $readmePath -Value $updated -NoNewline
+        Write-Host "README-badge opdateret til $newVersion" -ForegroundColor Green
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Trin 2 - Stop kørende instans (frigør .exe-filen så publish kan overskrive den)
 # ---------------------------------------------------------------------------

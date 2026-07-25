@@ -53,6 +53,17 @@
                         Background="#e74c3c" Foreground="White" Padding="15,8" Margin="10,0,0,0"/>
             </StackPanel>
 
+            <!-- Geo-opslag er som standard slået FRA: det sender rutens offentlige
+                 IP'er til ip-api.com over ukrypteret HTTP. Brugeren skal selv vælge det. -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <CheckBox IsChecked="{Binding GeoLookupEnabled}"
+                          Content="Slå land/ASN-opslag til"
+                          Foreground="#cfd8dc" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding GeoLookupHint}"
+                           Foreground="#78909c" FontSize="11" Margin="12,0,0,0"
+                           VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="620"/>
+            </StackPanel>
+
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                 <TextBlock Text="{Binding StatusMessage}" Foreground="#90caf9" FontSize="12" VerticalAlignment="Center"/>
                 <TextBlock Text="✓ FULDFØRT" Foreground="#4CAF50" FontSize="12" FontWeight="Bold" Margin="15,0,0,0" VerticalAlignment="Center">

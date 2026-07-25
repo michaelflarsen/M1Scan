@@ -1,0 +1,63 @@
+<Window x:Class="M1Scan.Views.RenameDeviceDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Navngiv enhed"
+        Height="290" Width="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="#1E1E1E">
+
+    <Border Padding="22">
+        <StackPanel>
+            <TextBlock Text="Navngiv enhed"
+                       Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+
+            <TextBlock Foreground="#90A4AE" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Text="Navnet gemmes på MAC-adressen, så det følger enheden også når den får en ny IP. Lad feltet stå tomt for at bruge det automatiske opslag igen."/>
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="IP:" Foreground="#78909C"
+                           FontSize="12" Margin="0,0,10,4"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="IpText" Foreground="#B0BEC5"
+                           FontSize="12" FontFamily="Consolas" Margin="0,0,0,4"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="MAC:" Foreground="#78909C"
+                           FontSize="12" Margin="0,0,10,4"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="MacText" Foreground="#B0BEC5"
+                           FontSize="12" FontFamily="Consolas" Margin="0,0,0,4"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Fundet:" Foreground="#78909C"
+                           FontSize="12" Margin="0,0,10,0"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DetectedText" Foreground="#B0BEC5"
+                           FontSize="12" TextTrimming="CharacterEllipsis"/>
+            </Grid>
+
+            <TextBlock Text="Dit navn" Foreground="#CFD8DC" FontSize="12" Margin="0,18,0,6"/>
+            <TextBox x:Name="NameBox"
+                     Background="#2D2D2D" Foreground="White" BorderBrush="#455A64"
+                     BorderThickness="1" Padding="8,7" FontSize="14"
+                     CaretBrush="White"
+                     KeyDown="NameBox_KeyDown"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                <Button Content="Annuller" Click="Cancel_Click"
+                        Background="#37474F" Foreground="White" BorderThickness="0"
+                        Padding="18,8" Margin="0,0,10,0" IsCancel="True"/>
+                <Button Content="Gem" Click="Save_Click"
+                        Background="#4A90E2" Foreground="White" BorderThickness="0"
+                        Padding="24,8" IsDefault="True"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

@@ -31,6 +31,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Giver testprojektet adgang til intern parsing-logik (fx
+         NetworkService.ParsePtrAnswer), så pakke-parsere kan testes direkte
+         uden at gøre dem til offentligt API. -->
+    <InternalsVisibleTo Include="M1Scan.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Resources\Themes\" />
     <Resource Include="app.ico" />
     <Resource Include="Resources\ntech-logo.png" />

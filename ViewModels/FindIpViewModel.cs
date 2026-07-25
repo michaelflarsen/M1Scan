@@ -112,7 +112,7 @@ namespace M1Scan.ViewModels
         public RelayCommand StartCommand { get; }
         public RelayCommand StopCommand { get; }
         public RelayCommand ClearCommand { get; }
-        public RelayCommand RefreshAdaptersCommand { get; }
+        public AsyncRelayCommand RefreshAdaptersCommand { get; }
 
         public FindIpViewModel(IFindIpService findIpService, INetworkService networkService)
         {
@@ -137,12 +137,14 @@ namespace M1Scan.ViewModels
             StartCommand = new RelayCommand(_ => Start(), _ => !IsCapturing && SelectedAdapter != null);
             StopCommand = new RelayCommand(_ => Stop(), _ => IsCapturing);
             ClearCommand = new RelayCommand(_ => Clear());
-            RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
+            RefreshAdaptersCommand = new AsyncRelayCommand(
+                _ => RefreshAdaptersAsync(),
+                onError: ex => StatusMessage = $"Kunne ikke hente adaptere: {ex.Message}");
 
             _flushTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(750) };
             _flushTimer.Tick += (_, _) => FlushPending();
 
-            _ = RefreshAdaptersAsync();
+            RefreshAdaptersCommand.Execute(null);
         }
 
         private async System.Threading.Tasks.Task RefreshAdaptersAsync()
