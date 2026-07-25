@@ -65,8 +65,8 @@ namespace M1Scan.ViewModels
         public FindIpViewModel      FindIpVm      { get; }
         public MacAliasViewModel    MacAliasVm    { get; }
 
-        public RelayCommand RefreshAdaptersCommand { get; }
-        public RelayCommand ResetAdapterCommand { get; }
+        public AsyncRelayCommand RefreshAdaptersCommand { get; }
+        public AsyncRelayCommand ResetAdapterCommand { get; }
 
         // Composition root: appens eneste service-instanser oprettes her og
         // sendes ned til hver ViewModel via constructor-injection (se CLAUDE.md
@@ -96,12 +96,23 @@ namespace M1Scan.ViewModels
             // Sæt MacAliasService globalt i OuiLookup så aliaser overrides vendors overalt
             OuiLookup.SetMacAliasService(macAliasService);
 
-            RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
-            ResetAdapterCommand = new RelayCommand(async _ => await ResetAdapterAsync(), _ => SelectedAdapter != null);
+            RefreshAdaptersCommand = new AsyncRelayCommand(_ => RefreshAdaptersAsync(), onError: OnCommandError);
+            ResetAdapterCommand = new AsyncRelayCommand(_ => ResetAdapterAsync(), _ => SelectedAdapter != null, OnCommandError);
 
             // Load adapters on startup
-            _ = RefreshAdaptersAsync();
-            _ = UpdateVm.CheckForUpdateSilentlyAsync();
+            RefreshAdaptersCommand.Execute(null);
+
+            // Opstartstjek: UpdateService svælger selv alle fejl, men en fejl i
+            // ViewModel-laget må heller ikke slippe ud af en fire-and-forget-task.
+            _ = SafeCheckForUpdateAsync();
+        }
+
+        private void OnCommandError(Exception ex) => StatusMessage = $"Fejl: {ex.Message}";
+
+        private async Task SafeCheckForUpdateAsync()
+        {
+            try { await UpdateVm.CheckForUpdateSilentlyAsync(); }
+            catch (Exception ex) { CrashLog.Write("CheckForUpdateSilently", ex); }
         }
 
         public void Dispose()
@@ -147,8 +158,8 @@ namespace M1Scan.ViewModels
 
             try
             {
-                bool success = await _ipConfigService.ResetNetworkAdapterAsync(SelectedAdapter.Name);
-                StatusMessage = success ? "Adapter reset successfully" : "Failed to reset adapter";
+                var result = await _ipConfigService.ResetNetworkAdapterAsync(SelectedAdapter.Name);
+                StatusMessage = result.Message;
                 
                 await Task.Delay(2000);
                 await RefreshAdaptersAsync();

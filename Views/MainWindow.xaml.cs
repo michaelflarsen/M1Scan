@@ -154,6 +154,10 @@ namespace M1Scan.Views
             if (string.IsNullOrWhiteSpace(_searchText)) return true;
             return h.IpAddress.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                 || h.HostName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                // NetBIOS-navnet er det der vises når reverse-DNS svigter, så det skal
+                // også kunne søges på — ellers kan man ikke finde en række på det navn
+                // man faktisk ser i tabellen.
+                || h.NetBiosName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                 || h.Vendor.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                 || h.MacAddress.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
         }

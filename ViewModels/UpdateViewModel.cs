@@ -11,6 +11,7 @@ namespace M1Scan.ViewModels
     {
         private readonly IUpdateService _updateService;
         private string? _pendingDownloadUrl;
+        private string? _pendingSha256;
 
         private bool _isUpdateAvailable;
         private string _latestVersionLabel = string.Empty;
@@ -55,13 +56,20 @@ namespace M1Scan.ViewModels
             private set => SetProperty(ref _hasError, value);
         }
 
-        public RelayCommand UpdateNowCommand { get; }
+        public AsyncRelayCommand UpdateNowCommand { get; }
 
         public UpdateViewModel(IUpdateService updateService)
         {
             _updateService = updateService;
-            UpdateNowCommand = new RelayCommand(async _ => await UpdateNowAsync(),
-                                                 _ => IsUpdateAvailable && !IsDownloading);
+            UpdateNowCommand = new AsyncRelayCommand(
+                _ => UpdateNowAsync(),
+                _ => IsUpdateAvailable && !IsDownloading,
+                ex =>
+                {
+                    IsDownloading = false;
+                    HasError = true;
+                    StatusText = $"Update fejlede: {ex.Message}";
+                });
         }
 
         // Kaldes fire-and-forget fra MainViewModel-constructoren. Kaster aldrig —
@@ -73,6 +81,7 @@ namespace M1Scan.ViewModels
             if (result is null) return;
 
             _pendingDownloadUrl = result.DownloadUrl;
+            _pendingSha256 = result.Sha256;
             LatestVersionLabel = "v" + result.LatestVersion.ToString(3);
             StatusText = $"{LatestVersionLabel} tilgængelig — Update now!";
             IsUpdateAvailable = true;
@@ -80,7 +89,7 @@ namespace M1Scan.ViewModels
 
         private async Task UpdateNowAsync()
         {
-            if (_pendingDownloadUrl is null) return;
+            if (_pendingDownloadUrl is null || _pendingSha256 is null) return;
 
             IsDownloading = true;
             HasError = false;
@@ -100,10 +109,11 @@ namespace M1Scan.ViewModels
                 });
 
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-                await _updateService.DownloadUpdateAsync(_pendingDownloadUrl, destPath, progress, cts.Token);
+                await _updateService.DownloadUpdateAsync(
+                    _pendingDownloadUrl, destPath, _pendingSha256, progress, cts.Token);
 
-                StatusText = "Genstarter...";
-                _updateService.LaunchUpdaterAndRestart(destPath);
+                StatusText = "Verificeret — genstarter...";
+                _updateService.LaunchUpdaterAndRestart(destPath, _pendingSha256);
 
                 System.Windows.Application.Current.Shutdown();
             }
@@ -111,6 +121,8 @@ namespace M1Scan.ViewModels
             {
                 // Download-fejl under aktivt klik: brugeren bad selv om det, så en
                 // synlig fejlbesked er OK her (modsat det stille opstartstjek).
+                // Gælder også en afvist hash — brugeren SKAL kunne se at
+                // opdateringen blev nægtet, ikke bare at intet skete.
                 IsDownloading = false;
                 HasError = true;
                 StatusText = $"Update fejlede: {ex.Message}";

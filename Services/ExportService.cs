@@ -95,9 +95,28 @@ namespace M1Scan.Services
         {
             null => string.Empty,
             bool b => b ? "true" : "false",
+            // Tal og datoer formateres invariant og er pr. definition ufarlige —
+            // de må IKKE gennem formel-neutraliseringen, da et negativt tal ellers
+            // ville blive til teksten "'-1" og ødelægge kolonnens datatype.
             IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
-            _ => value.ToString() ?? string.Empty
+            _ => Neutralize(value.ToString() ?? string.Empty)
         };
+
+        // Tegn som Excel/LibreOffice/Sheets tolker som starten på en formel.
+        private static readonly char[] FormulaTriggers = { '=', '+', '-', '@', '\t', '\r' };
+
+        /// <summary>
+        /// Neutraliserer CSV-formel-injection i tekstfelter. HostName kommer fra
+        /// reverse-DNS, NetBiosName fra et NetBIOS-svar og Vendor fra et
+        /// brugerredigerbart alias — alle tre kontrolleres af den enhed vi scanner,
+        /// altså af nogen vi ikke stoler på. En enhed der kalder sig
+        /// "=cmd|'/c calc'!A1" ville ellers udføre kode når CSV'en åbnes i Excel.
+        /// Et foranstillet apostrof gør cellen til ren tekst.
+        /// </summary>
+        private static string Neutralize(string field) =>
+            field.Length > 0 && Array.IndexOf(FormulaTriggers, field[0]) >= 0
+                ? "'" + field
+                : field;
 
         // RFC4180-agtig escaping: felter med komma, citationstegn eller linjeskift
         // pakkes i "..." med interne citationstegn fordoblet.

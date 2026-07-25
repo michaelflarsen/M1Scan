@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -13,13 +14,34 @@ using M1Scan.Utils;
 
 namespace M1Scan.Services
 {
+    /// <summary>
+    /// Resultatet af et ICMP-sweep. Error adskiller "sweep'et kunne ikke køre" fra
+    /// "ingen svarede" — to tilstande der før var identiske (en tom dictionary), så
+    /// et blokeret raw-socket blev rapporteret til brugeren som en succesfuld
+    /// scanning med nul fund.
+    /// </summary>
+    public readonly record struct SweepResult(
+        Dictionary<string, (long rttMs, int ttl)> Hosts,
+        string? Error)
+    {
+        public bool Failed => Error is not null;
+
+        public static SweepResult Ok(Dictionary<string, (long rttMs, int ttl)> hosts) => new(hosts, null);
+
+        public static SweepResult Fail(string error, Dictionary<string, (long rttMs, int ttl)>? partial = null) =>
+            new(partial ?? new Dictionary<string, (long, int)>(), error);
+    }
+
     public interface INetworkService
     {
         Task<List<NetworkAdapter>> GetNetworkAdaptersAsync();
         Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName = "", CancellationToken ct = default);
         Task<HostInfo> PingHostAsync(string hostOrIp, string adapterName, string srcIp, CancellationToken ct = default);
-        // Sweeps all IPs on one bound raw socket. Returns responsive IP -> (rttMs, ttl).
-        Task<Dictionary<string, (long rttMs, int ttl)>> PingSweepBoundAsync(
+        // Sweeps all IPs on one bound raw socket. Returns responsive IP -> (rttMs, ttl),
+        // plus an Error when the sweep itself couldn't run (no admin, AV blocking raw
+        // sockets, adapter removed) — callers MUST surface that instead of reporting
+        // an empty result as a completed scan.
+        Task<SweepResult> PingSweepBoundAsync(
             IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct = default);
         Task<Dictionary<string, string>> GetArpTableAsync();
         Dictionary<string, string> GetArpTableNative();
@@ -36,7 +58,16 @@ namespace M1Scan.Services
 
     public class NetworkService : INetworkService
     {
-        private readonly Dictionary<string, string> _dnsCache = new(StringComparer.OrdinalIgnoreCase);
+        // ConcurrentDictionary, IKKE Dictionary: cachen læses og skrives af op til 150
+        // samtidige opslag under et sweep. Samtidige writes til en almindelig Dictionary
+        // korrupterer bucket-kæden, hvilket typisk viser sig som et permanent 100 %
+        // CPU-spin i FindEntry — ikke som en exception.
+        private readonly ConcurrentDictionary<string, string> _dnsCache = new(StringComparer.OrdinalIgnoreCase);
+
+        // Loft på cachen. En scanning af et /24 giver ~254 entries, så grænsen rammes
+        // først efter mange scanninger; TryRemove i stedet for Clear() undgår at rive
+        // hele cachen væk under igangværende opslag.
+        private const int DnsCacheMaxEntries = 10_000;
 
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
         private static extern int SendARP(int destIp, int srcIp, byte[] macAddr, ref uint macAddrLen);
@@ -320,9 +351,13 @@ namespace M1Scan.Services
             if (_dnsCache.TryGetValue(ip, out var cached))
                 return cached;
 
-            // Prevent unbounded cache growth on repeated scans
-            if (_dnsCache.Count > 10000)
-                _dnsCache.Clear();
+            // Hold cachen bounded uden at smide igangværende opslag væk: fjern
+            // enkelte ældre nøgler i stedet for at Clear()'e hele tabellen.
+            if (_dnsCache.Count > DnsCacheMaxEntries)
+            {
+                foreach (var key in _dnsCache.Keys.Take(_dnsCache.Count - DnsCacheMaxEntries + 1))
+                    _dnsCache.TryRemove(key, out _);
+            }
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeoutMs);
@@ -333,9 +368,19 @@ namespace M1Scan.Services
                 _dnsCache[ip] = hostname;
                 return hostname;
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // Kalderen annullerede — cache IKKE et negativt resultat, ellers
+                // husker vi "intet navn" for en host vi aldrig fik spurgt om.
+                throw;
+            }
             catch
             {
-                _dnsCache[ip] = ip;
+                // Cache IKKE fejl. Et mislykket opslag betyder ikke at værten er
+                // navnløs — med 800 ms timeout og 150 samtidige opslag er et
+                // forbigående timeout almindeligt, og et negativt cache-hit ville
+                // fastlåse "intet navn" for resten af processens levetid, også ved
+                // "Tilføj scan" og efterfølgende scanninger.
                 return ip;
             }
         }
@@ -345,27 +390,49 @@ namespace M1Scan.Services
         // the destination) and one receive loop matches replies back — far cheaper than one
         // socket per host, and avoids cross-talk where one socket steals another's reply.
         // Returns a dictionary of responsive IP -> (rttMs, ttl). Requires admin (app has it).
-        private static Dictionary<string, (long rttMs, int ttl)> IcmpSweepBound(
+        // Kun ét sweep ad gangen: en rå ICMP-socket bundet til en adresse modtager ALLE
+        // ICMP-svar til den adresse, også svar der hører til et andet, samtidigt sweep.
+        // Et fremmed svar bliver kasseret (ikke lagt tilbage), så den rette ejer taber
+        // sit svar. Kommentaren her stod tidligere som om én delt socket løste det —
+        // det gør den ikke; serialisering gør.
+        private static readonly SemaphoreSlim _sweepGate = new(1, 1);
+
+        // Sweep-id: skal være unikt pr. sweep. Tidligere brugtes
+        // Environment.CurrentManagedThreadId, men thread-pool-id'er genbruges, så to
+        // sweeps kunne ende med samme id og krydsmatche hinandens svar.
+        private static int _sweepIdCounter = Random.Shared.Next(ushort.MaxValue);
+
+        private static SweepResult IcmpSweepBound(
             IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct)
         {
-            var result = new Dictionary<string, (long, int)>();
-            if (!IPAddress.TryParse(srcIp, out var srcAddr)) return result;
+            var result = new Dictionary<string, (long rttMs, int ttl)>();
+            if (!IPAddress.TryParse(srcIp, out var srcAddr))
+                return SweepResult.Fail($"Ugyldig kilde-IP: '{srcIp}'");
 
             // Map sequence number -> destination IP + send timestamp, so replies can be matched.
             var pending = new Dictionary<ushort, (string ip, long sentTicks)>();
             var ipList = ips.Where(x => IPAddress.TryParse(x, out _)).ToList();
+            if (ipList.Count == 0) return SweepResult.Ok(result);
 
+            // seq er 16 bit — flere end 65535 mål ville wrappe og overskrive pending-
+            // entries, så svar blev matchet til den forkerte host.
+            if (ipList.Count > ushort.MaxValue)
+                return SweepResult.Fail($"For mange mål i ét sweep ({ipList.Count}); maks. {ushort.MaxValue}.");
+
+            _sweepGate.Wait(ct);
             Socket? sock = null;
             try
             {
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Icmp);
                 sock.Bind(new IPEndPoint(srcAddr, 0));
 
-                ushort id = (ushort)(Environment.CurrentManagedThreadId & 0xFFFF);
+                ushort id = (ushort)(Interlocked.Increment(ref _sweepIdCounter) & 0xFFFF);
                 var sw = System.Diagnostics.Stopwatch.StartNew();
 
                 // ---- Send phase: fire an echo request for every IP ----
                 ushort seq = 0;
+                int sendFailures = 0;
+                Exception? lastSendError = null;
                 foreach (var ip in ipList)
                 {
                     if (ct.IsCancellationRequested) break;
@@ -379,15 +446,30 @@ namespace M1Scan.Services
 
                     pending[seq] = (ip, sw.ElapsedTicks);
                     try { sock.SendTo(packet, new IPEndPoint(destAddr, 0)); }
-                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"ICMP send to {ip} failed: {ex.Message}"); }
+                    catch (Exception ex)
+                    {
+                        sendFailures++;
+                        lastSendError = ex;
+                        System.Diagnostics.Debug.WriteLine($"ICMP send to {ip} failed: {ex.Message}");
+                    }
                     seq++;
                 }
 
+                // Kunne INTET sendes, er det en reel fejl — ikke et tomt netværk.
+                if (sendFailures == ipList.Count)
+                    return SweepResult.Fail(
+                        $"Ingen ICMP-pakker kunne sendes ({lastSendError?.Message}). " +
+                        "Tjek firewall/antivirus og at adapteren er aktiv.");
+
                 // ---- Receive phase: collect replies until timeout or all matched ----
+                // Deadline måles fra HER, ikke fra før send-fasen. Med en fælles
+                // budget-klokke fik de sidste IP'er i listen kun nogle få ms tilbage,
+                // så høje adresser systematisk faldt igennem fase 1.
+                var recvSw = System.Diagnostics.Stopwatch.StartNew();
                 var buf = new byte[1024];
                 while (pending.Count > result.Count && !ct.IsCancellationRequested)
                 {
-                    long remainingMs = timeoutMs - sw.ElapsedMilliseconds;
+                    long remainingMs = timeoutMs - recvSw.ElapsedMilliseconds;
                     if (remainingMs <= 0) break;
                     sock.ReceiveTimeout = (int)Math.Min(remainingMs, timeoutMs);
 
@@ -408,10 +490,24 @@ namespace M1Scan.Services
                     var rttMs = (sw.ElapsedTicks - info.sentTicks) * 1000 / System.Diagnostics.Stopwatch.Frequency;
                     result[info.ip] = (rttMs, ttl);
                 }
-                return result;
+                return SweepResult.Ok(result);
             }
-            catch { return result; }
-            finally { sock?.Dispose(); }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AccessDenied)
+            {
+                return SweepResult.Fail(
+                    "Raw-socket blev nægtet. Kør M1Scan som administrator, og tjek om " +
+                    "antivirus/firewall blokerer rå ICMP.", result);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                return SweepResult.Fail($"Ping-sweep fejlede: {ex.Message}", result);
+            }
+            finally
+            {
+                sock?.Dispose();
+                _sweepGate.Release();
+            }
         }
 
         private static ushort IcmpChecksum(byte[] data)
@@ -429,7 +525,7 @@ namespace M1Scan.Services
                                             CancellationToken ct = default)
             => PingHostAsync(hostOrIp, adapterName, string.Empty, ct);
 
-        public Task<Dictionary<string, (long rttMs, int ttl)>> PingSweepBoundAsync(
+        public Task<SweepResult> PingSweepBoundAsync(
             IEnumerable<string> ips, string srcIp, int timeoutMs, CancellationToken ct = default)
             => Task.Run(() => IcmpSweepBound(ips, srcIp, timeoutMs, ct), ct);
 
@@ -450,7 +546,13 @@ namespace M1Scan.Services
                 {
                     var sweep = await Task.Run(
                         () => IcmpSweepBound(new[] { hostOrIp }, srcIp, 600, ct), ct);
-                    bool ok = sweep.TryGetValue(hostOrIp, out var r);
+
+                    // Kunne sweep'et slet ikke køre, er "ingen svar" ikke en konklusion —
+                    // sig hvorfor, så TCP-fallbacket nedenfor ikke maskerer årsagen.
+                    if (sweep.Failed)
+                        hostInfo.Status = sweep.Error!;
+
+                    bool ok = sweep.Hosts.TryGetValue(hostOrIp, out var r);
                     long rtt = ok ? r.rttMs : 0;
                     int ttl = ok ? r.ttl : 0;
                     if (ok)

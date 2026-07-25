@@ -70,22 +70,24 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _isLoading, value);
         }
 
-        public RelayCommand AddCommand { get; }
-        public RelayCommand RemoveCommand { get; }
-        public RelayCommand LookupCommand { get; }
-        public RelayCommand RefreshCommand { get; }
+        public AsyncRelayCommand AddCommand { get; }
+        public AsyncRelayCommand RemoveCommand { get; }
+        public AsyncRelayCommand LookupCommand { get; }
+        public AsyncRelayCommand RefreshCommand { get; }
 
         public MacAliasViewModel(IMacAliasService macAliasService)
         {
             _macAliasService = macAliasService;
 
-            AddCommand = new RelayCommand(async _ => await AddAliasAsync(), _ => !string.IsNullOrWhiteSpace(MacInput));
-            RemoveCommand = new RelayCommand(async param => await RemoveAliasAsync(param as MacAliasEntry));
-            LookupCommand = new RelayCommand(async param => await LookupAliasAsync(param as MacAliasEntry));
-            RefreshCommand = new RelayCommand(async _ => await RefreshAsync());
+            AddCommand = new AsyncRelayCommand(_ => AddAliasAsync(), _ => !string.IsNullOrWhiteSpace(MacInput), OnCommandError);
+            RemoveCommand = new AsyncRelayCommand(param => RemoveAliasAsync(param as MacAliasEntry), onError: OnCommandError);
+            LookupCommand = new AsyncRelayCommand(param => LookupAliasAsync(param as MacAliasEntry), onError: OnCommandError);
+            RefreshCommand = new AsyncRelayCommand(_ => RefreshAsync(), onError: OnCommandError);
 
-            _ = RefreshAsync();
+            RefreshCommand.Execute(null);
         }
+
+        private void OnCommandError(Exception ex) => StatusMessage = $"Fejl: {ex.Message}";
 
         private async Task RefreshAsync()
         {

@@ -602,10 +602,17 @@ namespace M1Scan.ViewModels
         {
             if (string.IsNullOrEmpty(_myAdapterSystemName)) return;
             IsDhcpBusy = true;
-            await _ipConfigService.SetDhcpAsync(_myAdapterSystemName);
-            await Task.Delay(1500);
-            RefreshMyIp();
-            IsDhcpBusy = false;
+            try
+            {
+                var result = await _ipConfigService.SetDhcpAsync(_myAdapterSystemName);
+                StatusMessage = result.Message;
+                await Task.Delay(1500);
+                RefreshMyIp();
+            }
+            finally
+            {
+                IsDhcpBusy = false;
+            }
         }
 
         private async Task PingGatewayAsync(string gateway)

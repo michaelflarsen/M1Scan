@@ -89,23 +89,25 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _statusMessage, value);
         }
 
-        public RelayCommand ApplyStaticIpCommand { get; }
-        public RelayCommand ApplyDhcpCommand { get; }
-        public RelayCommand FlushDnsCommand { get; }
-        public RelayCommand RefreshAdaptersCommand { get; }
+        public AsyncRelayCommand ApplyStaticIpCommand { get; }
+        public AsyncRelayCommand ApplyDhcpCommand { get; }
+        public AsyncRelayCommand FlushDnsCommand { get; }
+        public AsyncRelayCommand RefreshAdaptersCommand { get; }
 
         public IpConfigViewModel(IIpConfigService ipConfigService, INetworkService networkService)
         {
             _ipConfigService = ipConfigService;
             _networkService = networkService;
 
-            ApplyStaticIpCommand = new RelayCommand(async _ => await ApplyStaticIpAsync(), _ => !IsConfiguring && !IsDhcp && SelectedAdapter != null);
-            ApplyDhcpCommand = new RelayCommand(async _ => await ApplyDhcpAsync(), _ => !IsConfiguring && SelectedAdapter != null);
-            FlushDnsCommand = new RelayCommand(async _ => await FlushDnsAsync(), _ => !IsConfiguring);
-            RefreshAdaptersCommand = new RelayCommand(async _ => await RefreshAdaptersAsync());
+            ApplyStaticIpCommand = new AsyncRelayCommand(_ => ApplyStaticIpAsync(), _ => !IsConfiguring && !IsDhcp && SelectedAdapter != null, OnCommandError);
+            ApplyDhcpCommand = new AsyncRelayCommand(_ => ApplyDhcpAsync(), _ => !IsConfiguring && SelectedAdapter != null, OnCommandError);
+            FlushDnsCommand = new AsyncRelayCommand(_ => FlushDnsAsync(), _ => !IsConfiguring, OnCommandError);
+            RefreshAdaptersCommand = new AsyncRelayCommand(_ => RefreshAdaptersAsync(), onError: OnCommandError);
 
-            _ = RefreshAdaptersAsync();
+            RefreshAdaptersCommand.Execute(null);
         }
+
+        private void OnCommandError(Exception ex) => StatusMessage = $"Fejl: {ex.Message}";
 
         private async Task RefreshAdaptersAsync()
         {
@@ -148,14 +150,14 @@ namespace M1Scan.ViewModels
 
             try
             {
-                bool success = await _ipConfigService.SetStaticIpAsync(
+                var result = await _ipConfigService.SetStaticIpAsync(
                     SelectedAdapter.Name,
                     IpAddress,
                     SubnetMask,
                     Gateway ?? "0.0.0.0"
                 );
 
-                StatusMessage = success ? "Static IP applied successfully" : "Failed to apply static IP";
+                StatusMessage = result.Message;
             }
             catch (Exception ex)
             {
@@ -176,8 +178,8 @@ namespace M1Scan.ViewModels
 
             try
             {
-                bool success = await _ipConfigService.SetDhcpAsync(SelectedAdapter.Name);
-                StatusMessage = success ? "DHCP applied successfully" : "Failed to apply DHCP";
+                var result = await _ipConfigService.SetDhcpAsync(SelectedAdapter.Name);
+                StatusMessage = result.Message;
             }
             catch (Exception ex)
             {
@@ -196,8 +198,8 @@ namespace M1Scan.ViewModels
 
             try
             {
-                string result = await _ipConfigService.FlushDnsAsync();
-                StatusMessage = string.IsNullOrEmpty(result) ? "DNS flushed successfully" : result;
+                var result = await _ipConfigService.FlushDnsAsync();
+                StatusMessage = result.Message;
             }
             catch (Exception ex)
             {

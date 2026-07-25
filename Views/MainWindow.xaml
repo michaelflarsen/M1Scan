@@ -1027,8 +1027,10 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <!-- Hostname — stretches with window -->
-                            <DataGridTextColumn Header="Hostname" Binding="{Binding HostName}" Width="2*" MinWidth="80">
+                            <!-- Hostname — stretches with window.
+                                 DisplayName falder tilbage til NetBIOS-navnet når
+                                 reverse-DNS ikke gav noget (se HostInfo.DisplayName). -->
+                            <DataGridTextColumn Header="Hostname" Binding="{Binding DisplayName}" Width="2*" MinWidth="80">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground"     Value="{StaticResource DarkForegroundBrush}"/>

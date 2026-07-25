@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -19,14 +20,29 @@ namespace M1Scan.Services
     public class MacAliasService : IMacAliasService
     {
         private readonly string _filePath;
-        private Dictionary<string, string> _aliases = new(StringComparer.OrdinalIgnoreCase);
+
+        // ConcurrentDictionary, IKKE Dictionary: Lookup() kaldes fra alle scan-tråde
+        // via den statiske OuiLookup, mens UI-tråden muterer tabellen i
+        // AddOrUpdateAsync/RemoveAsync. Samtidig read+write på en almindelig
+        // Dictionary kan korruptere den og give et permanent CPU-spin.
+        private ConcurrentDictionary<string, string> _aliases = new(StringComparer.OrdinalIgnoreCase);
 
         public MacAliasService()
         {
             var appDataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "M1Scan");
-            Directory.CreateDirectory(appDataPath);
+
+            // Constructoren kaldes fra MainViewModel's constructor, som kaldes fra
+            // MainWindow's constructor. En I/O-fejl her (offline roaming-profil,
+            // ACL-problem) må ikke forhindre appen i at starte — aliaser er en
+            // valgfri funktion, ikke en forudsætning. SaveAsync opretter mappen igen.
+            try { Directory.CreateDirectory(appDataPath); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"MacAliasService: kunne ikke oprette {appDataPath}: {ex.Message}");
+            }
+
             _filePath = Path.Combine(appDataPath, "mac-aliases.json");
         }
 
@@ -41,8 +57,10 @@ namespace M1Scan.Services
                 }
 
                 var json = await File.ReadAllTextAsync(_filePath);
-                _aliases = JsonSerializer.Deserialize<Dictionary<string, string>>(json)
-                    ?? new(StringComparer.OrdinalIgnoreCase);
+                var loaded = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                _aliases = loaded is null
+                    ? new(StringComparer.OrdinalIgnoreCase)
+                    : new(loaded, StringComparer.OrdinalIgnoreCase);
             }
             catch (Exception ex)
             {
@@ -55,8 +73,15 @@ namespace M1Scan.Services
         {
             try
             {
+                Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
                 var json = JsonSerializer.Serialize(_aliases, new JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(_filePath, json);
+
+                // Skriv til en temp-fil og byt ind: File.WriteAllTextAsync trunkerer
+                // først, så et crash midt i skrivningen ville efterlade en tom/halv
+                // aliasfil i stedet for den forrige, brugbare version.
+                var tmp = _filePath + ".tmp";
+                await File.WriteAllTextAsync(tmp, json);
+                File.Move(tmp, _filePath, overwrite: true);
             }
             catch (Exception ex)
             {
@@ -80,7 +105,7 @@ namespace M1Scan.Services
         public async Task RemoveAsync(string macPrefix)
         {
             var normalized = macPrefix.Replace(":", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-            if (_aliases.Remove(normalized))
+            if (_aliases.TryRemove(normalized, out _))
                 await SaveAsync();
         }
 
@@ -102,6 +127,8 @@ namespace M1Scan.Services
             return null;
         }
 
-        public Dictionary<string, string> GetAll() => new(_aliases);
+        // Snapshot — bevarer den case-insensitive comparer, så kaldere ser samme
+        // opslagssemantik som servicen selv.
+        public Dictionary<string, string> GetAll() => new(_aliases, StringComparer.OrdinalIgnoreCase);
     }
 }

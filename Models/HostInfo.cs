@@ -14,11 +14,39 @@ namespace M1Scan.Models
         private DateTime _lastSeen = DateTime.Now;
         private string _adapterName = string.Empty;
 
-        public string HostName { get => _hostName; set => SetProperty(ref _hostName, value); }
+        public string HostName
+        {
+            get => _hostName;
+            set { if (SetProperty(ref _hostName, value)) OnPropertyChanged(nameof(DisplayName)); }
+        }
+
+        /// <summary>
+        /// Navnet der vises i Scan-tabellen. Reverse-DNS svigter for de fleste
+        /// LAN-enheder (routeren udleverer sjældent PTR-records for DHCP-klienter),
+        /// og så stod kolonnen med en rå IP selvom NetBIOS-opslaget faktisk havde
+        /// fundet et navn — resultatet blev hentet og derefter smidt væk visuelt.
+        /// Rækkefølge: DNS-navn → NetBIOS-navn → IP.
+        /// </summary>
+        public string DisplayName
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(_hostName) && _hostName != _ipAddress)
+                    return _hostName;
+                if (!string.IsNullOrWhiteSpace(_netBiosName))
+                    return _netBiosName;
+                return _ipAddress;
+            }
+        }
         public string IpAddress
         {
             get => _ipAddress;
-            set { if (SetProperty(ref _ipAddress, value)) OnPropertyChanged(nameof(IpSortValue)); }
+            set
+            {
+                if (!SetProperty(ref _ipAddress, value)) return;
+                OnPropertyChanged(nameof(IpSortValue));
+                OnPropertyChanged(nameof(DisplayName));
+            }
         }
 
         public uint IpSortValue
@@ -50,10 +78,29 @@ namespace M1Scan.Models
         private bool _isPort502Open;
 
         public string OsGuess { get => _osGuess; set => SetProperty(ref _osGuess, value); }
-        public string Vendor { get => _vendor; set => SetProperty(ref _vendor, value); }
-        public string OriginalVendor { get => _originalVendor; set => SetProperty(ref _originalVendor, value); }
+
+        // Vendor/OriginalVendor sættes under berigelsen, altså EFTER at rækken er
+        // bundet. IsAlias er afledt af dem, så begge skal notificere den — ellers
+        // genberegnes alias-triggeren kun når DataGrid'et tilfældigvis re-realiserer
+        // rækken (virtualisering), og markeringen bliver dermed vilkårlig.
+        public string Vendor
+        {
+            get => _vendor;
+            set { if (SetProperty(ref _vendor, value)) OnPropertyChanged(nameof(IsAlias)); }
+        }
+
+        public string OriginalVendor
+        {
+            get => _originalVendor;
+            set { if (SetProperty(ref _originalVendor, value)) OnPropertyChanged(nameof(IsAlias)); }
+        }
+
         public bool IsAlias => !string.IsNullOrEmpty(_vendor) && _vendor != _originalVendor;
-        public string NetBiosName { get => _netBiosName; set => SetProperty(ref _netBiosName, value); }
+        public string NetBiosName
+        {
+            get => _netBiosName;
+            set { if (SetProperty(ref _netBiosName, value)) OnPropertyChanged(nameof(DisplayName)); }
+        }
 
         public bool IsPort80Open
         {
