@@ -87,6 +87,18 @@ namespace M1Scan.Tests.Services
         }
 
         [Fact]
+        public async Task NonHexTwelveCharacterStringIsRejected()
+        {
+            // 12 tegn men ikke hex — et rent længdetjek ville acceptere dette,
+            // men det er ikke en gyldig MAC.
+            var svc = new DeviceNameService();
+
+            await svc.SetAsync("GGGGGGGGGGGG", "Skal ikke gemmes");
+
+            Assert.Null(svc.Lookup("GGGGGGGGGGGG"));
+        }
+
+        [Fact]
         public void LookupOfUnknownMacReturnsNull()
         {
             Assert.Null(new DeviceNameService().Lookup(RandomMac()));

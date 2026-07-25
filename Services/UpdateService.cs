@@ -57,8 +57,12 @@ namespace M1Scan.Services
         };
 
         // Release-noterne skal indeholde en linje med "SHA256: <64 hex>".
+        // Negativ lookahead (?![0-9a-fA-F]) forhindrer at et 65.+ tegn langt
+        // hex-stykke matches som en (trunkeret, forkert) 64-tegns hash — uden
+        // grænsen ville "SHA256: <65 hex-tegn>" matche de første 64 og give en
+        // hash der IKKE er den der reelt blev skrevet.
         private static readonly Regex Sha256Pattern =
-            new(@"SHA-?256\s*[:=]\s*([0-9a-fA-F]{64})", RegexOptions.Compiled);
+            new(@"SHA-?256\s*[:=]\s*([0-9a-fA-F]{64})(?![0-9a-fA-F])", RegexOptions.Compiled);
 
         // API-kaldet er en lille JSON-respons — 8s timeout er rigelig.
         private static readonly HttpClient _apiHttp = new() { Timeout = TimeSpan.FromSeconds(8) };

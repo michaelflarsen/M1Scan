@@ -198,5 +198,43 @@ namespace M1Scan.Tests.Services
             var result = NetworkService.ParsePtrAnswer(msg);
             Assert.NotNull(result);
         }
+
+        // ── SanitizeMdnsName ──────────────────────────────────────────────────
+        //
+        // Svaret kommer fra en vilkårlig enhed på netværkssegmentet (kilde-IP'en
+        // tjekkes, men kan i princippet spoofes på samme L2), så det behandles som
+        // fjendtligt input — samme princip som GeoIpService.Sanitize bruger.
+
+        [Fact]
+        public void SanitizeMdnsName_PassesThroughOrdinaryName()
+        {
+            Assert.Equal("TechnoBunker.local", NetworkService.SanitizeMdnsName("TechnoBunker.local"));
+        }
+
+        [Fact]
+        public void SanitizeMdnsName_StripsControlCharacters()
+        {
+            var withControlChars = "TechnoBunker .local";
+            Assert.Equal("TechnoBunker.local", NetworkService.SanitizeMdnsName(withControlChars));
+        }
+
+        [Fact]
+        public void SanitizeMdnsName_CapsLength()
+        {
+            // Et enkelt UDP-svar med sammenkædede, ukomprimerede labels kunne
+            // indeholde et urimeligt langt "navn" — uden en grænse ender det
+            // direkte i HostInfo.HostName, UI'et og en evt. CSV-eksport.
+            var tooLong = new string('A', 1000);
+            var result = NetworkService.SanitizeMdnsName(tooLong);
+
+            Assert.True(result.Length <= 255);
+        }
+
+        [Fact]
+        public void SanitizeMdnsName_EmptyOrWhitespaceReturnsEmpty()
+        {
+            Assert.Equal(string.Empty, NetworkService.SanitizeMdnsName(""));
+            Assert.Equal(string.Empty, NetworkService.SanitizeMdnsName("   "));
+        }
     }
 }

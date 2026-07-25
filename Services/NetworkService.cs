@@ -459,7 +459,7 @@ namespace M1Scan.Services
                         // på segmentet navngive en host den ikke ejer.
                         if (!remote.Address.Equals(target)) continue;
 
-                        var name = ParsePtrAnswer(response);
+                        var name = SanitizeMdnsName(ParsePtrAnswer(response));
                         if (!string.IsNullOrEmpty(name)) return name;
                     }
                 }
@@ -470,6 +470,31 @@ namespace M1Scan.Services
 
         private static readonly IPAddress MdnsGroup = IPAddress.Parse("224.0.0.251");
         private const int MdnsPort = 5353;
+
+        // DNS-navne er maks. 255 oktetter i alt; det er en generøs, men konkret grænse.
+        private const int MaxMdnsNameLength = 255;
+
+        /// <summary>
+        /// Gør et navn fra et mDNS-svar sikkert at vise og eksportere. Svaret kommer
+        /// fra en vilkårlig enhed på netværkssegmentet (kilde-IP'en tjekkes, men kan i
+        /// princippet spoofes på samme L2), så det behandles som fjendtligt input —
+        /// samme princip som GeoIpService.Sanitize bruger på sit HTTP-svar. Uden dette
+        /// kunne et enkelt UDP-svar med sammenkædede, ukomprimerede labels indeholde et
+        /// urimeligt langt "navn" der lander direkte i HostInfo.HostName, UI'et og en
+        /// evt. CSV-eksport.
+        /// </summary>
+        internal static string SanitizeMdnsName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+
+            var cleaned = new string(name
+                .Where(ch => !char.IsControl(ch))
+                .Take(MaxMdnsNameLength)
+                .ToArray())
+                .Trim();
+
+            return cleaned;
+        }
 
         /// <summary>Bygger en DNS-PTR-forespørgsel for "&lt;d.c.b.a&gt;.in-addr.arpa".</summary>
         private static byte[] BuildReversePtrQuery(IPAddress target)

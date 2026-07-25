@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -103,7 +104,13 @@ namespace M1Scan.Services
         public async Task SetAsync(string mac, string? name)
         {
             var key = Normalize(mac);
-            if (key.Length != 12) return; // kun en fuld MAC identificerer én enhed
+
+            // Kun en fuld, gyldig MAC (12 hex-tegn) identificerer én enhed. Længde-
+            // tjekket alene ville fx acceptere "GGGGGGGGGGGG" som en gyldig nøgle —
+            // ufarligt med de kaldesteder der findes i dag (alle giver mac fra
+            // host.MacAddress, som appen selv formaterer fra ARP-tabellen), men
+            // metoden er public API på servicen og bør ikke stole på det.
+            if (key.Length != 12 || !key.All(Uri.IsHexDigit)) return;
 
             var trimmed = name?.Trim();
             if (string.IsNullOrEmpty(trimmed)) _names.TryRemove(key, out _);

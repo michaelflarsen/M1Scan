@@ -341,6 +341,18 @@ namespace M1Scan.ViewModels
         {
             var ip = NewIpInput.Trim();
             if (string.IsNullOrWhiteSpace(ip)) return;
+
+            // Uden dette tjek endte fri tekst i PingEntry.IpAddress, som senere
+            // bygges direkte ind i "http://{IpAddress}" af OpenUrl (se WorkspaceView.xaml)
+            // uden yderligere validering. BulkAdd er allerede beskyttet af sin
+            // canExecute (IPAddress.TryParse på BulkBase); AddEntry manglede
+            // tilsvarende.
+            if (!IPAddress.TryParse(ip, out _))
+            {
+                StatusMessage = $"Ugyldig IP-adresse: '{ip}'";
+                return;
+            }
+
             if (WatchList.Any(e => e.IpAddress == ip)) return;
             WatchList.Add(new PingEntry { IpAddress = ip, Description = NewDescription.Trim() });
             NewIpInput     = string.Empty;
