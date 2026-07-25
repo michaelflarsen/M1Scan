@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Security.Principal;
 using System.Threading.Tasks;
 using System.Windows;
@@ -45,10 +46,31 @@ namespace M1Scan
             // ned ved næste GC på ældre runtime-konfigurationer.
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
-                CrashLog.Write("UnobservedTask", args.Exception);
+                // SetObserved() FØRST: selv hvis logningen skulle fejle, må fejlen
+                // ikke ende med at vælte processen.
                 args.SetObserved();
+
+                // Forventet netværksstøj logges ikke. Et scan laver hundredvis af
+                // opslag mod hosts der ikke svarer; uden dette filter ville crash.log
+                // fyldes med "værten kendes ikke" og skjule de reelle fejl.
+                if (IsExpectedNetworkNoise(args.Exception)) return;
+
+                CrashLog.Write("UnobservedTask", args.Exception);
             };
         }
+
+        /// <summary>
+        /// Er alle fejl i aggregatet forventede konsekvenser af at scanne et netværk?
+        /// Et scan rører hundredvis af adresser der ikke svarer, ikke har reverse-DNS
+        /// eller lukker forbindelsen — det er normal drift, ikke en programfejl.
+        /// </summary>
+        private static bool IsExpectedNetworkNoise(AggregateException aggregate) =>
+            aggregate.Flatten().InnerExceptions.Count > 0 &&
+            aggregate.Flatten().InnerExceptions.All(ex => ex
+                is System.Net.Sockets.SocketException
+                or OperationCanceledException
+                or System.Net.NetworkInformation.PingException
+                or System.IO.IOException);
 
         private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {

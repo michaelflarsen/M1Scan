@@ -86,8 +86,19 @@ namespace M1Scan.Services
         //   [40] UCHAR PhysicalAddress[32]
         //   [72] ULONG PhysicalAddressLength
         //   [76] DWORD State  (6 = NlnsPermanent = self/broadcast, skip)
+        //
+        // Offsets og størrelse er hårdkodede fordi rækken læses felt-for-felt med
+        // Marshal frem for en [StructLayout]-struct. 88 bytes gælder x64 og ARM64.
+        // Ændrer layoutet sig (eller bygges der for en anden arkitektur), læser vi
+        // vilkårlig hukommelse som IP'er og MAC'er — derfor en sanity-check nedenfor
+        // i stedet for at stole blindt på tallet.
         private const int RowSize = 88;
         private const int TableHeaderSize = 8;
+
+        // Øvre grænse for hvor mange rækker vi accepterer at tabellen påstår at have.
+        // NumEntries læses fra unmanaged hukommelse; en urimelig værdi (korrupt eller
+        // uventet layout) ville ellers sende løkken langt uden for tabellen.
+        private const int MaxArpRows = 100_000;
 
         // Try to get MAC from Windows netsh arp table as fallback
         private static string GetMacFromNetshFallback(string ipAddress)
@@ -129,11 +140,33 @@ namespace M1Scan.Services
         private static Dictionary<string, string> ReadArpCacheNative()
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (GetIpNetTable2(2 /* AF_INET */, out IntPtr ptr) != 0 || ptr == IntPtr.Zero)
+
+            uint status = GetIpNetTable2(2 /* AF_INET */, out IntPtr ptr);
+
+            // Returnerer API'et en fejl MEN alligevel en tabel, skal den stadig frigives.
+            // Den gamle kombinerede betingelse returnerede før try/finally og lækkede
+            // dermed tabellen i netop det tilfælde.
+            if (status != 0)
+            {
+                if (ptr != IntPtr.Zero) FreeMibTable(ptr);
                 return result;
+            }
+            if (ptr == IntPtr.Zero) return result;
+
             try
             {
                 int count = Marshal.ReadInt32(ptr, 0);
+
+                // Urimeligt antal = vi læser ikke det layout vi tror. Stop hellere med
+                // et tomt resultat (kalderen falder tilbage til SendARP/netsh) end at
+                // parse tilfældig hukommelse som netværksdata.
+                if (count < 0 || count > MaxArpRows)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"ReadArpCacheNative: urimeligt NumEntries ({count}) — springer over.");
+                    return result;
+                }
+
                 for (int i = 0; i < count; i++)
                 {
                     IntPtr row = ptr + TableHeaderSize + i * RowSize;
@@ -381,7 +414,21 @@ namespace M1Scan.Services
             cts.CancelAfter(timeoutMs);
             try
             {
-                var entry = await Dns.GetHostEntryAsync(ip, AddressFamily.Unspecified, cts.Token);
+                var lookup = Dns.GetHostEntryAsync(ip, AddressFamily.Unspecified, cts.Token);
+
+                // Token'et afbryder ikke selve resolver-kaldet — det opgiver blot at
+                // vente på det. Den forladte opgave fejler så bagefter (typisk
+                // "værten kendes ikke") uden at nogen ser fejlen, og .NET rejser
+                // UnobservedTaskException fra finalizer-tråden. Med 254 opslag pr. scan
+                // fyldte det crash-loggen med forventede DNS-fejl.
+                // Denne continuation markerer fejlen som observeret.
+                _ = lookup.ContinueWith(
+                    static t => { _ = t.Exception; },
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+
+                var entry = await lookup;
                 var hostname = entry.HostName;
                 _dnsCache[ip] = hostname;
                 return hostname;
