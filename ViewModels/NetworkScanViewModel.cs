@@ -21,6 +21,7 @@ namespace M1Scan.ViewModels
         private readonly INetworkService _networkService;
         private readonly IExportService _exportService;
         private readonly IDeviceNameService _deviceNameService;
+        private readonly IHistoryService _historyService;
         private readonly DispatcherTimer _autoRefreshTimer;
 
         private ObservableCollection<HostInfo> _discoveredHosts = new();
@@ -228,11 +229,12 @@ namespace M1Scan.ViewModels
         public AsyncRelayCommand RenameHostCommand { get; }
 
         public NetworkScanViewModel(INetworkService networkService, IExportService exportService,
-                                     IDeviceNameService deviceNameService)
+                                     IDeviceNameService deviceNameService, IHistoryService historyService)
         {
             _networkService = networkService;
             _exportService = exportService;
             _deviceNameService = deviceNameService;
+            _historyService = historyService;
 
             _autoRefreshTimer = new DispatcherTimer();
 
@@ -1026,6 +1028,12 @@ namespace M1Scan.ViewModels
                 var total = DiscoveredHosts.Count(h => h.IsReachable);
                 var elapsed = DateTime.UtcNow - _scanStartTime;
                 ScanElapsedTime = $"{elapsed.TotalSeconds:F1}s";
+
+                // Fire-and-forget: et scan må aldrig blive langsommere eller fejle
+                // fordi historik-skrivningen er langsom — HistoryService fanger selv
+                // alle sine fejl og logger dem til CrashLog.
+                _ = _historyService.RecordScanAsync(DateTimeOffset.UtcNow,
+                    DiscoveredHosts.Count, total, wasComplete: sweepError is null);
 
                 // Fejlede ping-sweep'et, må resultatet IKKE præsenteres som en færdig
                 // scanning — "0 online" ville da betyde "vi kunne ikke spørge", ikke

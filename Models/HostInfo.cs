@@ -18,7 +18,7 @@ namespace M1Scan.Models
         public string HostName
         {
             get => _hostName;
-            set { if (SetProperty(ref _hostName, value)) OnPropertyChanged(nameof(DisplayName)); }
+            set { if (SetProperty(ref _hostName, value)) { OnPropertyChanged(nameof(DisplayName)); NotifyCategoryChanged(); } }
         }
 
         /// <summary>
@@ -107,7 +107,11 @@ namespace M1Scan.Models
         private bool _isPort8080Open;
         private bool _isPort502Open;
 
-        public string OsGuess { get => _osGuess; set => SetProperty(ref _osGuess, value); }
+        public string OsGuess
+        {
+            get => _osGuess;
+            set { if (SetProperty(ref _osGuess, value)) NotifyCategoryChanged(); }
+        }
 
         // Vendor/OriginalVendor sættes under berigelsen, altså EFTER at rækken er
         // bundet. IsAlias er afledt af dem, så begge skal notificere den — ellers
@@ -116,7 +120,7 @@ namespace M1Scan.Models
         public string Vendor
         {
             get => _vendor;
-            set { if (SetProperty(ref _vendor, value)) OnPropertyChanged(nameof(IsAlias)); }
+            set { if (SetProperty(ref _vendor, value)) { OnPropertyChanged(nameof(IsAlias)); NotifyCategoryChanged(); } }
         }
 
         public string OriginalVendor
@@ -129,28 +133,42 @@ namespace M1Scan.Models
         public string NetBiosName
         {
             get => _netBiosName;
-            set { if (SetProperty(ref _netBiosName, value)) OnPropertyChanged(nameof(DisplayName)); }
+            set { if (SetProperty(ref _netBiosName, value)) { OnPropertyChanged(nameof(DisplayName)); NotifyCategoryChanged(); } }
         }
 
         public bool IsPort80Open
         {
             get => _isPort80Open;
-            set { if (SetProperty(ref _isPort80Open, value)) { OnPropertyChanged(nameof(Port80Text)); OnPropertyChanged(nameof(Url80)); } }
+            set { if (SetProperty(ref _isPort80Open, value)) { OnPropertyChanged(nameof(Port80Text)); OnPropertyChanged(nameof(Url80)); NotifyCategoryChanged(); } }
         }
         public bool IsPort443Open
         {
             get => _isPort443Open;
-            set { if (SetProperty(ref _isPort443Open, value)) { OnPropertyChanged(nameof(Port443Text)); OnPropertyChanged(nameof(Url443)); } }
+            set { if (SetProperty(ref _isPort443Open, value)) { OnPropertyChanged(nameof(Port443Text)); OnPropertyChanged(nameof(Url443)); NotifyCategoryChanged(); } }
         }
         public bool IsPort8080Open
         {
             get => _isPort8080Open;
-            set { if (SetProperty(ref _isPort8080Open, value)) { OnPropertyChanged(nameof(Port8080Text)); OnPropertyChanged(nameof(Url8080)); } }
+            set { if (SetProperty(ref _isPort8080Open, value)) { OnPropertyChanged(nameof(Port8080Text)); OnPropertyChanged(nameof(Url8080)); NotifyCategoryChanged(); } }
         }
         public bool IsPort502Open
         {
             get => _isPort502Open;
-            set { if (SetProperty(ref _isPort502Open, value)) { OnPropertyChanged(nameof(Port502Text)); OnPropertyChanged(nameof(OtherPorts)); } }
+            set { if (SetProperty(ref _isPort502Open, value)) { OnPropertyChanged(nameof(Port502Text)); OnPropertyChanged(nameof(OtherPorts)); NotifyCategoryChanged(); } }
+        }
+
+        /// <summary>Bedste-gæt enhedstype ud fra TTL/vendor/porte/navn — se DeviceFingerprint.
+        /// Beregnes on-demand, ingen egen state; NotifyCategoryChanged kaldes fra alle
+        /// settere klassificeringen læser fra, så DataGrid'et ikke viser et forældet ikon.</summary>
+        public Utils.DeviceCategory Category => Utils.DeviceFingerprint.Classify(this);
+        public string CategoryIcon => Utils.DeviceFingerprint.IconFor(Category);
+        public string CategoryLabel => Utils.DeviceFingerprint.LabelFor(Category);
+
+        private void NotifyCategoryChanged()
+        {
+            OnPropertyChanged(nameof(Category));
+            OnPropertyChanged(nameof(CategoryIcon));
+            OnPropertyChanged(nameof(CategoryLabel));
         }
 
         public string OtherPorts   => _isPort502Open  ? "502"  : string.Empty;

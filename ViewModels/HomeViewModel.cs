@@ -160,6 +160,9 @@ namespace M1Scan.ViewModels
 
         private readonly INetworkService     _networkService;
         private readonly IDiagnosticsService _diagnosticsService;
+        private readonly IHistoryService     _historyService;
+        private readonly IDiagnosisWizardService _diagnosisWizardService;
+        private CancellationTokenSource? _diagnosisCts;
         private readonly KnownDevicesStore   _knownDevices;
         private readonly SemaphoreSlim       _loadLock = new SemaphoreSlim(1, 1);
         private readonly DispatcherTimer     _sampleTimer;
@@ -466,6 +469,40 @@ namespace M1Scan.ViewModels
             set => SetProperty(ref _internetLatency, value);
         }
 
+        // ── "Diagnosticér nu" ────────────────────────────────────────────────
+
+        public ObservableCollection<DiagnosisStep> DiagnosisSteps { get; } = new();
+
+        private bool _isDiagnosing;
+        public bool IsDiagnosing
+        {
+            get => _isDiagnosing;
+            set => SetProperty(ref _isDiagnosing, value);
+        }
+
+        private bool _hasDiagnosisResult;
+        public bool HasDiagnosisResult
+        {
+            get => _hasDiagnosisResult;
+            set => SetProperty(ref _hasDiagnosisResult, value);
+        }
+
+        private string _diagnosisConclusion = string.Empty;
+        public string DiagnosisConclusion
+        {
+            get => _diagnosisConclusion;
+            set => SetProperty(ref _diagnosisConclusion, value);
+        }
+
+        private string _diagnosisRecommendation = string.Empty;
+        public string DiagnosisRecommendation
+        {
+            get => _diagnosisRecommendation;
+            set => SetProperty(ref _diagnosisRecommendation, value);
+        }
+
+        private string _diagnosisReport = string.Empty;
+
         // ── Kommandoer ───────────────────────────────────────────────────────
 
         public RelayCommand RefreshCommand           { get; }
@@ -476,11 +513,16 @@ namespace M1Scan.ViewModels
         public RelayCommand ToggleDiagnosticsCommand { get; }
         public RelayCommand ToggleDevicesCommand     { get; }
         public RelayCommand ResetScoreCommand        { get; }
+        public AsyncRelayCommand RunDiagnosisCommand { get; }
+        public RelayCommand CopyDiagnosisReportCommand { get; }
 
-        public HomeViewModel(INetworkService networkService, IDiagnosticsService diagnosticsService)
+        public HomeViewModel(INetworkService networkService, IDiagnosticsService diagnosticsService,
+                              IHistoryService historyService, IDiagnosisWizardService diagnosisWizardService)
         {
             _networkService     = networkService;
             _diagnosticsService = diagnosticsService;
+            _historyService     = historyService;
+            _diagnosisWizardService = diagnosisWizardService;
             _knownDevices       = new KnownDevicesStore();
 
             foreach (var (host, label) in InternetHosts)
@@ -529,6 +571,13 @@ namespace M1Scan.ViewModels
                 RecountNewDevices();
             }, _ => HasNewDevices);
 
+            RunDiagnosisCommand = new AsyncRelayCommand(_ => RunDiagnosisAsync(), _ => !IsDiagnosing, OnCommandError);
+            CopyDiagnosisReportCommand = new RelayCommand(_ =>
+            {
+                if (!string.IsNullOrEmpty(_diagnosisReport))
+                    Clipboard.SetText(_diagnosisReport);
+            }, _ => HasDiagnosisResult);
+
             _sampleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _sampleTimer.Tick += OnSampleTick;
 
@@ -550,6 +599,7 @@ namespace M1Scan.ViewModels
             _sampleTimer.Tick -= OnSampleTick;
 
             try { _speedCts?.Cancel(); } catch (ObjectDisposedException) { }
+            try { _diagnosisCts?.Cancel(); } catch (ObjectDisposedException) { }
 
             _lifetime.Dispose();
 
@@ -822,9 +872,16 @@ namespace M1Scan.ViewModels
                                                DateTimeOffset? firstSeen = null;
                                                if (KnownDevicesStore.IsRealDeviceMac(kv.Value))
                                                {
-                                                   var dev = _knownDevices.Observe(kv.Value, kv.Key, vendor, seedAsKnown);
+                                                   var dev = _knownDevices.Observe(kv.Value, kv.Key, vendor, seedAsKnown, out var wasNewlyCreated);
                                                    isNew     = !dev.acknowledged;
                                                    firstSeen = dev.firstSeen;
+
+                                                   // Kun den allerførste observation af en enhed nogensinde
+                                                   // skal logges som "ny enhed" — ellers ville hvert
+                                                   // ikke-kvitteret gensyn skabe endnu en historik-række.
+                                                   if (wasNewlyCreated)
+                                                       _ = _historyService.RecordDeviceEventAsync(
+                                                           DateTimeOffset.Now, dev.mac, DeviceEventType.NewDevice, dev.vendor);
                                                }
                                                return new ArpDeviceEntry
                                                {
@@ -990,6 +1047,56 @@ namespace M1Scan.ViewModels
                 SpeedTestProgressPercent = 0;
                 _speedCts.Dispose();
                 _speedCts = null;
+            }
+        }
+
+        // ── "Diagnosticér nu" ────────────────────────────────────────────────
+
+        private void OnCommandError(Exception ex) => CrashLog.Write("HomeViewModel.RunDiagnosis", ex);
+
+        private async Task RunDiagnosisAsync()
+        {
+            IsDiagnosing = true;
+            HasDiagnosisResult = false;
+            DiagnosisSteps.Clear();
+            DiagnosisConclusion = string.Empty;
+            DiagnosisRecommendation = string.Empty;
+            _diagnosisReport = string.Empty;
+
+            _diagnosisCts?.Dispose();
+            _diagnosisCts = new CancellationTokenSource();
+
+            try
+            {
+                // Wan.Ip er "Henter..."/"Ikke tilgængelig" indtil FetchWanInfoAsync er
+                // færdig eller fejler — kun en gyldig parsbar IP er brugbar til
+                // double-NAT-tjekket, alt andet skal behandles som "ikke tilgængelig".
+                string? wanIp = System.Net.IPAddress.TryParse(Wan.Ip, out _) ? Wan.Ip : null;
+
+                await foreach (var step in _diagnosisWizardService.RunAsync(wanIp, _diagnosisCts.Token))
+                {
+                    // DiagnosisStep er observable og samme instans yieldes flere
+                    // gange (Running → Ok/Failed) — kun tilføj den til listen første
+                    // gang, senere yields opdaterer UI'et via property-bindingen.
+                    if (!DiagnosisSteps.Contains(step))
+                        DiagnosisSteps.Add(step);
+                }
+
+                var result = _diagnosisWizardService.LastResult;
+                if (result != null)
+                {
+                    DiagnosisConclusion = result.Conclusion;
+                    DiagnosisRecommendation = result.Recommendation;
+                    _diagnosisReport = result.CopyableReport;
+                    HasDiagnosisResult = true;
+                }
+            }
+            catch (OperationCanceledException) { /* brugeren annullerede */ }
+            finally
+            {
+                IsDiagnosing = false;
+                _diagnosisCts?.Dispose();
+                _diagnosisCts = null;
             }
         }
 

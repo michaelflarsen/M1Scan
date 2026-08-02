@@ -1,6 +1,6 @@
 ![M1Scan Logo](Resources/m1scan-logo.jpg)
 
-![Version](https://img.shields.io/badge/version-1.3.50-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.3.51-blue?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey?style=for-the-badge)
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple?style=for-the-badge)
 

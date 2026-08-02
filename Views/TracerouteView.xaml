@@ -23,7 +23,7 @@
                 <TextBlock Text="Værtsnavn eller IP:" Foreground="#b0b0b0" VerticalAlignment="Center" Width="150"/>
                 <TextBox Text="{Binding TargetInput, UpdateSourceTrigger=PropertyChanged}"
                          Background="#2a3f5f" Foreground="#e0e0e0" Padding="10,8" Width="300"
-                         IsEnabled="{Binding IsTracing, Converter={StaticResource InverseBoolConverter}}"/>
+                         IsEnabled="{Binding CanEditTarget}"/>
                 <Button Command="{Binding TraceCommand}" Content="Spor rute"
                         Background="#4a90e2" Foreground="White" Padding="15,8" Margin="10,0,0,0"/>
                 <Button Command="{Binding ProbeLoopCommand}" Foreground="White" Padding="15,8" Margin="10,0,0,0">
@@ -135,6 +135,47 @@
                     <DataGridTextColumn Header="Tab %" Binding="{Binding LatencySeries.LossDisplay}" Width="80"/>
                 </DataGrid.Columns>
                 </DataGrid>
+            </materialDesign:Card>
+
+            <!-- TIDLIGERE MÅLINGER CARD -->
+            <materialDesign:Card Margin="0,12,0,0" Padding="16,12"
+                                 Background="#1C2535"
+                                 materialDesign:ElevationAssist.Elevation="Dp2">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <TextBlock Text="Tidligere målinger for dette mål" FontSize="14" FontWeight="Bold"
+                                       Foreground="{StaticResource DarkForegroundBrush}"/>
+                            <TextBlock Text="Seneste 24 timer, fra løbende probe-sessioner"
+                                       Foreground="#666666" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                        <Button Content="Opdatér" Style="{StaticResource DarkButtonStyle}"
+                                Width="90" HorizontalAlignment="Right"
+                                Command="{Binding LoadHistoryCommand}"/>
+                    </Grid>
+
+                    <DataGrid ItemsSource="{Binding HistoricalSamples}" Background="#141c28" Foreground="#e0e0e0"
+                              HeadersVisibility="Column" AutoGenerateColumns="False" ColumnWidth="*" BorderThickness="0"
+                              MaxHeight="300" IsReadOnly="True">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="Background" Value="#1a2332"/>
+                                <Setter Property="Foreground" Value="#e0e0e0"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#2d3d4d"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Tidspunkt" Binding="{Binding Timestamp, StringFormat='dd/MM HH:mm:ss', ConverterCulture=da-DK}" Width="140"/>
+                            <DataGridTextColumn Header="Hop" Binding="{Binding HopNumber}" Width="60"/>
+                            <DataGridTextColumn Header="IP-adresse" Binding="{Binding IpAddress}" Width="150"/>
+                            <DataGridTextColumn Header="Latency" Binding="{Binding LatencyMs, StringFormat='{}{0:F0} ms', TargetNullValue='Tabt'}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
             </materialDesign:Card>
         </StackPanel>
     </ScrollViewer>

@@ -35,7 +35,18 @@ namespace M1Scan.Services
         /// af acknowledged-flaget. seedAsKnown bruges ved første kørsel, så
         /// eksisterende enheder ikke alle markeres som NYE.
         /// </summary>
-        public KnownDevice Observe(string mac, string ip, string vendor, bool seedAsKnown)
+        public KnownDevice Observe(string mac, string ip, string vendor, bool seedAsKnown) =>
+            Observe(mac, ip, vendor, seedAsKnown, out _);
+
+        /// <summary>
+        /// Samme som <see cref="Observe(string, string, string, bool)"/>, men afslører
+        /// også om dette var den allerførste observation af enheden nogensinde —
+        /// dvs. om vi lige har oprettet en ny KnownDevice frem for at opdatere en
+        /// eksisterende. En sammenligning af firstSeen/lastSeen-tidsstempler duer
+        /// ikke til dette: begge sættes fra to separate DateTimeOffset.Now-kald
+        /// mikrosekunder fra hinanden og er derfor stort set aldrig bit-identiske.
+        /// </summary>
+        public KnownDevice Observe(string mac, string ip, string vendor, bool seedAsKnown, out bool wasNewlyCreated)
         {
             var key = Normalize(mac);
             if (_devices.TryGetValue(key, out var existing))
@@ -43,19 +54,22 @@ namespace M1Scan.Services
                 existing.lastIp   = ip;
                 existing.lastSeen = DateTimeOffset.Now;
                 if (!string.IsNullOrEmpty(vendor)) existing.vendor = vendor;
+                wasNewlyCreated = false;
                 return existing;
             }
 
+            var now = DateTimeOffset.Now;
             var dev = new KnownDevice
             {
                 mac          = key,
                 lastIp       = ip,
                 vendor       = vendor,
-                firstSeen    = DateTimeOffset.Now,
-                lastSeen     = DateTimeOffset.Now,
+                firstSeen    = now,
+                lastSeen     = now,
                 acknowledged = seedAsKnown
             };
             _devices[key] = dev;
+            wasNewlyCreated = true;
             return dev;
         }
 

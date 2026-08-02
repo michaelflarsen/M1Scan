@@ -12,6 +12,7 @@ namespace M1Scan.ViewModels
     {
         private readonly INetworkService _networkService;
         private readonly IIpConfigService _ipConfigService;
+        private readonly IHistoryService _historyService;
 
         private ObservableCollection<NetworkAdapter> _networkAdapters = new();
         private ObservableCollection<NetworkAdapter> _activeAdapters = new();
@@ -64,6 +65,8 @@ namespace M1Scan.ViewModels
         public TracerouteViewModel  TracerouteVm  { get; }
         public FindIpViewModel      FindIpVm      { get; }
         public MacAliasViewModel    MacAliasVm    { get; }
+        public HistoryViewModel     HistoryVm     { get; }
+        public PingMonitorViewModel PingMonitorVm { get; }
 
         public AsyncRelayCommand RefreshAdaptersCommand { get; }
         public AsyncRelayCommand ResetAdapterCommand { get; }
@@ -84,19 +87,30 @@ namespace M1Scan.ViewModels
             IFindIpService findIpService = new FindIpService();
             IMacAliasService macAliasService = new MacAliasService();
             IDeviceNameService deviceNameService = new DeviceNameService();
+            _historyService = new HistoryService(_networkService);
+            IHistoryService historyService = _historyService;
+            IDiagnosisWizardService diagnosisWizardService =
+                new DiagnosisWizardService(_networkService, diagnosticsService, tracerouteService);
 
             // Brugerens egne enhedsnavne skal være indlæst før det første scan
             // begynder at slå MAC-adresser op, ellers vises de først efter næste scan.
             _ = deviceNameService.LoadAsync();
 
-            HomeVm        = new HomeViewModel(_networkService, diagnosticsService);
-            NetworkScanVm = new NetworkScanViewModel(_networkService, exportService, deviceNameService);
+            // Opretter/migrerer skema og rydder op i data ældre end retention-vinduet,
+            // før baggrundssamplingen begynder at skrive til databasen.
+            _ = historyService.InitializeAsync();
+            historyService.StartBackgroundSampling();
+
+            HomeVm        = new HomeViewModel(_networkService, diagnosticsService, historyService, diagnosisWizardService);
+            NetworkScanVm = new NetworkScanViewModel(_networkService, exportService, deviceNameService, historyService);
             IpConfigVm    = new IpConfigViewModel(_ipConfigService, _networkService);
             WorkspaceVm   = new WorkspaceViewModel(_ipConfigService, exportService);
             UpdateVm      = new UpdateViewModel(updateService);
-            TracerouteVm  = new TracerouteViewModel(tracerouteService, geoIpService);
+            TracerouteVm  = new TracerouteViewModel(tracerouteService, geoIpService, historyService);
             FindIpVm      = new FindIpViewModel(findIpService, _networkService);
             MacAliasVm    = new MacAliasViewModel(macAliasService);
+            HistoryVm     = new HistoryViewModel(historyService);
+            PingMonitorVm = new PingMonitorViewModel(historyService);
 
             // Sæt MacAliasService globalt i OuiLookup så aliaser overrides vendors overalt
             OuiLookup.SetMacAliasService(macAliasService);
@@ -127,6 +141,8 @@ namespace M1Scan.ViewModels
             WorkspaceVm.Dispose();
             FindIpVm.Dispose();
             MacAliasVm.Dispose();
+            PingMonitorVm.Dispose();
+            _historyService.Dispose();
         }
 
 

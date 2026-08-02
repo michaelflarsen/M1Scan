@@ -16,7 +16,9 @@
             <RowDefinition Height="Auto"/>  <!-- 6: Niveau 3 — Detaljer + Hastighed (samlet expander) -->
             <RowDefinition Height="6"/>     <!-- 7: Spacer -->
             <RowDefinition Height="Auto"/>  <!-- 8: Niveau 3 — Kendte enheder-expander -->
-            <RowDefinition Height="*"/>     <!-- 9: Scroll-spacer -->
+            <RowDefinition Height="12"/>    <!-- 9: Spacer -->
+            <RowDefinition Height="Auto"/>  <!-- 10: "Diagnosticér nu" -->
+            <RowDefinition Height="*"/>     <!-- 11: Scroll-spacer -->
         </Grid.RowDefinitions>
 
         <!-- OVERSKRIFT -->
@@ -874,6 +876,78 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- "DIAGNOSTICÉR NU"                                  -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Border Grid.Row="10" Background="#06111a" CornerRadius="4" BorderBrush="#1a3040"
+                BorderThickness="0.5" Padding="14,10">
+            <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <materialDesign:PackIcon Kind="Stethoscope" Width="18" Height="18"
+                                                 Foreground="#4a90e2" VerticalAlignment="Center"/>
+                        <TextBlock Text="Diagnosticér nu" FontSize="14" FontWeight="Bold"
+                                   Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Finder automatisk hvor et netværksproblem ligger"
+                                   Foreground="#5A8AAA" FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button Content="Diagnosticér nu" Style="{StaticResource DarkButtonStyle}"
+                            Width="140" HorizontalAlignment="Right"
+                            Command="{Binding RunDiagnosisCommand}"
+                            IsEnabled="{Binding IsDiagnosing, Converter={StaticResource InverseBoolConverter}}"/>
+                </Grid>
+
+                <!-- Trin med live fremdrift -->
+                <ItemsControl ItemsSource="{Binding DiagnosisSteps}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="24"/>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding StatusIcon}" FontSize="12" HorizontalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#5A8AAA"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Ok">
+                                                    <Setter Property="Foreground" Value="#4CAF50"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Warning">
+                                                    <Setter Property="Foreground" Value="#FF9800"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Failed">
+                                                    <Setter Property="Foreground" Value="#F44336"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontFamily="Consolas" FontSize="11" Foreground="#DDDDDD"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Detail}" FontSize="11" Foreground="#8fa3bf" TextWrapping="Wrap"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Konklusion -->
+                <Border Background="#0D1520" CornerRadius="4" Padding="12,10" Margin="0,10,0,0"
+                        Visibility="{Binding HasDiagnosisResult, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding DiagnosisConclusion}" FontWeight="Bold" FontSize="13"
+                                   Foreground="White" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                        <TextBlock Text="{Binding DiagnosisRecommendation}" FontSize="12"
+                                   Foreground="#8fa3bf" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <Button Content="Kopiér rapport" Style="{StaticResource DarkButtonStyle}"
+                                HorizontalAlignment="Left" Width="130"
+                                Command="{Binding CopyDiagnosisReportCommand}"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 

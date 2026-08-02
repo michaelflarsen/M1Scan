@@ -15,6 +15,7 @@ namespace M1Scan.ViewModels
     {
         private readonly ITracerouteService _tracerouteService;
         private readonly IGeoIpService _geoIpService;
+        private readonly IHistoryService _historyService;
         private CancellationTokenSource? _traceCts;
 
         private ObservableCollection<TraceHopInfo> _hops = new();
@@ -42,7 +43,7 @@ namespace M1Scan.ViewModels
         public bool IsTracing
         {
             get => _isTracing;
-            set => SetProperty(ref _isTracing, value);
+            set { if (SetProperty(ref _isTracing, value)) OnPropertyChanged(nameof(CanEditTarget)); }
         }
 
         public bool IsTraceComplete
@@ -54,8 +55,15 @@ namespace M1Scan.ViewModels
         public bool IsProbing
         {
             get => _isProbing;
-            set => SetProperty(ref _isProbing, value);
+            set { if (SetProperty(ref _isProbing, value)) OnPropertyChanged(nameof(CanEditTarget)); }
         }
+
+        /// <summary>Målfeltet må ikke redigeres mens en trace ELLER en løbende probe
+        /// kører — en løbende probe mærker sine historik-samples med det mål der var
+        /// aktivt da probe'en startede (se ToggleProbingAsync's probedTarget), så at
+        /// redigere feltet midt i en probe ville være misvisende for brugeren selvom
+        /// det ikke længere kan korrumpere historikken.</summary>
+        public bool CanEditTarget => !IsTracing && !IsProbing;
 
         public string StatusMessage
         {
@@ -101,11 +109,21 @@ namespace M1Scan.ViewModels
         public ICommand TraceCommand { get; }
         public ICommand ProbeLoopCommand { get; }
         public ICommand CancelTraceCommand { get; }
+        public AsyncRelayCommand LoadHistoryCommand { get; }
 
-        public TracerouteViewModel(ITracerouteService tracerouteService, IGeoIpService geoIpService)
+        /// <summary>Tidligere gemte probe-samples for det aktuelle mål (seneste 24 timer), hentet fra HistoryService.</summary>
+        public ObservableCollection<TraceSample> HistoricalSamples
+        {
+            get => _historicalSamples;
+            set => SetProperty(ref _historicalSamples, value);
+        }
+        private ObservableCollection<TraceSample> _historicalSamples = new();
+
+        public TracerouteViewModel(ITracerouteService tracerouteService, IGeoIpService geoIpService, IHistoryService historyService)
         {
             _tracerouteService = tracerouteService;
             _geoIpService = geoIpService;
+            _historyService = historyService;
 
             LoadSettings();
             _geoIpService.IsEnabled = _geoLookupEnabled;
@@ -113,6 +131,17 @@ namespace M1Scan.ViewModels
             TraceCommand = new RelayCommand(_ => _ = ExecuteTraceAsync(), _ => !IsTracing && !IsProbing);
             ProbeLoopCommand = new RelayCommand(_ => _ = ToggleProbingAsync(), _ => IsTraceComplete || IsProbing);
             CancelTraceCommand = new RelayCommand(_ => CancelTrace(), _ => IsTracing || IsProbing);
+            LoadHistoryCommand = new AsyncRelayCommand(_ => LoadHistoryAsync(), onError: ex => StatusMessage = $"Fejl: {ex.Message}");
+        }
+
+        private async Task LoadHistoryAsync()
+        {
+            if (string.IsNullOrWhiteSpace(TargetInput)) return;
+
+            var to = DateTimeOffset.UtcNow;
+            var from = to - TimeSpan.FromHours(24);
+            var samples = await _historyService.GetTraceSamplesAsync(TargetInput, from, to);
+            HistoricalSamples = new ObservableCollection<TraceSample>(samples);
         }
 
         // ── Persistering af geo-samtykket ────────────────────────────────────
@@ -209,6 +238,10 @@ namespace M1Scan.ViewModels
                 {
                     StatusMessage = "Sporing fuldført — ingen svar";
                 }
+
+                // Vis evt. tidligere probe-data for dette mål, så en genkendt rute
+                // straks viser sin historik uden en ekstra manuel handling.
+                _ = LoadHistoryAsync();
             }
             catch (OperationCanceledException)
             {
@@ -361,6 +394,13 @@ namespace M1Scan.ViewModels
             {
                 var hopsList = new System.Collections.Generic.List<TraceHopInfo>(Hops);
 
+                // Fastfryses ved probe-start: TargetInput er en live UI-bunden property,
+                // og hvis brugeren skriver et nyt mål i tekstfeltet mens denne probe
+                // (mod DET GAMLE mål) stadig kører, skal historik-rækkerne nedenfor
+                // stadig mærkes med det mål der faktisk blev probet — ikke det brugeren
+                // efterfølgende skrev.
+                var probedTarget = TargetInput;
+
                 await foreach (var hop in _tracerouteService.ContinuousProbeAsync(
                     hopsList,
                     timeoutMs: 600,
@@ -381,6 +421,14 @@ namespace M1Scan.ViewModels
 
                     // Marshal MaxLatency update to UI thread
                     await Application.Current.Dispatcher.InvokeAsync(() => UpdateMaxLatency());
+
+                    // Fire-and-forget: probe-løkken må aldrig blive langsommere fordi
+                    // historik-skrivningen er langsom — HistoryService fanger selv sine
+                    // fejl. hop.LatencySeries.Current er den sample der lige blev
+                    // tilføjet af ContinuousProbeAsync.
+                    _ = _historyService.RecordTraceSampleAsync(
+                        probedTarget, hop.HopNumber, hop.IpAddress,
+                        DateTimeOffset.UtcNow, hop.LatencySeries.Current);
                 }
 
                 StatusMessage = $"Probe stoppet";

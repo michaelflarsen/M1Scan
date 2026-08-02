@@ -172,6 +172,8 @@ namespace M1Scan.Views
             if (TraceroutePanel != null) TraceroutePanel.Visibility = _selectedPage == "Traceroute"  ? Visibility.Visible : Visibility.Collapsed;
             if (FindIpPanel    != null) FindIpPanel.Visibility     = _selectedPage == "FindIp"       ? Visibility.Visible : Visibility.Collapsed;
             if (MacAliasPanel  != null) MacAliasPanel.Visibility   = _selectedPage == "MacAlias"     ? Visibility.Visible : Visibility.Collapsed;
+            if (HistoryPanel   != null) HistoryPanel.Visibility    = _selectedPage == "History"      ? Visibility.Visible : Visibility.Collapsed;
+            if (PingMonitorPanel != null) PingMonitorPanel.Visibility = _selectedPage == "PingMonitor" ? Visibility.Visible : Visibility.Collapsed;
             if (StatsRow       != null) StatsRow.Visibility       = _selectedPage == "Scan"         ? Visibility.Visible : Visibility.Collapsed;
 
             UpdatePageActivation();
@@ -187,8 +189,10 @@ namespace M1Scan.Views
         {
             if (_vm == null) return;
 
-            SetActive(_vm.HomeVm,      _selectedPage == "Dashboard");
-            SetActive(_vm.WorkspaceVm, _selectedPage == "DeviceFollow");
+            SetActive(_vm.HomeVm,        _selectedPage == "Dashboard");
+            SetActive(_vm.WorkspaceVm,   _selectedPage == "DeviceFollow");
+            SetActive(_vm.HistoryVm,     _selectedPage == "History");
+            SetActive(_vm.PingMonitorVm, _selectedPage == "PingMonitor");
 
             static void SetActive(IActivatablePage page, bool active)
             {

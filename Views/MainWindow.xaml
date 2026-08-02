@@ -424,8 +424,9 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <RadioButton Style="{StaticResource SideNavStyle}" IsEnabled="False"
-                                     GroupName="SideNav">
+                        <RadioButton x:Name="PingMonitorNavBtn"
+                                     Style="{StaticResource SideNavStyle}"
+                                     GroupName="SideNav" Tag="PingMonitor" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="AccessPoint" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
@@ -446,8 +447,9 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <RadioButton Style="{StaticResource SideNavStyle}" IsEnabled="False"
-                                     GroupName="SideNav">
+                        <RadioButton x:Name="HistoryNavBtn"
+                                     Style="{StaticResource SideNavStyle}"
+                                     GroupName="SideNav" Tag="History" Click="SideNav_Click">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="History" Width="18" Height="18"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
@@ -1046,6 +1048,18 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
+                            <!-- Enhedstype — bedste-gæt ud fra TTL/vendor/porte/navn (se Utils/DeviceFingerprint.cs) -->
+                            <DataGridTemplateColumn Header="Type" Width="40" CanUserSort="False" CanUserResize="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <materialDesign:PackIcon Kind="{Binding CategoryIcon}" Width="18" Height="18"
+                                                                 Foreground="#5A8AAA" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center"
+                                                                 ToolTip="{Binding CategoryLabel}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
                             <!-- MAC address -->
                             <DataGridTextColumn Header="MAC address" Binding="{Binding MacAddress}" Width="170">
                                 <DataGridTextColumn.ElementStyle>
@@ -1512,6 +1526,18 @@
                 <!-- ===================================================== -->
                 <views:MacAliasView x:Name="MacAliasPanel" Visibility="Collapsed"
                                     DataContext="{Binding MacAliasVm}"/>
+
+                <!-- ===================================================== -->
+                <!--  HISTORIK PANEL                                         -->
+                <!-- ===================================================== -->
+                <views:HistoryView x:Name="HistoryPanel" Visibility="Collapsed"
+                                   DataContext="{Binding HistoryVm}"/>
+
+                <!-- ===================================================== -->
+                <!--  PING MONITOR PANEL                                     -->
+                <!-- ===================================================== -->
+                <views:PingMonitorView x:Name="PingMonitorPanel" Visibility="Collapsed"
+                                       DataContext="{Binding PingMonitorVm}"/>
 
             </Grid>
             <!-- end content panels -->
