@@ -287,10 +287,25 @@ namespace M1Scan.Services
                     var where = !string.IsNullOrEmpty(badHop.HostName) ? badHop.HostName
                               : !string.IsNullOrEmpty(badHop.IpAddress) ? badHop.IpAddress
                               : $"hop {badHop.HopNumber}";
-                    conclusion = badHop.LatencySeries.LossPercent > 0
-                        ? $"Problemet er hos {where} (hop {badHop.HopNumber}) — taber {badHop.LatencySeries.LossPercent:F0}% pakker. Dit eget netværk er OK."
-                        : $"Latensen stiger markant ved {where} (hop {badHop.HopNumber}, {badHop.LatencySeries.Avg:F0} ms). Dit eget netværk er OK.";
-                    recommendation = "Kontakt din internetudbyder og oplys ovenstående hop-nummer og måling.";
+
+                    bool isOwnGateway = badHop.HopNumber == 1;
+
+                    if (isOwnGateway)
+                    {
+                        conclusion = badHop.LatencySeries.LossPercent > 0
+                            ? $"Din gateway/router ({where}) taber {badHop.LatencySeries.LossPercent:F0}% pakker — tjek forbindelsen til din router eller genstarten den."
+                            : $"Din gateway/router ({where}) har høj latency ({badHop.LatencySeries.Avg:F0} ms) — tjek forbindelsen eller genstarten den.";
+                        recommendation = isOwnGateway
+                            ? "Tjek kabler, genstarten din router, eller kontakt din internetudbyder hvis problemet fortsætter."
+                            : "Kontakt din internetudbyder og oplys ovenstående hop-nummer og måling.";
+                    }
+                    else
+                    {
+                        conclusion = badHop.LatencySeries.LossPercent > 0
+                            ? $"Problemet er hos {where} (hop {badHop.HopNumber}) — taber {badHop.LatencySeries.LossPercent:F0}% pakker. Dit eget netværk er OK."
+                            : $"Latensen stiger markant ved {where} (hop {badHop.HopNumber}, {badHop.LatencySeries.Avg:F0} ms). Dit eget netværk er OK.";
+                        recommendation = "Kontakt din internetudbyder og oplys ovenstående hop-nummer og måling.";
+                    }
                 }
                 else if (isCgnat)
                 {
