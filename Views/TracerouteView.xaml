@@ -2,7 +2,11 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:local="clr-namespace:M1Scan.Utils"
              Background="{StaticResource DarkBackgroundBrush}">
+    <UserControl.Resources>
+        <local:LossDisplayConverter x:Key="LossDisplayConverter"/>
+    </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="20,12,20,10">
             <!-- HEADER CARD -->
@@ -133,7 +137,21 @@
                     <DataGridTextColumn Header="ASN" Binding="{Binding Asn}" Width="220"/>
                     <DataGridTextColumn Header="Avg. Latency (ms)" Binding="{Binding LatencySeries.AvgDisplay}" Width="120"/>
                     <DataGridTextColumn Header="Jitter (ms)" Binding="{Binding LatencySeries.JitterDisplay}" Width="100"/>
-                    <DataGridTextColumn Header="Tab %" Binding="{Binding LatencySeries.LossDisplay}" Width="80"/>
+                    <DataGridTemplateColumn Header="Tab %" Width="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock VerticalAlignment="Center"
+                                           ToolTip="Nogle routere på Internettet svarer ikke på ICMP ping, dette er normalt og ikke en fejl.">
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{StaticResource LossDisplayConverter}">
+                                            <Binding Path="LatencySeries.LossDisplay"/>
+                                            <Binding Path="IsReachable"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
                 </DataGrid>
             </materialDesign:Card>
