@@ -1,0 +1,115 @@
+<UserControl x:Class="M1Scan.Views.HistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Background="{StaticResource DarkBackgroundBrush}">
+
+    <Grid Margin="20,12,20,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <TextBlock Text="Historik" FontSize="16" FontWeight="Bold"
+                           Foreground="{StaticResource DarkForegroundBrush}"/>
+                <TextBlock Text="Seneste 24 timer" Foreground="#666666" Margin="10,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button Content="Opdatér" Style="{StaticResource DarkButtonStyle}"
+                    Width="90" HorizontalAlignment="Right"
+                    Command="{Binding RefreshCommand}"/>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT: netværksscore-tidslinje -->
+            <materialDesign:Card Grid.Column="0" Padding="16,12"
+                                 Background="#1C2535"
+                                 materialDesign:ElevationAssist.Elevation="Dp2">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Netværksscore over tid" FontSize="14" FontWeight="Bold"
+                               Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
+                    <ListView ItemsSource="{Binding Samples}" Background="Transparent" BorderThickness="0"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Time}" Foreground="#888888" FontSize="11" FontFamily="Consolas"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Grade}" Foreground="#4CAF50" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding WanDisplay}" Foreground="{StaticResource DarkForegroundBrush}" FontSize="11"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </DockPanel>
+            </materialDesign:Card>
+
+            <!-- RIGHT: scans + enheds-events -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <materialDesign:Card Grid.Row="0" Padding="16,12"
+                                     Background="#1C2535"
+                                     materialDesign:ElevationAssist.Elevation="Dp2">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Seneste scans" FontSize="14" FontWeight="Bold"
+                                   Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
+                        <ListView ItemsSource="{Binding Scans}" Background="Transparent" BorderThickness="0">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Time}" Foreground="#888888" FontSize="11" FontFamily="Consolas"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Summary}" Foreground="{StaticResource DarkForegroundBrush}" FontSize="11"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </DockPanel>
+                </materialDesign:Card>
+
+                <materialDesign:Card Grid.Row="2" Padding="16,12"
+                                     Background="#1C2535"
+                                     materialDesign:ElevationAssist.Elevation="Dp2">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Enheds-hændelser" FontSize="14" FontWeight="Bold"
+                                   Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
+                        <ListView ItemsSource="{Binding Events}" Background="Transparent" BorderThickness="0">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Time}" Foreground="#888888" FontSize="11" FontFamily="Consolas"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Summary}" Foreground="{StaticResource DarkForegroundBrush}" FontSize="11"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </DockPanel>
+                </materialDesign:Card>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

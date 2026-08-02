@@ -106,6 +106,7 @@
                                  materialDesign:ElevationAssist.Elevation="Dp2">
                 <DataGrid ItemsSource="{Binding Hops}" Background="#141c28" Foreground="#e0e0e0"
                           HeadersVisibility="Column" AutoGenerateColumns="False" ColumnWidth="*" BorderThickness="0"
+                          IsReadOnly="True"
                           PreviewMouseWheel="DataGrid_PreviewMouseWheel">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
