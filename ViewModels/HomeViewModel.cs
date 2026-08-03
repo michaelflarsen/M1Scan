@@ -1037,8 +1037,9 @@ namespace M1Scan.ViewModels
             {
                 SpeedTestPhaseText = "Annulleret";
             }
-            catch
+            catch (Exception ex)
             {
+                CrashLog.Write("HomeViewModel.RunSpeedTest", ex);
                 SpeedTestPhaseText = "Test fejlede";
             }
             finally

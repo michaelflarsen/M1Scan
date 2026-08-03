@@ -46,7 +46,8 @@ namespace M1Scan.Services
 
         private static readonly HttpClient _speedClient = new(new SocketsHttpHandler
         {
-            MaxConnectionsPerServer = ParallelStreams + 2
+            MaxConnectionsPerServer = ParallelStreams + 2,
+            AllowAutoRedirect = false // undgår dobbelt-optælling af bytes hvis __up nogensinde 3xx-redirectes
         })
         {
             Timeout = Timeout.InfiniteTimeSpan
@@ -329,8 +330,11 @@ namespace M1Scan.Services
             ct.ThrowIfCancellationRequested();
             sw.Stop();
 
-            long measuredBytes = Interlocked.Read(ref totalBytes) - Math.Max(warmupBytesSnapshot, 0);
-            measuredBytes = Math.Max(measuredBytes, 0);
+            long rawBytes = Interlocked.Read(ref totalBytes);
+            if (rawBytes == 0)
+                throw new IOException($"Hastighedstest ({phase}): ingen data modtaget fra {SpeedTestHost} — se crash.log for detaljer.");
+
+            long measuredBytes = Math.Max(rawBytes - Math.Max(warmupBytesSnapshot, 0), 0);
             double measuredSeconds = Math.Max((sw.Elapsed - WarmupDuration).TotalSeconds, 0.001);
             return (measuredBytes * 8 / 1e6 / measuredSeconds, measuredBytes);
         }
@@ -407,6 +411,8 @@ namespace M1Scan.Services
                 Headers.ContentLength = totalBytes;
             }
 
+            // Kun base-klassens kontrakt kræver denne overload — moderne HttpClient kalder
+            // altid CT-varianten nedenfor, så CancellationToken.None her rammes reelt aldrig.
             protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
                 => await SerializeToStreamAsync(stream, context, CancellationToken.None);
 
