@@ -16,8 +16,14 @@
                              Background="#1C2535"
                              materialDesign:ElevationAssist.Elevation="Dp2">
             <StackPanel>
-                <TextBlock Text="Ping monitor" FontSize="16" FontWeight="Bold"
-                           Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <materialDesign:PackIcon Kind="Pulse" Width="26" Height="26"
+                                             Foreground="#4a90e2" VerticalAlignment="Center"/>
+                    <TextBlock Text="Ping monitor — Overvåg oppetid og latency løbende" FontSize="24" FontWeight="Bold"
+                               Foreground="{StaticResource DarkForegroundBrush}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Foreground="#8fa3bf" FontSize="12" Margin="0,6,0,12" TextWrapping="Wrap"
+                           Text="Pinger de valgte mål med jævne mellemrum og viser svartid, jitter, pakketab og oppetid over de seneste 24 timer. Brug det til at holde øje med kritiske enheder som routeren eller en DNS-server over tid."/>
 
                 <Grid>
                     <Grid.ColumnDefinitions>

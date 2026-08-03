@@ -10,17 +10,26 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- HEADER -->
-        <Grid Grid.Row="0" Margin="0,0,0,12">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <TextBlock Text="Historik" FontSize="16" FontWeight="Bold"
-                           Foreground="{StaticResource DarkForegroundBrush}"/>
-                <TextBlock Text="Seneste 24 timer" Foreground="#666666" Margin="10,0,0,0" VerticalAlignment="Center"/>
+        <!-- HEADER CARD -->
+        <materialDesign:Card Grid.Row="0" Margin="0,0,0,12" Padding="16,12"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <StackPanel>
+                <Grid>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <materialDesign:PackIcon Kind="History" Width="26" Height="26"
+                                                 Foreground="#4a90e2" VerticalAlignment="Center"/>
+                        <TextBlock Text="Historik — Netværkets tilstand over tid" FontSize="24" FontWeight="Bold"
+                                   Foreground="{StaticResource DarkForegroundBrush}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button Content="Opdatér" Style="{StaticResource DarkButtonStyle}"
+                            Width="90" HorizontalAlignment="Right"
+                            Command="{Binding RefreshCommand}"/>
+                </Grid>
+                <TextBlock Foreground="#8fa3bf" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="Viser netværksscoren og enhedsaktivitet for de seneste 24 timer, så du kan se udviklingen i tilgængelighed og opdage mønstre over tid."/>
             </StackPanel>
-            <Button Content="Opdatér" Style="{StaticResource DarkButtonStyle}"
-                    Width="90" HorizontalAlignment="Right"
-                    Command="{Binding RefreshCommand}"/>
-        </Grid>
+        </materialDesign:Card>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>

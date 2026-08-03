@@ -507,6 +507,12 @@
                             <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="MacAlias">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="PingMonitor">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedPage, RelativeSource={RelativeSource AncestorType=Window}}" Value="History">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
