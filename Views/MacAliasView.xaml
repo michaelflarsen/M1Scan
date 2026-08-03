@@ -8,15 +8,32 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ADD ALIAS CARD -->
+        <!-- HEADER CARD -->
         <materialDesign:Card Grid.Row="0" Margin="0,0,0,12" Padding="16,12"
                              Background="#1C2535"
                              materialDesign:ElevationAssist.Elevation="Dp2">
             <StackPanel>
-                <TextBlock Text="Add MAC Alias" FontSize="16" FontWeight="Bold"
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <materialDesign:PackIcon Kind="TagMultiple" Width="26" Height="26"
+                                             Foreground="#4a90e2" VerticalAlignment="Center"/>
+                    <TextBlock Text="MAC Aliases — Egne producentnavne for MAC-adresser" FontSize="24" FontWeight="Bold"
+                               Foreground="{StaticResource DarkForegroundBrush}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Foreground="#8fa3bf" FontSize="12" TextWrapping="Wrap"
+                           Text="Overstyrer den automatiske IEEE-producentopslag (OUI) for udvalgte MAC-adresser eller -præfikser. Brug det til at give enheder med et generisk eller ukendt producentnavn en beskrivelse du selv genkender — aliasset slår igennem overalt i appen, bl.a. Netværksscan og Device Follow."/>
+            </StackPanel>
+        </materialDesign:Card>
+
+        <!-- ADD ALIAS CARD -->
+        <materialDesign:Card Grid.Row="1" Margin="0,0,0,12" Padding="16,12"
+                             Background="#1C2535"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <StackPanel>
+                <TextBlock Text="Tilføj MAC Alias" FontSize="16" FontWeight="Bold"
                            Foreground="{StaticResource DarkForegroundBrush}" Margin="0,0,0,10"/>
 
                 <Grid Margin="0,0,0,10">
@@ -28,21 +45,21 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0" Text="MAC Address:"
+                    <TextBlock Grid.Column="0" Text="MAC-adresse:"
                                Foreground="{StaticResource DarkForegroundBrush}"
                                VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBox Grid.Column="1" Style="{StaticResource DarkTextBoxStyle}"
                              Text="{Binding MacInput, UpdateSourceTrigger=PropertyChanged}"
-                             materialDesign:HintAssist.Hint="2c6b7d or 2c:6b:7d:xx:xx:xx"/>
+                             materialDesign:HintAssist.Hint="2c6b7d eller 2c:6b:7d:xx:xx:xx"/>
 
-                    <TextBlock Grid.Column="2" Text="Description:"
+                    <TextBlock Grid.Column="2" Text="Beskrivelse:"
                                Foreground="{StaticResource DarkForegroundBrush}"
                                VerticalAlignment="Center" Margin="10,0,10,0"/>
                     <TextBox Grid.Column="3" Style="{StaticResource DarkTextBoxStyle}"
                              Text="{Binding DescriptionInput, UpdateSourceTrigger=PropertyChanged}"
-                             materialDesign:HintAssist.Hint="e.g., ZoneUnit Wandsworth"/>
+                             materialDesign:HintAssist.Hint="f.eks. Køkken-router"/>
 
-                    <Button Grid.Column="4" Content="Add"
+                    <Button Grid.Column="4" Content="Tilføj"
                             Style="{StaticResource MaterialDesignRaisedButton}"
                             Background="#1565C0" BorderBrush="#1565C0"
                             Height="36" Padding="20,0" Margin="10,0,0,0"
@@ -55,7 +72,7 @@
         </materialDesign:Card>
 
         <!-- ALIASES TABLE CARD -->
-        <materialDesign:Card Grid.Row="1" Margin="0,0,0,12" Padding="16,12"
+        <materialDesign:Card Grid.Row="2" Margin="0,0,0,12" Padding="16,12"
                              Background="#1C2535"
                              materialDesign:ElevationAssist.Elevation="Dp2">
             <StackPanel>
@@ -66,7 +83,7 @@
                         <TextBlock Text="{Binding Aliases.Count, StringFormat=({0})}"
                                    Foreground="#666666" Margin="6,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <Button Content="Refresh" Style="{StaticResource DarkButtonStyle}"
+                    <Button Content="Opdatér" Style="{StaticResource DarkButtonStyle}"
                             Width="80" HorizontalAlignment="Right"
                             Command="{Binding RefreshCommand}"/>
                 </Grid>
@@ -130,7 +147,7 @@
 
                     <DataGrid.Columns>
                         <!-- MAC Prefix -->
-                        <DataGridTextColumn Header="MAC Prefix" Binding="{Binding MacPrefix}" Width="150">
+                        <DataGridTextColumn Header="MAC-præfiks" Binding="{Binding MacPrefix}" Width="150">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="#64B5F6"/>
@@ -142,7 +159,7 @@
                         </DataGridTextColumn>
 
                         <!-- Custom Description -->
-                        <DataGridTextColumn Header="Your Description" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="250">
+                        <DataGridTextColumn Header="Din beskrivelse" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="250">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="{StaticResource DarkForegroundBrush}"/>
@@ -162,7 +179,7 @@
                         </DataGridTextColumn>
 
                         <!-- Original Vendor (OUI) -->
-                        <DataGridTextColumn Header="Original Vendor (OUI)" Binding="{Binding OriginalVendor}" Width="*">
+                        <DataGridTextColumn Header="Oprindelig producent (OUI)" Binding="{Binding OriginalVendor}" Width="*">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="#888888"/>
@@ -174,13 +191,13 @@
                         </DataGridTextColumn>
 
                         <!-- Actions -->
-                        <DataGridTemplateColumn Header="Actions" Width="80" CanUserSort="False" CanUserResize="False">
+                        <DataGridTemplateColumn Header="Handlinger" Width="80" CanUserSort="False" CanUserResize="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0">
                                         <Button Width="32" Height="24" Padding="2"
                                                 Style="{StaticResource MaterialDesignIconButton}"
-                                                ToolTip="Lookup original OUI"
+                                                ToolTip="Slå oprindelig OUI op"
                                                 Command="{Binding DataContext.LookupCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 CommandParameter="{Binding}">
                                             <materialDesign:PackIcon Kind="Magnify" Width="14" Height="14"/>
@@ -188,7 +205,7 @@
                                         <Button Width="32" Height="24" Padding="2" Margin="4,0,0,0"
                                                 Style="{StaticResource MaterialDesignIconButton}"
                                                 Foreground="#EF5350"
-                                                ToolTip="Remove alias"
+                                                ToolTip="Fjern alias"
                                                 Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 CommandParameter="{Binding}">
                                             <materialDesign:PackIcon Kind="Delete" Width="14" Height="14"/>
@@ -203,15 +220,15 @@
         </materialDesign:Card>
 
         <!-- INFO SECTION -->
-        <Border Grid.Row="2" Background="#0D1520" CornerRadius="4" Padding="12,10">
+        <Border Grid.Row="3" Background="#0D1520" CornerRadius="4" Padding="12,10">
             <StackPanel>
-                <TextBlock Text="How it works" FontWeight="Bold" Foreground="#4a90e2"
+                <TextBlock Text="Sådan virker det" FontWeight="Bold" Foreground="#4a90e2"
                            FontSize="12" Margin="0,0,0,6"/>
-                <TextBlock Text="• MAC aliases override the vendor lookup (OUI) everywhere in the app — Network Scan, Device Follow, etc."
+                <TextBlock Text="• MAC aliases overstyrer producentopslaget (OUI) alle steder i appen — Netværksscan, Device Follow, osv."
                            Foreground="#888888" FontSize="11" Margin="0,0,0,4" TextWrapping="Wrap"/>
-                <TextBlock Text="• Lookup first shows both the original IEEE vendor and your custom description"
+                <TextBlock Text="• Lookup viser først både den oprindelige IEEE-producent og din egen beskrivelse"
                            Foreground="#888888" FontSize="11" Margin="0,0,0,4" TextWrapping="Wrap"/>
-                <TextBlock Text="• You can use a 6-char prefix (OUI, e.g., 2c6b7d) or a full 12-char MAC address"
+                <TextBlock Text="• Du kan bruge et 6-tegns præfiks (OUI, fx 2c6b7d) eller en fuld 12-tegns MAC-adresse"
                            Foreground="#888888" FontSize="11" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
