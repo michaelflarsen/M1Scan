@@ -1023,7 +1023,7 @@ namespace M1Scan.ViewModels
                 SpeedTestProgressPercent = p.Percent;
                 SpeedTestPhaseText = p.Phase == SpeedTestPhase.Download
                     ? $"Henter... {p.CurrentMbps:F0} Mbit/s"
-                    : "Sender...";
+                    : $"Sender... {p.CurrentMbps:F0} Mbit/s";
             });
 
             try
