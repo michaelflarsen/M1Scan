@@ -140,16 +140,25 @@
                                     </TextBlock>
                                 </StackPanel>
 
-                                <!-- Remove -->
-                                <Button Grid.Column="3" Width="32" Height="32" Padding="2"
-                                        Style="{StaticResource MaterialDesignIconButton}"
-                                        Foreground="#EF5350"
-                                        ToolTip="Fjern mål"
-                                        VerticalAlignment="Center"
-                                        Command="{Binding DataContext.RemoveTargetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}">
-                                    <materialDesign:PackIcon Kind="Delete" Width="16" Height="16"/>
-                                </Button>
+                                <!-- Actions -->
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Width="32" Height="32" Padding="2"
+                                            Style="{StaticResource MaterialDesignIconButton}"
+                                            Foreground="#64B5F6"
+                                            ToolTip="Test forbindelse — sammenlign med internet-reference"
+                                            Command="{Binding DataContext.TestConnectionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <materialDesign:PackIcon Kind="ChartLine" Width="16" Height="16"/>
+                                    </Button>
+                                    <Button Width="32" Height="32" Padding="2" Margin="4,0,0,0"
+                                            Style="{StaticResource MaterialDesignIconButton}"
+                                            Foreground="#EF5350"
+                                            ToolTip="Fjern mål"
+                                            Command="{Binding DataContext.RemoveTargetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <materialDesign:PackIcon Kind="Delete" Width="16" Height="16"/>
+                                    </Button>
+                                </StackPanel>
                             </Grid>
                         </materialDesign:Card>
                     </DataTemplate>

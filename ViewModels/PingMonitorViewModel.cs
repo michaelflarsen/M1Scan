@@ -11,6 +11,7 @@ using System.Windows.Threading;
 using M1Scan.Models;
 using M1Scan.Services;
 using M1Scan.Utils;
+using M1Scan.Views;
 
 namespace M1Scan.ViewModels
 {
@@ -29,6 +30,10 @@ namespace M1Scan.ViewModels
         private static readonly string PersistPath =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                          "M1Scan", "ping_monitor_targets.json");
+
+        // Fast internet-reference til "min forbindelse vs. mål"-testen. Cloudflares
+        // resolver: stabil, hurtig og uafhængig af brugerens eget netværk/ISP-DNS.
+        private const string ReferenceHost = "1.1.1.1";
 
         private readonly IHistoryService _historyService;
         private readonly DispatcherTimer _pingTimer;
@@ -73,6 +78,7 @@ namespace M1Scan.ViewModels
 
         public RelayCommand AddTargetCommand { get; }
         public RelayCommand RemoveTargetCommand { get; }
+        public AsyncRelayCommand TestConnectionCommand { get; }
 
         public PingMonitorViewModel(IHistoryService historyService)
         {
@@ -90,6 +96,13 @@ namespace M1Scan.ViewModels
 
             AddTargetCommand = new RelayCommand(_ => AddTarget());
             RemoveTargetCommand = new RelayCommand(param => RemoveTarget(param as PingMonitorTarget));
+            // canExecute er pr.-parameter (target.IsTesting), ikke pr.-kommando, så en
+            // igangværende test på ét kort ikke deaktiverer knappen på alle de andre —
+            // AsyncRelayCommand's egen IsRunning-lås dækker kun genindtræden på samme kald.
+            TestConnectionCommand = new AsyncRelayCommand(
+                param => TestConnectionAsync(param as PingMonitorTarget),
+                param => (param as PingMonitorTarget)?.IsTesting != true,
+                ex => StatusMessage = "Test fejlede: " + ex.Message);
 
             LoadTargets();
         }
@@ -120,6 +133,125 @@ namespace M1Scan.ViewModels
             Targets.Remove(target);
             _ = _historyService.RemovePingTargetAsync(target.Id);
             SaveTargets();
+        }
+
+        /// <summary>
+        /// Kort, samtidig ping-burst mod målet og en fast internet-reference (1.1.1.1).
+        /// Kører uafhængigt af den løbende overvågnings-timer, så intervallet ikke
+        /// påvirker testens tæthed. Formålet er at kunne skelne "min forbindelse er
+        /// dårlig" (begge serier rammes) fra "målet/vejen til det er dårlig" (kun
+        /// mål-serien rammes).
+        /// </summary>
+        private async Task TestConnectionAsync(PingMonitorTarget? target)
+        {
+            if (target == null) return;
+
+            var inputDialog = new ConnectionTestDialog(
+                string.IsNullOrWhiteSpace(target.Description) ? target.HostOrIp : target.Description)
+            { Owner = Application.Current?.MainWindow };
+
+            if (inputDialog.ShowDialog() != true) return;
+
+            int seconds = inputDialog.DurationSeconds;
+            StatusMessage = $"Tester forbindelsen til {target.HostOrIp} ({seconds} s)...";
+            target.IsTesting = true;
+            // target.IsTesting er ikke selv en ICommand-property, så WPF opdager ikke af
+            // sig selv at CanExecute skal genevalueres for dette kort — uden dette kald
+            // ville "Test forbindelse"-knappen først blive grå ved næste ubeslægtede UI-event.
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+
+            try
+            {
+                var referenceSeries = new LatencySeries { Label = "Internet (1.1.1.1)" };
+                var targetSeries = new LatencySeries { Label = target.HostOrIp };
+                var startedAt = DateTime.Now;
+
+                // Deadline i stedet for en fast antal-iterationer-løkke: PingOnceAsync har
+                // et 1500 ms timeout, så et par forsøg der begge timer ud ville ellers gøre
+                // en "30 sekunders" test til reelt ~35-45 sekunder uden brugeren ved det —
+                // rapportens tidsstempel skal matche det brugeren faktisk oplevede at vente.
+                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(seconds);
+                while (DateTime.UtcNow < deadline)
+                {
+                    var nextTick = DateTime.UtcNow + TimeSpan.FromSeconds(1);
+
+                    var refTask = PingOnceAsync(ReferenceHost);
+                    var targetTask = PingOnceAsync(target.HostOrIp);
+                    await Task.WhenAll(refTask, targetTask);
+
+                    referenceSeries.Add(refTask.Result);
+                    targetSeries.Add(targetTask.Result);
+
+                    var remaining = nextTick - DateTime.UtcNow;
+                    if (remaining > TimeSpan.Zero)
+                        await Task.Delay(remaining);
+                }
+
+                var result = new ConnectionTestResult
+                {
+                    TargetHostOrIp = target.HostOrIp,
+                    TargetDescription = target.Description,
+                    StartedAt = startedAt,
+                    DurationSeconds = seconds,
+                    ReferenceSeries = referenceSeries,
+                    TargetSeries = targetSeries,
+                    Verdict = BuildVerdictText(referenceSeries, targetSeries, out var verdictColor),
+                    VerdictColorHex = verdictColor
+                };
+
+                StatusMessage = "Klar";
+
+                var reportWindow = new ConnectionTestReportWindow(result)
+                { Owner = Application.Current?.MainWindow };
+                reportWindow.ShowDialog();
+            }
+            finally
+            {
+                target.IsTesting = false;
+                System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        /// <summary>
+        /// Sammenligner reference- og mål-serien og formulerer en dansk konklusion.
+        /// Tærsklerne er bevidst grove (denne test skal pege i en retning, ikke
+        /// erstatte en rigtig netværksanalyse): "problem" på en serie betyder
+        /// mærkbart tab eller jitter, ikke blot at avg-latency er høj (høj avg kan
+        /// være helt normalt for et geografisk fjernt mål).
+        /// </summary>
+        private static string BuildVerdictText(LatencySeries reference, LatencySeries target, out string colorHex)
+        {
+            bool refProblem = reference.LossPercent >= 5 || reference.JitterMs >= 30;
+            bool targetProblem = target.LossPercent >= 5 || target.JitterMs >= 30;
+
+            if (target.LossPercent >= 95)
+            {
+                colorHex = "#F44336";
+                return refProblem
+                    ? "Målet svarer stort set ikke — men din internetforbindelse er også ustabil lige nu, så det kan skyldes din egen linje."
+                    : "Målet svarer stort set ikke, mens internet-referencen er stabil. Problemet ligger ved målet selv (enheden er nede, eller noget på vejen til den blokerer), ikke ved din forbindelse.";
+            }
+
+            if (refProblem && targetProblem)
+            {
+                colorHex = "#FF9800";
+                return "Både internet-referencen og målet viser udsving/tab i samme periode. Det peger på din egen forbindelse (router, WiFi eller ISP) som årsagen — ikke på målet.";
+            }
+
+            if (targetProblem && !refProblem)
+            {
+                colorHex = "#FF9800";
+                return "Internet-referencen er stabil, men målet viser udsving/tab. Problemet sidder efter din forbindelse — ved målet selv, eller på vejen derhen.";
+            }
+
+            if (refProblem && !targetProblem)
+            {
+                colorHex = "#FF9800";
+                return "Målet er faktisk stabilt, men din internet-reference viser udsving. Din forbindelse til internettet er muligvis mere ustabil end forbindelsen til dette lokale mål.";
+            }
+
+            colorHex = "#4CAF50";
+            return "Begge forbindelser er stabile i testperioden. Ingen tegn på problemer, hverken lokalt eller hos målet.";
         }
 
         // ── IActivatablePage ─────────────────────────────────────────────────

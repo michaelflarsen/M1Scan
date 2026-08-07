@@ -18,6 +18,7 @@ namespace M1Scan.Models
         private DateTime _lastChecked = DateTime.MinValue;
         private double _uptimePercent;
         private bool _isUptimeLoaded;
+        private bool _isTesting;
 
         public string Id { get; init; } = Guid.NewGuid().ToString("N");
 
@@ -56,6 +57,15 @@ namespace M1Scan.Models
         {
             get => _isUptimeLoaded;
             set => SetProperty(ref _isUptimeLoaded, value);
+        }
+
+        /// <summary>True mens en "Test forbindelse"-burst kører for dette mål. Bruges af
+        /// TestConnectionCommand's CanExecute, så knappen kun deaktiveres på dette kort —
+        /// ikke på alle mål, sådan som en fælles AsyncRelayCommand.IsRunning ellers ville gøre.</summary>
+        public bool IsTesting
+        {
+            get => _isTesting;
+            set => SetProperty(ref _isTesting, value);
         }
 
         /// <summary>Live rullende vindue til sparkline + min/avg/max/jitter/loss — nulstilles ved genstart, ligesom Dashboard's WanSeries.</summary>
