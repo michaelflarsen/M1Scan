@@ -3,57 +3,117 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:controls="clr-namespace:M1Scan.Controls"
-        Title="Forbindelsesrapport"
-        Height="560" Width="620"
+        Title="Forbindelsesbevis"
+        SizeToContent="Height" Width="640" MaxHeight="900"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource DarkBackgroundBrush}">
 
     <Grid Margin="22">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <!-- Rapportfladen: får den plads der er, og scroller hvis vinduet
+                 rammer MaxHeight. Knapperne står i en egen Auto-række, så de
+                 aldrig kan blive klippet af. -->
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" x:Name="TitleText" Text="Forbindelsesrapport"
-                   Foreground="White" FontSize="20" FontWeight="SemiBold"/>
-        <TextBlock Grid.Row="1" x:Name="SubtitleText"
-                   Foreground="#8fa3bf" FontSize="12" Margin="0,4,0,0"/>
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <!-- Alt der skal med i et kopieret billede ligger i CaptureRoot, så
+                 knapper og hjælpetekst ikke havner i det man sender videre. -->
+            <StackPanel x:Name="CaptureRoot"
+                        Background="{StaticResource DarkBackgroundBrush}">
 
-        <!-- Verdict -->
-        <Border Grid.Row="2" Margin="0,16,0,0" Padding="14,10" CornerRadius="4" Background="#1C2535">
-            <TextBlock x:Name="VerdictText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
-        </Border>
+                <TextBlock x:Name="TitleText" Text="Forbindelsesbevis"
+                           Foreground="White" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock x:Name="SubtitleText"
+                           Foreground="#8fa3bf" FontSize="12" Margin="0,4,0,0"/>
 
-        <!-- Reference series (1.1.1.1) -->
-        <materialDesign:Card Grid.Row="3" Margin="0,14,0,0" Padding="14,10" Background="#1C2535">
-            <StackPanel>
-                <TextBlock Text="Internet-reference · 1.1.1.1" Foreground="#64B5F6" FontSize="12" FontWeight="Bold"/>
-                <controls:SparklineControl x:Name="ReferenceSparkline" Height="46" Margin="0,8" Stroke="#64B5F6"/>
-                <TextBlock x:Name="ReferenceStatsText" FontFamily="Consolas" FontSize="11" Foreground="#DDDDDD"/>
+                <!-- Målets status: rapportens hovedbudskab -->
+                <Border x:Name="StatusBanner" Margin="0,16,0,0" Padding="18,14" CornerRadius="4"
+                        Background="#16202E" BorderThickness="0,0,0,3">
+                    <StackPanel>
+                        <TextBlock x:Name="StatusLabelText" FontSize="19" FontWeight="Bold"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="StatusDetailText" Foreground="#CFD8DC" FontSize="13"
+                                   Margin="0,6,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Målets forbindelse: stort kort med alle tal -->
+                <materialDesign:Card Margin="0,14,0,0" Padding="16,14" Background="#1C2535">
+                    <StackPanel>
+                        <TextBlock Text="ENHEDENS FORBINDELSE" Foreground="#FFB74D"
+                                   FontSize="11" FontWeight="Bold" Opacity="0.9"/>
+                        <TextBlock x:Name="TargetSeriesLabel" Foreground="White"
+                                   FontSize="15" FontWeight="SemiBold" Margin="0,2,0,0"
+                                   TextWrapping="Wrap"/>
+
+                        <controls:SparklineControl x:Name="TargetSparkline" Height="58"
+                                                   Margin="0,12,0,4" Stroke="#FFB74D"
+                                                   StretchToFit="True"/>
+                        <TextBlock x:Name="TargetAxisText" Foreground="#7B8FA8" FontSize="10"
+                                   HorizontalAlignment="Right" Margin="0,0,0,12"/>
+
+                        <UniformGrid Columns="4">
+                            <StackPanel>
+                                <TextBlock Text="Svar" Foreground="#8fa3bf" FontSize="11"/>
+                                <TextBlock x:Name="TargetReplyText" Foreground="White"
+                                           FontSize="17" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Svartid" Foreground="#8fa3bf" FontSize="11"/>
+                                <TextBlock x:Name="TargetAvgText" Foreground="White"
+                                           FontSize="17" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Maks" Foreground="#8fa3bf" FontSize="11"/>
+                                <TextBlock x:Name="TargetMaxText" Foreground="White"
+                                           FontSize="17" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Udsving" Foreground="#8fa3bf" FontSize="11"/>
+                                <TextBlock x:Name="TargetJitterText" Foreground="White"
+                                           FontSize="17" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </UniformGrid>
+                    </StackPanel>
+                </materialDesign:Card>
+
+                <!-- Referencen: kun kontrolmåling, bevidst nedtonet -->
+                <Border Margin="0,10,0,0" Padding="14,10" CornerRadius="4" Background="#151C28">
+                    <StackPanel>
+                        <TextBlock Text="KONTROLMÅLING · internet 1.1.1.1" Foreground="#64B5F6"
+                                   FontSize="10" FontWeight="Bold" Opacity="0.85"/>
+                        <TextBlock x:Name="ReferenceStatsText" Foreground="#AEBDD0"
+                                   FontSize="12" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="ReferenceMeaningText" Foreground="#7B8FA8"
+                                   FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock x:Name="FooterText" Foreground="#5A7086" FontSize="10"
+                           Margin="0,10,0,2" TextWrapping="Wrap"/>
             </StackPanel>
-        </materialDesign:Card>
+        </ScrollViewer>
 
-        <!-- Target series -->
-        <materialDesign:Card Grid.Row="4" Margin="0,12,0,0" Padding="14,10" Background="#1C2535">
-            <StackPanel>
-                <TextBlock x:Name="TargetSeriesLabel" Text="Mål" Foreground="#FFB74D" FontSize="12" FontWeight="Bold"/>
-                <controls:SparklineControl x:Name="TargetSparkline" Height="46" Margin="0,8" Stroke="#FFB74D"/>
-                <TextBlock x:Name="TargetStatsText" FontFamily="Consolas" FontSize="11" Foreground="#DDDDDD"/>
-            </StackPanel>
-        </materialDesign:Card>
+        <!-- Fuld analyse: kun i vinduet, ikke i billedet -->
+        <Expander Grid.Row="1" Margin="0,12,0,0" Foreground="#8fa3bf"
+                  Header="Vis fuld analyse (din linje vs. målet)">
+            <TextBlock x:Name="VerdictText" FontSize="12" TextWrapping="Wrap" Margin="4,8,0,0"/>
+        </Expander>
 
-        <TextBlock Grid.Row="5" Foreground="#5A8AAA" FontSize="11" Margin="0,14,0,0" TextWrapping="Wrap"
-                   Text="Lav latency/jitter/tab på begge linjer, men problemer kun på målet, peger på enheden eller dens egen forbindelse. Problemer på begge linjer samtidig peger på din egen internetforbindelse."/>
-
-        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
-            <Button Content="Gem rapport..." Click="Save_Click"
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button x:Name="CopyTextButton" Content="Kopiér tekst" Click="CopyText_Click"
                     Background="#37474F" Foreground="White" BorderThickness="0"
-                    Padding="18,8" Margin="0,0,10,0"/>
+                    Padding="16,8" Margin="0,0,8,0"/>
+            <Button x:Name="CopyImageButton" Content="Kopiér som billede" Click="CopyImage_Click"
+                    Background="#37474F" Foreground="White" BorderThickness="0"
+                    Padding="16,8" Margin="0,0,8,0"/>
+            <Button Content="Gem..." Click="Save_Click"
+                    Background="#37474F" Foreground="White" BorderThickness="0"
+                    Padding="16,8" Margin="0,0,8,0"/>
             <Button Content="Luk" Click="Close_Click"
                     Background="#4A90E2" Foreground="White" BorderThickness="0"
                     Padding="24,8" IsCancel="True"/>

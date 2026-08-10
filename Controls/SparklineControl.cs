@@ -29,6 +29,10 @@ namespace M1Scan.Controls
                 new FrameworkPropertyMetadata(new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36)),
                     FrameworkPropertyMetadataOptions.AffectsRender));
 
+        public static readonly DependencyProperty StretchToFitProperty =
+            DependencyProperty.Register(nameof(StretchToFit), typeof(bool), typeof(SparklineControl),
+                new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
         public IReadOnlyList<double?>? Values
         {
             get => (IReadOnlyList<double?>?)GetValue(ValuesProperty);
@@ -47,6 +51,22 @@ namespace M1Scan.Controls
             set => SetValue(LossBrushProperty, value);
         }
 
+        /// <summary>
+        /// Fordel de faktiske samples over hele bredden i stedet for over
+        /// <see cref="Models.LatencySeries.Capacity"/>.
+        ///
+        /// Standard er false, fordi de løbende monitorer skal vokse fra venstre mod
+        /// højre efterhånden som data samler sig — der ville en strækning få grafen
+        /// til at "skride" ved hver ny måling. Sæt den til true for en AFSLUTTET
+        /// serie (fx forbindelsesrapporten), hvor et fast vindue bare ville efterlade
+        /// resten af bredden tom.
+        /// </summary>
+        public bool StretchToFit
+        {
+            get => (bool)GetValue(StretchToFitProperty);
+            set => SetValue(StretchToFitProperty, value);
+        }
+
         protected override void OnRender(DrawingContext dc)
         {
             double w = ActualWidth, h = ActualHeight;
@@ -63,8 +83,13 @@ namespace M1Scan.Controls
 
             const double pad = 2;
             double usableH = h - 2 * pad;
-            int capacity = Models.LatencySeries.Capacity;
-            double stepX = w / (capacity - 1);
+
+            // Divisoren må aldrig blive 0: en enkelt sample i stretch-tilstand
+            // tegnes i venstre kant frem for at give division by zero.
+            int span = StretchToFit
+                ? Math.Max(values.Count - 1, 1)
+                : Models.LatencySeries.Capacity - 1;
+            double stepX = w / span;
 
             double YOf(double ms) => pad + usableH * (1 - Math.Min(ms, max) / max);
 

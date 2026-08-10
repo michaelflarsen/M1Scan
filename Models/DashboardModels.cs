@@ -41,7 +41,24 @@ namespace M1Scan.Models
         // herfra var et ubeskyttet læs af en Queue der muteres på en anden tråd.
         private volatile int _sampleCount;
 
+        // Antal samples der faktisk fik svar. Holdes som et råt heltal ved siden af
+        // LossPercent, fordi procenten afrundes i visningen: ét tabt svar ud af 60
+        // vises som "0 %". Til en rapport der bruges som dokumentation skal forskellen
+        // på 60/60 og 59/60 kunne ses.
+        private volatile int _replyCount;
+
         public int SampleCount => _sampleCount;
+
+        /// <summary>Antal ping der fik svar (samples uden tab) i det aktuelle vindue.</summary>
+        public int ReplyCount => _replyCount;
+
+        /// <summary>
+        /// "58 / 60" — svar ud af afsendte i det aktuelle vindue, "—" hvis intet er
+        /// målt endnu. Bemærk at tallene dækker de seneste <see cref="Capacity"/>
+        /// samples, ikke hele forløbet: til en rapport over en hel testperiode skal
+        /// <c>ConnectionTestStats</c> bruges i stedet.
+        /// </summary>
+        public string ReplyCountDisplay => SampleCount > 0 ? $"{ReplyCount} / {SampleCount}" : "—";
 
         public string CurrentDisplay => Current.HasValue ? $"{Current.Value:F0} ms" : "—";
         public string AvgDisplay     => SampleCount > 0 ? $"{Avg:F0} ms"      : "—";
@@ -55,6 +72,7 @@ namespace M1Scan.Models
             {
                 _samples.Clear();
                 _sampleCount = 0;
+                _replyCount = 0;
             }
 
             Current     = null;
@@ -64,6 +82,8 @@ namespace M1Scan.Models
             LossPercent = 0;
             Values      = Array.Empty<double?>();
             OnPropertyChanged(nameof(SampleCount));
+            OnPropertyChanged(nameof(ReplyCount));
+            OnPropertyChanged(nameof(ReplyCountDisplay));
             OnPropertyChanged(nameof(CurrentDisplay));
             OnPropertyChanged(nameof(AvgDisplay));
             OnPropertyChanged(nameof(MaxDisplay));
@@ -125,6 +145,7 @@ namespace M1Scan.Models
                 snapshot = _samples.ToArray();
                 count = _samples.Count;
                 _sampleCount = count;
+                _replyCount = validSamples.Count;
             }
 
             Current     = current;
@@ -135,6 +156,8 @@ namespace M1Scan.Models
             Values      = snapshot;
 
             OnPropertyChanged(nameof(SampleCount));
+            OnPropertyChanged(nameof(ReplyCount));
+            OnPropertyChanged(nameof(ReplyCountDisplay));
 
             // Display-props afhænger af SampleCount — skal altid re-evalueres,
             // også når den underliggende værdi er uændret (fx tab der forbliver 0)

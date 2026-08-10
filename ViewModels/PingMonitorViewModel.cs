@@ -164,6 +164,13 @@ namespace M1Scan.ViewModels
             {
                 var referenceSeries = new LatencySeries { Label = "Internet (1.1.1.1)" };
                 var targetSeries = new LatencySeries { Label = target.HostOrIp };
+
+                // Serierne er rullende vinduer på LatencySeries.Capacity samples, men
+                // testen kan vare op til 300 sekunder. Stats akkumulerer hele forløbet,
+                // så en nedetid i starten af en lang test ikke kan falde ud af rapporten.
+                var referenceStats = new ConnectionTestStats();
+                var targetStats = new ConnectionTestStats();
+
                 var startedAt = DateTime.Now;
 
                 // Deadline i stedet for en fast antal-iterationer-løkke: PingOnceAsync har
@@ -181,6 +188,8 @@ namespace M1Scan.ViewModels
 
                     referenceSeries.Add(refTask.Result);
                     targetSeries.Add(targetTask.Result);
+                    referenceStats.Add(refTask.Result);
+                    targetStats.Add(targetTask.Result);
 
                     var remaining = nextTick - DateTime.UtcNow;
                     if (remaining > TimeSpan.Zero)
@@ -193,10 +202,16 @@ namespace M1Scan.ViewModels
                     TargetDescription = target.Description,
                     StartedAt = startedAt,
                     DurationSeconds = seconds,
+                    IntervalSeconds = 1,
                     ReferenceSeries = referenceSeries,
                     TargetSeries = targetSeries,
-                    Verdict = BuildVerdictText(referenceSeries, targetSeries, out var verdictColor),
-                    VerdictColorHex = verdictColor
+                    ReferenceStats = referenceStats,
+                    TargetStats = targetStats,
+                    Verdict = BuildVerdictText(referenceStats, targetStats, out var verdictColor),
+                    VerdictColorHex = verdictColor,
+                    TargetStatusLabel = BuildTargetStatusLabel(targetStats, out var statusColor),
+                    TargetStatusColorHex = statusColor,
+                    ReferenceUnreliable = referenceStats.HasProblem
                 };
 
                 StatusMessage = "Klar";
@@ -219,10 +234,10 @@ namespace M1Scan.ViewModels
         /// mærkbart tab eller jitter, ikke blot at avg-latency er høj (høj avg kan
         /// være helt normalt for et geografisk fjernt mål).
         /// </summary>
-        private static string BuildVerdictText(LatencySeries reference, LatencySeries target, out string colorHex)
+        private static string BuildVerdictText(ConnectionTestStats reference, ConnectionTestStats target, out string colorHex)
         {
-            bool refProblem = reference.LossPercent >= 5 || reference.JitterMs >= 30;
-            bool targetProblem = target.LossPercent >= 5 || target.JitterMs >= 30;
+            bool refProblem = reference.HasProblem;
+            bool targetProblem = target.HasProblem;
 
             if (target.LossPercent >= 95)
             {
@@ -252,6 +267,46 @@ namespace M1Scan.ViewModels
 
             colorHex = "#4CAF50";
             return "Begge forbindelser er stabile i testperioden. Ingen tegn på problemer, hverken lokalt eller hos målet.";
+        }
+
+        /// <summary>
+        /// Kort statusetiket om MÅLET ALENE, til rapportens header.
+        ///
+        /// Deler tærskel med <see cref="BuildVerdictText"/> via
+        /// <see cref="ConnectionTestStats.HasProblem"/>, så de to ikke kan drifte fra
+        /// hinanden ved senere rettelser. De kan dog godt vise forskellig FARVE — og
+        /// det er med vilje: verdict'en bedømmer også brugerens egen linje, så et
+        /// stabilt mål kan stå grønt i headeren mens verdict'en er orange, fordi
+        /// brugerens eget internet var ustabilt. Headeren udtaler sig kun om enheden.
+        /// </summary>
+        private static string BuildTargetStatusLabel(ConnectionTestStats target, out string colorHex)
+        {
+            if (target.Sent == 0)
+            {
+                colorHex = "#8fa3bf";
+                return "INGEN MÅLINGER";
+            }
+
+            if (target.Replies == 0)
+            {
+                colorHex = "#F44336";
+                return "OFFLINE — INTET SVAR";
+            }
+
+            if (target.LossPercent >= 95)
+            {
+                colorHex = "#F44336";
+                return "OFFLINE — SVARER STORT SET IKKE";
+            }
+
+            if (target.HasProblem)
+            {
+                colorHex = "#FF9800";
+                return "ONLINE — MEN USTABIL";
+            }
+
+            colorHex = "#4CAF50";
+            return "ONLINE — STABIL FORBINDELSE";
         }
 
         // ── IActivatablePage ─────────────────────────────────────────────────
