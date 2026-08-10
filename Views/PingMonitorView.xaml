@@ -79,8 +79,29 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <materialDesign:Card Margin="0,0,0,10" Padding="16,12"
-                                             Background="#1C2535"
                                              materialDesign:ElevationAssist.Elevation="Dp2">
+                            <materialDesign:Card.Style>
+                                <Style TargetType="materialDesign:Card">
+                                    <Setter Property="Background" Value="#1C2535"/>
+                                    <Setter Property="BorderThickness" Value="2"/>
+                                    <Setter Property="BorderBrush" Value="#333B4D"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Status}" Value="Online">
+                                            <Setter Property="BorderBrush" Value="#2E7D32"/>
+                                            <Setter Property="Background" Value="#182420"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                            <Setter Property="BorderThickness" Value="4"/>
+                                            <Setter Property="BorderBrush" Value="#FF1744"/>
+                                            <Setter Property="Background" Value="#440D14"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Status}" Value="Timeout">
+                                            <Setter Property="BorderBrush" Value="#FFC400"/>
+                                            <Setter Property="Background" Value="#332B0F"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialDesign:Card.Style>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="220"/>
@@ -91,10 +112,49 @@
 
                                 <!-- Info -->
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Description}" FontWeight="Bold" FontSize="13"
-                                               Foreground="{StaticResource DarkForegroundBrush}"/>
-                                    <TextBlock Text="{Binding HostOrIp}" FontFamily="Consolas" FontSize="12"
-                                               Foreground="#64B5F6"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Description}" FontWeight="Bold" FontSize="13"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource DarkForegroundBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                            <Setter Property="Foreground" Value="#FF5C7A"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <!-- OFFLINE-badge: kun synligt når målet er nede -->
+                                        <Border CornerRadius="3" Background="#FF1744" Margin="8,0,0,0"
+                                                Padding="6,1" VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="OFFLINE" FontSize="9" FontWeight="Bold"
+                                                       Foreground="White"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding HostOrIp}" FontFamily="Consolas" FontSize="12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#64B5F6"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                        <Setter Property="Foreground" Value="#FF8A9E"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0">
                                             <Ellipse.Style>
@@ -114,7 +174,20 @@
                                                 </Style>
                                             </Ellipse.Style>
                                         </Ellipse>
-                                        <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="#888888"/>
+                                        <TextBlock Text="{Binding StatusText}" FontSize="11">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#888888"/>
+                                                    <Setter Property="FontWeight" Value="Normal"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                            <Setter Property="Foreground" Value="#FF5C7A"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <TextBlock Text=" · " FontSize="11" Foreground="#666666"/>
                                         <TextBlock Text="{Binding LastCheckedFormatted}" FontSize="11" Foreground="#888888" FontFamily="Consolas"/>
                                     </StackPanel>
