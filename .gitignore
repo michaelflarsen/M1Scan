@@ -62,6 +62,9 @@ link
 ## Agent-arbejdsmapper
 .kilo/
 
+## Promo-materiale (screenshots + slideshow) — arbejdsfiler, ikke kildekode
+PromoVideo/
+
 ## Undtag de logo-filer der er build-input (Resource i M1Scan.csproj),
 ## så *.png-reglen ovenfor ikke gør et frisk clone ubygbart.
 !Resources/*.png
