@@ -195,8 +195,8 @@ namespace M1Scan.ViewModels
                     if (Application.Current != null)
                         await Application.Current.Dispatcher.InvokeAsync(() =>
                             progressDialog.UpdateProgress(elapsedSeconds,
-                                (int)targetStats.Sent, (int)targetStats.Replies,
-                                (int)referenceStats.Sent, (int)referenceStats.Replies));
+                                targetStats.Sent, targetStats.Replies,
+                                referenceStats.Sent, referenceStats.Replies));
 
                     var remaining = nextTick - DateTime.UtcNow;
                     if (remaining > TimeSpan.Zero)

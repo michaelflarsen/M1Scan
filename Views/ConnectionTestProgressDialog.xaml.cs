@@ -23,6 +23,16 @@ namespace M1Scan.Views
             // Show() giver ikke altid vinduet keyboard-fokus automatisk — uden dette
             // ville Esc gå til det bagvedliggende MainWindow i stedet for denne dialog.
             Loaded += (_, _) => Focus();
+
+            // Fanger ALLE veje vinduet kan lukkes på (Alt+F4, Windows-luk, ikke kun
+            // Stop-knappen/Esc) — ellers kører ping-løkken videre usynligt i baggrunden
+            // i op til hele testens varighed, præcis den "frossen"-oplevelse dette
+            // vindue skal forhindre.
+            Closing += (_, _) =>
+            {
+                if (!_testComplete)
+                    OnCancelled?.Invoke();
+            };
         }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -58,15 +68,8 @@ namespace M1Scan.Views
             CountdownText.Text = "00:00";
         }
 
-        private void Cancel_Click(object sender, RoutedEventArgs e)
-        {
-            // Testen er allerede færdig (vi venter blot på rapportvinduet) — Close() er nok.
-            // Ellers skal ViewModel'en have besked om at stoppe den løbende ping-løkke,
-            // så testen ikke bare fortsætter i baggrunden mens dialogen forsvinder.
-            if (!_testComplete)
-                OnCancelled?.Invoke();
-
-            Close();
-        }
+        // Cancellation håndteres ensartet af Closing-handleren ovenfor, uanset om
+        // vinduet lukkes via denne knap, Esc, Alt+F4 eller Windows-luk-knappen.
+        private void Cancel_Click(object sender, RoutedEventArgs e) => Close();
     }
 }
