@@ -1,0 +1,61 @@
+<Window x:Class="M1Scan.Views.ConnectionTestProgressDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ping-test kører"
+        Width="500" Height="280"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="#1E1E1E"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <Border BorderBrush="#455A64" BorderThickness="1" Padding="24">
+        <StackPanel>
+            <!-- Titel -->
+            <TextBlock x:Name="TargetText" Foreground="White" FontSize="16" FontWeight="SemiBold"/>
+
+            <!-- Status besked -->
+            <TextBlock x:Name="StatusText" Foreground="#90A4AE" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"
+                       Text="Pinger mål og internet-reference samtidig..."/>
+
+            <!-- Progress bar -->
+            <ProgressBar x:Name="ProgressBar" Height="8" Margin="0,18,0,0"
+                         Foreground="#4A90E2" Background="#2D2D2D"
+                         Minimum="0" Maximum="100" Value="0"/>
+
+            <!-- Countdown timer -->
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                <TextBlock Text="Gennerstår:" Foreground="#CFD8DC" FontSize="12"/>
+                <TextBlock x:Name="CountdownText" Foreground="#4A90E2" FontSize="12" FontWeight="SemiBold" Margin="8,0,0,0"
+                           Text="00:00" MinWidth="40"/>
+                <TextBlock Text="sekunder" Foreground="#90A4AE" FontSize="12" Margin="6,0,0,0"/>
+            </StackPanel>
+
+            <!-- Stats under kørslen -->
+            <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Målet" Foreground="#90A4AE" FontSize="11"/>
+                    <TextBlock x:Name="TargetStatsText" Foreground="White" FontSize="13" FontWeight="SemiBold"
+                               Text="0 / 0 pings"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="Internet-reference" Foreground="#90A4AE" FontSize="11"/>
+                    <TextBlock x:Name="ReferenceStatsText" Foreground="White" FontSize="13" FontWeight="SemiBold"
+                               Text="0 / 0 pings"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Cancel-knap (minimal) -->
+            <Button Click="Cancel_Click" Background="Transparent" BorderThickness="0"
+                    Foreground="#90A4AE" Padding="8,4" Margin="0,14,0,0" HorizontalAlignment="Center"
+                    FontSize="11" Cursor="Hand" Content="Stop test (Esc)"/>
+
+        </StackPanel>
+    </Border>
+</Window>

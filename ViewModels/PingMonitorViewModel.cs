@@ -153,32 +153,31 @@ namespace M1Scan.ViewModels
             if (inputDialog.ShowDialog() != true) return;
 
             int seconds = inputDialog.DurationSeconds;
-            StatusMessage = $"Tester forbindelsen til {target.HostOrIp} ({seconds} s)...";
             target.IsTesting = true;
-            // target.IsTesting er ikke selv en ICommand-property, så WPF opdager ikke af
-            // sig selv at CanExecute skal genevalueres for dette kort — uden dette kald
-            // ville "Test forbindelse"-knappen først blive grå ved næste ubeslægtede UI-event.
             System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+
+            var cts = new System.Threading.CancellationTokenSource();
+            var progressDialog = new ConnectionTestProgressDialog(
+                string.IsNullOrWhiteSpace(target.Description) ? target.HostOrIp : target.Description,
+                seconds)
+            { Owner = Application.Current?.MainWindow };
+
+            progressDialog.OnCancelled += () => cts.Cancel();
+            progressDialog.Show();
 
             try
             {
                 var referenceSeries = new LatencySeries { Label = "Internet (1.1.1.1)" };
                 var targetSeries = new LatencySeries { Label = target.HostOrIp };
 
-                // Serierne er rullende vinduer på LatencySeries.Capacity samples, men
-                // testen kan vare op til 300 sekunder. Stats akkumulerer hele forløbet,
-                // så en nedetid i starten af en lang test ikke kan falde ud af rapporten.
                 var referenceStats = new ConnectionTestStats();
                 var targetStats = new ConnectionTestStats();
 
                 var startedAt = DateTime.Now;
-
-                // Deadline i stedet for en fast antal-iterationer-løkke: PingOnceAsync har
-                // et 1500 ms timeout, så et par forsøg der begge timer ud ville ellers gøre
-                // en "30 sekunders" test til reelt ~35-45 sekunder uden brugeren ved det —
-                // rapportens tidsstempel skal matche det brugeren faktisk oplevede at vente.
                 var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(seconds);
-                while (DateTime.UtcNow < deadline)
+                int elapsedSeconds = 0;
+
+                while (DateTime.UtcNow < deadline && !cts.Token.IsCancellationRequested)
                 {
                     var nextTick = DateTime.UtcNow + TimeSpan.FromSeconds(1);
 
@@ -191,9 +190,23 @@ namespace M1Scan.ViewModels
                     referenceStats.Add(refTask.Result);
                     targetStats.Add(targetTask.Result);
 
+                    elapsedSeconds++;
+                    // Opdater progress-dialog på UI-tråden
+                    if (Application.Current != null)
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                            progressDialog.UpdateProgress(elapsedSeconds,
+                                (int)targetStats.Sent, (int)targetStats.Replies,
+                                (int)referenceStats.Sent, (int)referenceStats.Replies));
+
                     var remaining = nextTick - DateTime.UtcNow;
                     if (remaining > TimeSpan.Zero)
-                        await Task.Delay(remaining);
+                        await Task.Delay(remaining, cts.Token);
+                }
+
+                if (cts.Token.IsCancellationRequested)
+                {
+                    progressDialog.Close();
+                    return;
                 }
 
                 var result = new ConnectionTestResult
@@ -214,14 +227,22 @@ namespace M1Scan.ViewModels
                     ReferenceUnreliable = referenceStats.HasProblem
                 };
 
-                StatusMessage = "Klar";
+                // Marker testen som fuldført
+                if (Application.Current != null)
+                    await Application.Current.Dispatcher.InvokeAsync(() => progressDialog.OnTestComplete());
 
                 var reportWindow = new ConnectionTestReportWindow(result)
                 { Owner = Application.Current?.MainWindow };
+                progressDialog.Close();
                 reportWindow.ShowDialog();
+            }
+            catch (OperationCanceledException)
+            {
+                progressDialog.Close();
             }
             finally
             {
+                cts.Dispose();
                 target.IsTesting = false;
                 System.Windows.Input.CommandManager.InvalidateRequerySuggested();
             }
