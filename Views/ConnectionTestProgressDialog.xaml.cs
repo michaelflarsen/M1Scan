@@ -7,6 +7,10 @@ namespace M1Scan.Views
     public partial class ConnectionTestProgressDialog : Window
     {
         private int _remainingSeconds;
+        private bool _testComplete;
+
+        /// <summary>Rejses når brugeren trykker Stop/Esc, så ViewModel kan cancelere den løbende test.</summary>
+        public event Action? OnCancelled;
 
         public ConnectionTestProgressDialog(string targetLabel, int totalSeconds)
         {
@@ -44,6 +48,7 @@ namespace M1Scan.Views
 
         public void OnTestComplete()
         {
+            _testComplete = true;
             StatusText.Text = "Test gennemført — luk for at se rapport";
             ProgressBar.Value = ProgressBar.Maximum;
             CountdownText.Text = "00:00";
@@ -51,6 +56,12 @@ namespace M1Scan.Views
 
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
+            // Testen er allerede færdig (vi venter blot på rapportvinduet) — Close() er nok.
+            // Ellers skal ViewModel'en have besked om at stoppe den løbende ping-løkke,
+            // så testen ikke bare fortsætter i baggrunden mens dialogen forsvinder.
+            if (!_testComplete)
+                OnCancelled?.Invoke();
+
             Close();
         }
     }

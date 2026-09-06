@@ -156,11 +156,13 @@ namespace M1Scan.ViewModels
             target.IsTesting = true;
             System.Windows.Input.CommandManager.InvalidateRequerySuggested();
 
-            // Åbn progress-dialog før testen starter
+            var cts = new System.Threading.CancellationTokenSource();
             var progressDialog = new ConnectionTestProgressDialog(
                 string.IsNullOrWhiteSpace(target.Description) ? target.HostOrIp : target.Description,
                 seconds)
             { Owner = Application.Current?.MainWindow };
+
+            progressDialog.OnCancelled += () => cts.Cancel();
             progressDialog.Show();
 
             try
@@ -175,7 +177,7 @@ namespace M1Scan.ViewModels
                 var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(seconds);
                 int elapsedSeconds = 0;
 
-                while (DateTime.UtcNow < deadline)
+                while (DateTime.UtcNow < deadline && !cts.Token.IsCancellationRequested)
                 {
                     var nextTick = DateTime.UtcNow + TimeSpan.FromSeconds(1);
 
@@ -198,7 +200,13 @@ namespace M1Scan.ViewModels
 
                     var remaining = nextTick - DateTime.UtcNow;
                     if (remaining > TimeSpan.Zero)
-                        await Task.Delay(remaining);
+                        await Task.Delay(remaining, cts.Token);
+                }
+
+                if (cts.Token.IsCancellationRequested)
+                {
+                    progressDialog.Close();
+                    return;
                 }
 
                 var result = new ConnectionTestResult
@@ -228,9 +236,13 @@ namespace M1Scan.ViewModels
                 progressDialog.Close();
                 reportWindow.ShowDialog();
             }
-            finally
+            catch (OperationCanceledException)
             {
                 progressDialog.Close();
+            }
+            finally
+            {
+                cts.Dispose();
                 target.IsTesting = false;
                 System.Windows.Input.CommandManager.InvalidateRequerySuggested();
             }
