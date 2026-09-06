@@ -19,6 +19,10 @@ namespace M1Scan.Views
             _remainingSeconds = totalSeconds;
             ProgressBar.Maximum = totalSeconds;
             UpdateCountdown();
+
+            // Show() giver ikke altid vinduet keyboard-fokus automatisk — uden dette
+            // ville Esc gå til det bagvedliggende MainWindow i stedet for denne dialog.
+            Loaded += (_, _) => Focus();
         }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)

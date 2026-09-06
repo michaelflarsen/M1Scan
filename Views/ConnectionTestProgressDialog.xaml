@@ -8,10 +8,11 @@
         ShowInTaskbar="False"
         Background="#1E1E1E"
         WindowStyle="None"
-        AllowsTransparency="False">
+        AllowsTransparency="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
 
     <Border BorderBrush="#455A64" BorderThickness="1" Padding="24">
-        <StackPanel PreviewKeyDown="Window_PreviewKeyDown">
+        <StackPanel>
             <!-- Titel -->
             <TextBlock x:Name="TargetText" Foreground="White" FontSize="16" FontWeight="SemiBold"/>
 
