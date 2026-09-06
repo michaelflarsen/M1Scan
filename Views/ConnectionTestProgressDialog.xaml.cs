@@ -51,7 +51,6 @@ namespace M1Scan.Views
 
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = false;
             Close();
         }
     }

@@ -51,11 +51,10 @@
             </Grid>
 
             <!-- Cancel-knap (minimal) -->
-            <TextBlock Margin="0,16,0,0" TextAlignment="Center">
-                <Hyperlink Click="Cancel_Click" Foreground="#90A4AE" TextDecorations="None">
-                    <Run Text="Stop test (Esc)"/>
-                </Hyperlink>
-            </TextBlock>
+            <Button Click="Cancel_Click" Background="Transparent" BorderThickness="0"
+                    Foreground="#90A4AE" Padding="8,4" Margin="0,14,0,0" HorizontalAlignment="Center"
+                    FontSize="11" Cursor="Hand" Content="Stop test (Esc)"/>
+
         </StackPanel>
     </Border>
 </Window>
