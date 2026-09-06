@@ -11,7 +11,7 @@
         AllowsTransparency="False">
 
     <Border BorderBrush="#455A64" BorderThickness="1" Padding="24">
-        <StackPanel>
+        <StackPanel PreviewKeyDown="Window_PreviewKeyDown">
             <!-- Titel -->
             <TextBlock x:Name="TargetText" Foreground="White" FontSize="16" FontWeight="SemiBold"/>
 
@@ -50,11 +50,12 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Cancel-knap -->
-            <Button x:Name="CancelButton" Content="Stop test" Click="Cancel_Click"
-                    Background="#37474F" Foreground="White" BorderThickness="0"
-                    Padding="18,10" Margin="0,22,0,0" HorizontalAlignment="Center"
-                    FontSize="12" Cursor="Hand"/>
+            <!-- Cancel-knap (minimal) -->
+            <TextBlock Margin="0,16,0,0" TextAlignment="Center">
+                <Hyperlink Click="Cancel_Click" Foreground="#90A4AE" TextDecorations="None">
+                    <Run Text="Stop test (Esc)"/>
+                </Hyperlink>
+            </TextBlock>
         </StackPanel>
     </Border>
 </Window>

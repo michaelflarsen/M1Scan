@@ -1,6 +1,6 @@
 using System;
 using System.Windows;
-using System.Windows.Threading;
+using System.Windows.Input;
 
 namespace M1Scan.Views
 {
@@ -15,6 +15,15 @@ namespace M1Scan.Views
             _remainingSeconds = totalSeconds;
             ProgressBar.Maximum = totalSeconds;
             UpdateCountdown();
+        }
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                Cancel_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+            }
         }
 
         public void UpdateProgress(int elapsedSeconds, int targetPings, int targetReplies, int referencePings, int referenceReplies)
@@ -35,7 +44,6 @@ namespace M1Scan.Views
 
         public void OnTestComplete()
         {
-            CancelButton.Content = "Luk";
             StatusText.Text = "Test gennemført — luk for at se rapport";
             ProgressBar.Value = ProgressBar.Maximum;
             CountdownText.Text = "00:00";
