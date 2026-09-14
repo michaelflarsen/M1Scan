@@ -215,15 +215,18 @@
 
                                 <!-- Actions -->
                                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Width="32" Height="32" Padding="2"
-                                            Style="{StaticResource MaterialDesignIconButton}"
-                                            Foreground="#64B5F6"
-                                            ToolTip="Test forbindelse — sammenlign med internet-reference"
+                                    <Button Height="36" Padding="14,0" BorderThickness="0"
+                                            Background="#1565C0" Foreground="White" Cursor="Hand"
+                                            ToolTip="Test forbindelse — sammenlign med internet-reference og del som bevis"
                                             Command="{Binding DataContext.TestConnectionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}">
-                                        <materialDesign:PackIcon Kind="ChartLine" Width="16" Height="16"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="FileCertificateOutline" Width="18" Height="18" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Forbindelsesbevis" FontSize="12" FontWeight="Bold"
+                                                       Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </Button>
-                                    <Button Width="32" Height="32" Padding="2" Margin="4,0,0,0"
+                                    <Button Width="32" Height="32" Padding="2" Margin="8,0,0,0"
                                             Style="{StaticResource MaterialDesignIconButton}"
                                             Foreground="#EF5350"
                                             ToolTip="Fjern mål"

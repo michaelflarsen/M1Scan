@@ -24,6 +24,31 @@
             <TextBlock x:Name="ErrorText" Foreground="#EF5350" FontSize="11" Margin="0,6,0,0"
                        Visibility="Collapsed" TextWrapping="Wrap"/>
 
+            <!-- Valgfrit: gør beviset til noget mere end et navn. Foldet sammen som
+                 standard, så den simple sag (bare test og se resultatet) ikke bliver
+                 tungere at bruge for den der ikke skal dokumentere noget formelt. -->
+            <Expander Header="Flere detaljer (valgfrit)" Foreground="#90A4AE" Margin="0,16,0,0">
+                <StackPanel Margin="2,10,2,0">
+                    <TextBlock Text="Sagsnummer" Foreground="#CFD8DC" FontSize="12"/>
+                    <TextBox x:Name="CaseNumberBox"
+                             Background="#2D2D2D" Foreground="White" BorderBrush="#455A64"
+                             BorderThickness="1" Padding="8,7" FontSize="13" Margin="0,4,0,12"
+                             CaretBrush="White"/>
+
+                    <TextBlock Text="Anlæg / lokation" Foreground="#CFD8DC" FontSize="12"/>
+                    <TextBox x:Name="LocationBox"
+                             Background="#2D2D2D" Foreground="White" BorderBrush="#455A64"
+                             BorderThickness="1" Padding="8,7" FontSize="13" Margin="0,4,0,12"
+                             CaretBrush="White"/>
+
+                    <TextBlock Text="Målt af" Foreground="#CFD8DC" FontSize="12"/>
+                    <TextBox x:Name="OperatorBox"
+                             Background="#2D2D2D" Foreground="White" BorderBrush="#455A64"
+                             BorderThickness="1" Padding="8,7" FontSize="13" Margin="0,4,0,0"
+                             CaretBrush="White"/>
+                </StackPanel>
+            </Expander>
+
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
                 <Button Content="Annuller" Click="Cancel_Click"
                         Background="#37474F" Foreground="White" BorderThickness="0"

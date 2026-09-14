@@ -15,7 +15,6 @@
                  aldrig kan blive klippet af. -->
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
@@ -25,98 +24,156 @@
             <StackPanel x:Name="CaptureRoot"
                         Background="{StaticResource DarkBackgroundBrush}">
 
-                <TextBlock x:Name="TitleText" Text="Forbindelsesbevis"
-                           Foreground="White" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock x:Name="SubtitleText"
-                           Foreground="#8fa3bf" FontSize="12" Margin="0,4,0,0"/>
+                <!-- Dom først: titel, badge og resumé uden tal. Læseren skal kunne
+                     lukke dokumentet efter tre sekunder og stadig vide svaret. -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock x:Name="TitleText" Text="Forbindelsesbevis"
+                                   Foreground="White" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="SubtitleText"
+                                   Foreground="#8fa3bf" FontSize="12" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Border x:Name="BadgePill" Grid.Column="1" CornerRadius="12"
+                            Padding="14,6" VerticalAlignment="Top">
+                        <TextBlock x:Name="BadgeText" FontSize="13" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+                </Grid>
 
-                <!-- Målets status: rapportens hovedbudskab -->
-                <Border x:Name="StatusBanner" Margin="0,16,0,0" Padding="18,14" CornerRadius="4"
-                        Background="#16202E" BorderThickness="0,0,0,3">
+                <TextBlock x:Name="SummaryText" Foreground="#CFD8DC" FontSize="13"
+                           TextWrapping="Wrap" Margin="0,12,0,0" LineHeight="19"/>
+
+                <!-- Hvert svar i rækkefølge: virker uden forklaring, og manglende
+                     svar kan tælles direkte. Erstatter brøken 61/61. -->
+                <Border x:Name="ReplyDotsBorder" Margin="0,16,0,0" Padding="14,12" CornerRadius="4" Background="#151C28">
                     <StackPanel>
-                        <TextBlock x:Name="StatusLabelText" FontSize="19" FontWeight="Bold"
-                                   TextWrapping="Wrap"/>
-                        <TextBlock x:Name="StatusDetailText" Foreground="#CFD8DC" FontSize="13"
-                                   Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <ItemsControl x:Name="ReplyDots">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Ellipse Width="8" Height="8" Margin="1.5" Fill="{Binding}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="ReplySummaryText" Foreground="#8fa3bf" FontSize="11"
+                                   Margin="0,8,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
-                <!-- Målets forbindelse: stort kort med alle tal -->
-                <materialDesign:Card Margin="0,14,0,0" Padding="16,14" Background="#1C2535">
+                <!-- Tre nøgletal, hver med tal + ord-vurdering (samme vægt) + en
+                     forklarende linje i småt. Ingen tal uden en dom ved siden af. -->
+                <UniformGrid Columns="3" Margin="0,12,0,0">
+                    <Border x:Name="AvgCard" Margin="0,0,4,0" Padding="12,10" CornerRadius="4" Background="#1C2535">
+                        <StackPanel>
+                            <TextBlock x:Name="AvgLabelText" Text="Svartid i gennemsnit" Foreground="#8fa3bf" FontSize="10" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="AvgValueText" Foreground="White" FontSize="18" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                            <TextBlock x:Name="AvgWordText" FontSize="13" FontWeight="SemiBold" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="AvgExplainText" Foreground="#7B8FA8" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="MaxCard" Margin="4,0,4,0" Padding="12,10" CornerRadius="4" Background="#1C2535">
+                        <StackPanel>
+                            <TextBlock x:Name="MaxLabelText" Text="Langsomste svar" Foreground="#8fa3bf" FontSize="10" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="MaxValueText" Foreground="White" FontSize="18" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                            <TextBlock x:Name="MaxWordText" FontSize="13" FontWeight="SemiBold" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="MaxExplainText" Foreground="#7B8FA8" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="JitterCard" Margin="4,0,0,0" Padding="12,10" CornerRadius="4" Background="#1C2535">
+                        <StackPanel>
+                            <TextBlock x:Name="JitterLabelText" Text="Stabilitet" Foreground="#8fa3bf" FontSize="10" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="JitterWordText" Foreground="White" FontSize="18" FontWeight="SemiBold" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="JitterExplainText" Foreground="#7B8FA8" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <!-- Graf med farvezoner. Aksebilledteksten er en konklusion, ikke
+                     en aksebeskrivelse. -->
+                <materialDesign:Card x:Name="GraphCard" Margin="0,12,0,0" Padding="16,14" Background="#1C2535">
                     <StackPanel>
-                        <TextBlock Text="ENHEDENS FORBINDELSE" Foreground="#FFB74D"
-                                   FontSize="11" FontWeight="Bold" Opacity="0.9"/>
                         <TextBlock x:Name="TargetSeriesLabel" Foreground="White"
-                                   FontSize="15" FontWeight="SemiBold" Margin="0,2,0,0"
+                                   FontSize="13" FontWeight="SemiBold" Opacity="0.85"
                                    TextWrapping="Wrap"/>
-
-                        <controls:SparklineControl x:Name="TargetSparkline" Height="58"
-                                                   Margin="0,12,0,4" Stroke="#FFB74D"
-                                                   StretchToFit="True"/>
-                        <TextBlock x:Name="TargetAxisText" Foreground="#7B8FA8" FontSize="10"
-                                   HorizontalAlignment="Right" Margin="0,0,0,12"/>
-
-                        <UniformGrid Columns="4">
-                            <StackPanel>
-                                <TextBlock Text="Svar" Foreground="#8fa3bf" FontSize="11"/>
-                                <TextBlock x:Name="TargetReplyText" Foreground="White"
-                                           FontSize="17" FontWeight="SemiBold"/>
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="Svartid" Foreground="#8fa3bf" FontSize="11"/>
-                                <TextBlock x:Name="TargetAvgText" Foreground="White"
-                                           FontSize="17" FontWeight="SemiBold"/>
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="Maks" Foreground="#8fa3bf" FontSize="11"/>
-                                <TextBlock x:Name="TargetMaxText" Foreground="White"
-                                           FontSize="17" FontWeight="SemiBold"/>
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="Udsving" Foreground="#8fa3bf" FontSize="11"/>
-                                <TextBlock x:Name="TargetJitterText" Foreground="White"
-                                           FontSize="17" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </UniformGrid>
+                        <controls:SparklineControl x:Name="TargetSparkline" Height="90"
+                                                   Margin="0,10,0,4" Stroke="#FFB74D"
+                                                   StretchToFit="True" ShowColorZones="True"/>
+                        <TextBlock x:Name="TargetAxisText" Foreground="#AEBDD0" FontSize="11"
+                                   Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </materialDesign:Card>
 
-                <!-- Referencen: kun kontrolmåling, bevidst nedtonet -->
-                <Border Margin="0,10,0,0" Padding="14,10" CornerRadius="4" Background="#151C28">
+                <!-- Kontrolmåling: forklaret ved sit formål, ikke ved sit navn. -->
+                <Border x:Name="ReferenceBorder" Margin="0,10,0,0" Padding="14,10" CornerRadius="4" Background="#151C28">
                     <StackPanel>
-                        <TextBlock Text="KONTROLMÅLING · internet 1.1.1.1" Foreground="#64B5F6"
-                                   FontSize="10" FontWeight="Bold" Opacity="0.85"/>
-                        <TextBlock x:Name="ReferenceStatsText" Foreground="#AEBDD0"
+                        <TextBlock x:Name="ReferenceHeaderText" Text="Kontrolmåling" Foreground="#64B5F6"
+                                   FontSize="12" FontWeight="Bold" Opacity="0.9"/>
+                        <TextBlock x:Name="ReferenceMeaningText" Foreground="#CFD8DC"
                                    FontSize="12" Margin="0,5,0,0" TextWrapping="Wrap"/>
-                        <TextBlock x:Name="ReferenceMeaningText" Foreground="#7B8FA8"
-                                   FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
+
+                <!-- Afgrænsning af hvad beviset dækker: fast, dæmpet, altid synlig. -->
+                <Border x:Name="DisclaimerBorder" Margin="0,10,0,0" Padding="12,10" BorderThickness="3,0,0,0"
+                        BorderBrush="#3A4658" Background="#12181F">
+                    <TextBlock x:Name="DisclaimerText" Foreground="#7B8FA8" FontSize="11" TextWrapping="Wrap">
+                        Målingen dokumenterer, at enheden var tilgængelig på netværket i hele
+                        perioden. Den siger ikke noget om, hvorvidt enhedens interne funktioner
+                        virkede.
+                    </TextBlock>
+                </Border>
+
+                <!-- Tekniske oplysninger: foldet sammen som standard, men altid til
+                     stede — og foldet UD i den lyse variant, så de kommer med på
+                     print/i en vedhæftet fil uden ekstra klik. -->
+                <Expander x:Name="TechExpander" Margin="0,10,0,0" Foreground="#8fa3bf" Header="Tekniske oplysninger">
+                    <StackPanel Margin="4,8,0,0">
+                        <TextBlock x:Name="ReferenceStatsText" Foreground="#AEBDD0"
+                                   FontSize="11" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="TechnicalDetailsText" Foreground="#7B8FA8"
+                                   FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Expander>
 
                 <TextBlock x:Name="FooterText" Foreground="#5A7086" FontSize="10"
                            Margin="0,10,0,2" TextWrapping="Wrap"/>
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Fuld analyse: kun i vinduet, ikke i billedet -->
-        <Expander Grid.Row="1" Margin="0,12,0,0" Foreground="#8fa3bf"
-                  Header="Vis fuld analyse (din linje vs. målet)">
-            <TextBlock x:Name="VerdictText" FontSize="12" TextWrapping="Wrap" Margin="4,8,0,0"/>
-        </Expander>
+        <Grid Grid.Row="1" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
-            <Button x:Name="CopyTextButton" Content="Kopiér tekst" Click="CopyText_Click"
-                    Background="#37474F" Foreground="White" BorderThickness="0"
-                    Padding="16,8" Margin="0,0,8,0"/>
-            <Button x:Name="CopyImageButton" Content="Kopiér som billede" Click="CopyImage_Click"
-                    Background="#37474F" Foreground="White" BorderThickness="0"
-                    Padding="16,8" Margin="0,0,8,0"/>
-            <Button Content="Gem..." Click="Save_Click"
-                    Background="#37474F" Foreground="White" BorderThickness="0"
-                    Padding="16,8" Margin="0,0,8,0"/>
-            <Button Content="Luk" Click="Close_Click"
-                    Background="#4A90E2" Foreground="White" BorderThickness="0"
-                    Padding="24,8" IsCancel="True"/>
-        </StackPanel>
+            <!-- Lys variant: samme layout i lyst tema til print/mail, hvor mørk
+                 tekst på hvid baggrund er normen. Ligger uden for CaptureRoot, så
+                 selve knappen ikke kommer med i det man kopierer. -->
+            <CheckBox x:Name="LightModeCheckBox" Grid.Column="0" Content="Lys version (til print/mail)"
+                      Foreground="#8fa3bf" VerticalAlignment="Center"
+                      Checked="LightModeCheckBox_Changed" Unchecked="LightModeCheckBox_Changed"/>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="CopyTextButton" Content="Kopiér tekst" Click="CopyText_Click"
+                        Background="#37474F" Foreground="White" BorderThickness="0"
+                        Padding="16,8" Margin="0,0,8,0"/>
+                <Button x:Name="CopyImageButton" Content="Kopiér som billede" Click="CopyImage_Click"
+                        Background="#37474F" Foreground="White" BorderThickness="0"
+                        Padding="16,8" Margin="0,0,8,0"/>
+                <Button Content="Gem..." Click="Save_Click"
+                        Background="#37474F" Foreground="White" BorderThickness="0"
+                        Padding="16,8" Margin="0,0,8,0"/>
+                <Button Content="Luk" Click="Close_Click"
+                        Background="#4A90E2" Foreground="White" BorderThickness="0"
+                        Padding="24,8" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

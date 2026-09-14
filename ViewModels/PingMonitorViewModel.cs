@@ -153,6 +153,9 @@ namespace M1Scan.ViewModels
             if (inputDialog.ShowDialog() != true) return;
 
             int seconds = inputDialog.DurationSeconds;
+            string caseNumber = inputDialog.CaseNumber;
+            string location = inputDialog.Location;
+            string operatorName = inputDialog.Operator;
             target.IsTesting = true;
             System.Windows.Input.CommandManager.InvalidateRequerySuggested();
 
@@ -224,7 +227,13 @@ namespace M1Scan.ViewModels
                     VerdictColorHex = verdictColor,
                     TargetStatusLabel = BuildTargetStatusLabel(targetStats, out var statusColor),
                     TargetStatusColorHex = statusColor,
-                    ReferenceUnreliable = referenceStats.HasProblem
+                    Badge = BuildBadge(referenceStats, targetStats, out var badgeColor, out var summary),
+                    BadgeColorHex = badgeColor,
+                    Summary = summary,
+                    ReferenceUnreliable = referenceStats.HasProblem,
+                    CaseNumber = caseNumber,
+                    Location = location,
+                    Operator = operatorName
                 };
 
                 // Marker testen som fuldført
@@ -286,8 +295,12 @@ namespace M1Scan.ViewModels
                 return "Målet er faktisk stabilt, men din internet-reference viser udsving. Din forbindelse til internettet er muligvis mere ustabil end forbindelsen til dette lokale mål.";
             }
 
+            // Bevidst IKKE en gentagelse af "stabil" — det er allerede sagt i
+            // statusbanneret og ved kontrolmålingen. Denne sætning skal tilføje noget
+            // NYT: at sammenligningen med en live internet-reference gør beviset
+            // troværdigt, ikke bare at begge linjer var pæne hver for sig.
             colorHex = "#4CAF50";
-            return "Begge forbindelser er stabile i testperioden. Ingen tegn på problemer, hverken lokalt eller hos målet.";
+            return "Din egen linje viste samme mønster som internet-referencen gennem hele testen — ingen af dem havde tab eller udsving. Det gør resultatet ovenfor pålideligt som bevis over for en tredjepart.";
         }
 
         /// <summary>
@@ -328,6 +341,19 @@ namespace M1Scan.ViewModels
 
             colorHex = "#4CAF50";
             return "ONLINE — STABIL FORBINDELSE";
+        }
+
+        /// <summary>
+        /// Samlet karakter for målet — tynd wrapper om <see cref="ConnectionGrading.GradeOverall"/>,
+        /// så tærsklerne kun findes ét sted (delt med metric-kortenes ord-vurderinger i
+        /// rapportvinduet).
+        /// </summary>
+        private static string BuildBadge(ConnectionTestStats reference, ConnectionTestStats target, out string colorHex, out string summary)
+        {
+            var grade = ConnectionGrading.GradeOverall(target, reference.HasProblem);
+            colorHex = grade.ColorHex;
+            summary = grade.Summary;
+            return grade.Badge;
         }
 
         // ── IActivatablePage ─────────────────────────────────────────────────

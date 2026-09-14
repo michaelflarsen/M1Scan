@@ -7,6 +7,9 @@ namespace M1Scan.Views
     public partial class ConnectionTestDialog : Window
     {
         public int DurationSeconds { get; private set; }
+        public string CaseNumber { get; private set; } = string.Empty;
+        public string Location { get; private set; } = string.Empty;
+        public string Operator { get; private set; } = string.Empty;
 
         public ConnectionTestDialog(string targetLabel)
         {
@@ -25,6 +28,9 @@ namespace M1Scan.Views
             }
 
             DurationSeconds = seconds;
+            CaseNumber = CaseNumberBox.Text.Trim();
+            Location = LocationBox.Text.Trim();
+            Operator = OperatorBox.Text.Trim();
             DialogResult = true;
         }
 

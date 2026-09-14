@@ -30,6 +30,19 @@ namespace M1Scan.Models
         public ConnectionTestStats TargetStats { get; init; } = new();
         public ConnectionTestStats ReferenceStats { get; init; } = new();
 
+        /// <summary>
+        /// Karakterbadge: "Fremragende", "God", "Ustabil", "Kritisk" eller "Usikker måling".
+        /// Beregnes efter tre delkarakterer (svartid, tab, stabilitet) hvor dårligste tæller.
+        /// </summary>
+        public string Badge { get; init; } = string.Empty;
+        public string BadgeColorHex { get; init; } = "#8fa3bf";
+
+        /// <summary>
+        /// To sætninger i hverdagssprog, uden tal. Læseren skal kunne lukke dokumentet
+        /// efter tre sekunder og stadig vide, hvad svaret var.
+        /// </summary>
+        public string Summary { get; init; } = string.Empty;
+
         public string Verdict { get; init; } = string.Empty;
         public string VerdictColorHex { get; init; } = "#8fa3bf";
 
@@ -49,6 +62,14 @@ namespace M1Scan.Models
         /// ellers dokumenterer rapporten noget den ikke kan stå inde for.
         /// </summary>
         public bool ReferenceUnreliable { get; init; }
+
+        // Valgfri identifikationsfelter (forbindelsesbevis-redesign.md, "Entydig
+        // identifikation"). Alle tre er valgfrie og udelades i rapporten når tomme
+        // — et navn som "nice (nice1.dk)" er ikke i sig selv et bevis over for en
+        // tredjepart, men brugeren måler ikke altid et sted hvor et sagsnummer giver mening.
+        public string CaseNumber { get; init; } = string.Empty;
+        public string Location { get; init; } = string.Empty;
+        public string Operator { get; init; } = string.Empty;
     }
 
     /// <summary>
@@ -67,6 +88,12 @@ namespace M1Scan.Models
         private int _sent;
         private double _max;
         private readonly System.Collections.Generic.List<double> _latencies = new();
+
+        /// <summary>Ét bool pr. ping i rækkefølge (true = svar, false = tabt). Bruges
+        /// til prikrækken i rapporten — separat fra <see cref="LatencySeries"/>, som
+        /// kun er et rullende vindue og derfor ikke dækker en hel lang test.</summary>
+        private readonly System.Collections.Generic.List<bool> _replySequence = new();
+        public System.Collections.Generic.IReadOnlyList<bool> ReplySequence => _replySequence;
 
         /// <summary>Antal ping sendt i hele testperioden.</summary>
         public int Sent => _sent;
@@ -108,6 +135,7 @@ namespace M1Scan.Models
         public void Add(double? latencyMs)
         {
             _sent++;
+            _replySequence.Add(latencyMs.HasValue);
             if (!latencyMs.HasValue) return;
 
             _replies++;
