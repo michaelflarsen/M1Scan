@@ -277,9 +277,9 @@ namespace M1Scan.Views
         {
             if (t.Replies == 0) return string.Empty;
 
-            if (t.MaxMs < 80)
+            if (t.MaxMs < ConnectionGrading.LatencyGreenTopMs)
                 return "Linjen holder sig fladt i det grønne felt hele vejen igennem — den rører aldrig det gule.";
-            if (t.MaxMs < 200)
+            if (t.MaxMs < ConnectionGrading.LatencyYellowTopMs)
                 return "Linjen bevæger sig ind i det gule felt undervejs, men når aldrig det røde.";
             return "Linjen rammer det røde felt undervejs — svartiden var tidvis høj nok til at mærkes i daglig brug.";
         }

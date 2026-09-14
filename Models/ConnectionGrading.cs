@@ -14,11 +14,17 @@ namespace M1Scan.Models
         /// af flere delkarakterer, jf. "samlet karakter er den dårligste af de tre".</summary>
         public readonly record struct Grade(string Word, string Explanation, int Severity, string ColorHex);
 
+        /// <summary>Svartids-grænser i ms. Delt med SparklineControl's farvezoner og
+        /// rapportens graf-konklusion, så en fremtidig justering her ikke kan få
+        /// grafens farver til at sige noget andet end ordet på metric-kortet.</summary>
+        public const double LatencyGreenTopMs = 80;
+        public const double LatencyYellowTopMs = 200;
+
         public static Grade GradeLatency(double avgMs) => avgMs switch
         {
             < 30 => new Grade("Meget hurtigt", "Alt under 30 ms opleves som øjeblikkeligt", 0, "#4CAF50"),
-            < 80 => new Grade("Hurtigt", "Mærkes ikke i almindelig brug", 1, "#8BC34A"),
-            < 200 => new Grade("Mærkbart", "Kan mærkes ved fjernstyring og opkald", 2, "#FF9800"),
+            < LatencyGreenTopMs => new Grade("Hurtigt", "Mærkes ikke i almindelig brug", 1, "#8BC34A"),
+            < LatencyYellowTopMs => new Grade("Mærkbart", "Kan mærkes ved fjernstyring og opkald", 2, "#FF9800"),
             _ => new Grade("Langsomt", "Giver forsinkelse, der generer i daglig brug", 3, "#F44336")
         };
 

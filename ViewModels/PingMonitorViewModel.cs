@@ -223,10 +223,7 @@ namespace M1Scan.ViewModels
                     TargetSeries = targetSeries,
                     ReferenceStats = referenceStats,
                     TargetStats = targetStats,
-                    Verdict = BuildVerdictText(referenceStats, targetStats, out var verdictColor),
-                    VerdictColorHex = verdictColor,
-                    TargetStatusLabel = BuildTargetStatusLabel(targetStats, out var statusColor),
-                    TargetStatusColorHex = statusColor,
+                    Verdict = BuildVerdictText(referenceStats, targetStats),
                     Badge = BuildBadge(referenceStats, targetStats, out var badgeColor, out var summary),
                     BadgeColorHex = badgeColor,
                     Summary = summary,
@@ -264,83 +261,32 @@ namespace M1Scan.ViewModels
         /// mærkbart tab eller jitter, ikke blot at avg-latency er høj (høj avg kan
         /// være helt normalt for et geografisk fjernt mål).
         /// </summary>
-        private static string BuildVerdictText(ConnectionTestStats reference, ConnectionTestStats target, out string colorHex)
+        private static string BuildVerdictText(ConnectionTestStats reference, ConnectionTestStats target)
         {
             bool refProblem = reference.HasProblem;
             bool targetProblem = target.HasProblem;
 
             if (target.LossPercent >= 95)
             {
-                colorHex = "#F44336";
                 return refProblem
                     ? "Målet svarer stort set ikke — men din internetforbindelse er også ustabil lige nu, så det kan skyldes din egen linje."
                     : "Målet svarer stort set ikke, mens internet-referencen er stabil. Problemet ligger ved målet selv (enheden er nede, eller noget på vejen til den blokerer), ikke ved din forbindelse.";
             }
 
             if (refProblem && targetProblem)
-            {
-                colorHex = "#FF9800";
                 return "Både internet-referencen og målet viser udsving/tab i samme periode. Det peger på din egen forbindelse (router, WiFi eller ISP) som årsagen — ikke på målet.";
-            }
 
             if (targetProblem && !refProblem)
-            {
-                colorHex = "#FF9800";
                 return "Internet-referencen er stabil, men målet viser udsving/tab. Problemet sidder efter din forbindelse — ved målet selv, eller på vejen derhen.";
-            }
 
             if (refProblem && !targetProblem)
-            {
-                colorHex = "#FF9800";
                 return "Målet er faktisk stabilt, men din internet-reference viser udsving. Din forbindelse til internettet er muligvis mere ustabil end forbindelsen til dette lokale mål.";
-            }
 
-            // Bevidst IKKE en gentagelse af "stabil" — det er allerede sagt i
-            // statusbanneret og ved kontrolmålingen. Denne sætning skal tilføje noget
-            // NYT: at sammenligningen med en live internet-reference gør beviset
-            // troværdigt, ikke bare at begge linjer var pæne hver for sig.
-            colorHex = "#4CAF50";
+            // Bevidst IKKE en gentagelse af "stabil" — det er allerede sagt i badgen
+            // og ved kontrolmålingen. Denne sætning skal tilføje noget NYT: at
+            // sammenligningen med en live internet-reference gør beviset troværdigt,
+            // ikke bare at begge linjer var pæne hver for sig.
             return "Din egen linje viste samme mønster som internet-referencen gennem hele testen — ingen af dem havde tab eller udsving. Det gør resultatet ovenfor pålideligt som bevis over for en tredjepart.";
-        }
-
-        /// <summary>
-        /// Kort statusetiket om MÅLET ALENE, til rapportens header.
-        ///
-        /// Deler tærskel med <see cref="BuildVerdictText"/> via
-        /// <see cref="ConnectionTestStats.HasProblem"/>, så de to ikke kan drifte fra
-        /// hinanden ved senere rettelser. De kan dog godt vise forskellig FARVE — og
-        /// det er med vilje: verdict'en bedømmer også brugerens egen linje, så et
-        /// stabilt mål kan stå grønt i headeren mens verdict'en er orange, fordi
-        /// brugerens eget internet var ustabilt. Headeren udtaler sig kun om enheden.
-        /// </summary>
-        private static string BuildTargetStatusLabel(ConnectionTestStats target, out string colorHex)
-        {
-            if (target.Sent == 0)
-            {
-                colorHex = "#8fa3bf";
-                return "INGEN MÅLINGER";
-            }
-
-            if (target.Replies == 0)
-            {
-                colorHex = "#F44336";
-                return "OFFLINE — INTET SVAR";
-            }
-
-            if (target.LossPercent >= 95)
-            {
-                colorHex = "#F44336";
-                return "OFFLINE — SVARER STORT SET IKKE";
-            }
-
-            if (target.HasProblem)
-            {
-                colorHex = "#FF9800";
-                return "ONLINE — MEN USTABIL";
-            }
-
-            colorHex = "#4CAF50";
-            return "ONLINE — STABIL FORBINDELSE";
         }
 
         /// <summary>

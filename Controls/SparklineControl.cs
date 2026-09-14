@@ -43,10 +43,11 @@ namespace M1Scan.Controls
                 new FrameworkPropertyMetadata(new SolidColorBrush(Color.FromRgb(0x7B, 0x8F, 0xA8)),
                     FrameworkPropertyMetadataOptions.AffectsRender));
 
-        // Zonegrænserne fra forbindelsesbevis-redesign.md — samme tal en læser uden
-        // netværksbaggrund kan slå op i metric-kortenes ord-vurdering.
-        private const double GreenZoneTopMs = 80;
-        private const double YellowZoneTopMs = 200;
+        // Samme grænser som metric-kortenes ord-vurdering (ConnectionGrading), så
+        // grafens farver aldrig kan komme til at sige noget andet end ordet ved siden
+        // af tallet.
+        private const double GreenZoneTopMs = Models.ConnectionGrading.LatencyGreenTopMs;
+        private const double YellowZoneTopMs = Models.ConnectionGrading.LatencyYellowTopMs;
 
         public IReadOnlyList<double?>? Values
         {

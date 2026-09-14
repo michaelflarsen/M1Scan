@@ -43,18 +43,13 @@ namespace M1Scan.Models
         /// </summary>
         public string Summary { get; init; } = string.Empty;
 
-        public string Verdict { get; init; } = string.Empty;
-        public string VerdictColorHex { get; init; } = "#8fa3bf";
-
         /// <summary>
-        /// Kort statusetiket om MÅLET alene ("ONLINE — STABIL FORBINDELSE"), til den
-        /// store header. Adskilt fra <see cref="Verdict"/>, som er den lange
-        /// forklaring der også inddrager brugerens egen linje: rapporten bruges som
-        /// dokumentation over for tredjepart, og modtageren skal kunne aflæse
-        /// enhedens tilstand uden at læse hele analysen.
+        /// Lang forklaring der sammenligner målet med internet-referencen — vises i
+        /// rapportens "Kontrolmåling"-afsnit. Dækker alle fire kombinationer af
+        /// egen/målets tilstand, også dem hvor badgen alene ("Usikker måling") ikke
+        /// får sagt at målet selv så fint ud.
         /// </summary>
-        public string TargetStatusLabel { get; init; } = string.Empty;
-        public string TargetStatusColorHex { get; init; } = "#8fa3bf";
+        public string Verdict { get; init; } = string.Empty;
 
         /// <summary>
         /// True hvis internet-referencen selv var ustabil under testen. Så er
