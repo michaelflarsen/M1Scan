@@ -414,9 +414,10 @@
                 <ColumnDefinition Width="0" MinWidth="0"/>     <!-- Buffer for resize -->
             </Grid.ColumnDefinitions>
 
-            <!-- GATEWAY-KORT -->
+            <!-- GATEWAY-KORT (skjult uden gateway, fx mobildata/tethering — ikke en fejl) -->
             <Border Grid.Column="0" Background="#080f14"
-                    BorderThickness="0.5" CornerRadius="6" Padding="14,12">
+                    BorderThickness="0.5" CornerRadius="6" Padding="14,12"
+                    Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="BorderBrush" Value="#1a3040"/>
@@ -466,7 +467,8 @@
             <!-- Splitter 1 (midt mellom Gateway og Internet) -->
             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
-                          Background="Transparent" Cursor="SizeWE">
+                          Background="Transparent" Cursor="SizeWE"
+                          Visibility="{Binding HasGateway, Converter={StaticResource BoolToVisibilityConverter}}">
                 <GridSplitter.Template>
                     <ControlTemplate TargetType="GridSplitter">
                         <Border Background="Transparent">
@@ -484,7 +486,7 @@
                 </GridSplitter.Template>
             </GridSplitter>
 
-            <!-- INTERNET-KORT -->
+            <!-- INTERNET-KORT (spænder over Gateway-kolonnen, når den er skjult) -->
             <Border Grid.Column="2" Background="#080f14"
                     BorderThickness="0.5" CornerRadius="6" Padding="14,12">
                 <Border.Style>
@@ -494,6 +496,10 @@
                             <DataTrigger Binding="{Binding IsFullyOffline}" Value="True">
                                 <Setter Property="BorderBrush" Value="#F44336"/>
                                 <Setter Property="BorderThickness" Value="1.5"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding HasGateway}" Value="False">
+                                <Setter Property="Grid.Column" Value="0"/>
+                                <Setter Property="Grid.ColumnSpan" Value="3"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

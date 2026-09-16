@@ -73,8 +73,12 @@ namespace M1Scan.Services
             try
             {
                 var adapters = await _networkService.GetNetworkAdaptersAsync();
+                // Kræver IKKE en IPv4-gateway her: mobildata (USB-tethering/hotspot) er
+                // typisk forbundet uden nogen klassisk default gateway synlig for OS'et,
+                // og skal ikke fejlkonkluderes som "ikke forbundet". Gateway tjekkes for
+                // sig i trin 2, hvor dens fravær er en observation, ikke en fejl.
                 bestAdapter = adapters
-                    .Where(a => a.IsConnected && !string.IsNullOrEmpty(a.Gateway) && !a.Gateway!.Contains(':'))
+                    .Where(a => a.IsConnected && a.IpAddresses.Length > 0)
                     .FirstOrDefault();
 
                 if (bestAdapter != null)
@@ -85,7 +89,7 @@ namespace M1Scan.Services
                 else
                 {
                     adapterStep.Status = DiagnosisStepStatus.Failed;
-                    adapterStep.Detail = "Ingen forbundet netværksadapter med gateway fundet";
+                    adapterStep.Detail = "Ingen forbundet netværksadapter fundet";
                 }
             }
             catch (Exception ex)
@@ -101,21 +105,32 @@ namespace M1Scan.Services
                 yield break;
             }
 
-            // ── 2. Gateway svarer? ───────────────────────────────────────────────
+            // ── 2. Gateway svarer? (spring over hvis der slet ingen IPv4-gateway er,
+            //      fx mobildata/tethering — det er normalt, ikke en fejl) ───────────
             var gatewayStep = new DiagnosisStep { Name = "Gateway", Status = DiagnosisStepStatus.Running };
             steps.Add(gatewayStep);
             yield return gatewayStep;
 
-            var gatewayPing = await PingWithLossAsync(bestAdapter.Gateway!, 4, ct);
-            if (gatewayPing.avgMs.HasValue)
+            bool hasIpv4Gateway = !string.IsNullOrEmpty(bestAdapter.Gateway) && !bestAdapter.Gateway!.Contains(':');
+            (double? avgMs, double lossPercent)? gatewayPing = null;
+            if (!hasIpv4Gateway)
             {
-                gatewayStep.Status = gatewayPing.lossPercent > 0 ? DiagnosisStepStatus.Warning : DiagnosisStepStatus.Ok;
-                gatewayStep.Detail = $"{gatewayPing.avgMs:F0} ms, {gatewayPing.lossPercent:F0}% tab";
+                gatewayStep.Status = DiagnosisStepStatus.Skipped;
+                gatewayStep.Detail = "Ingen gateway (fx mobildata/tethering) — springes over";
             }
             else
             {
-                gatewayStep.Status = DiagnosisStepStatus.Failed;
-                gatewayStep.Detail = "Gateway svarer ikke";
+                gatewayPing = await PingWithLossAsync(bestAdapter.Gateway!, 4, ct);
+                if (gatewayPing.Value.avgMs.HasValue)
+                {
+                    gatewayStep.Status = gatewayPing.Value.lossPercent > 0 ? DiagnosisStepStatus.Warning : DiagnosisStepStatus.Ok;
+                    gatewayStep.Detail = $"{gatewayPing.Value.avgMs:F0} ms, {gatewayPing.Value.lossPercent:F0}% tab";
+                }
+                else
+                {
+                    gatewayStep.Status = DiagnosisStepStatus.Failed;
+                    gatewayStep.Detail = "Gateway svarer ikke";
+                }
             }
             yield return gatewayStep;
 
