@@ -86,7 +86,14 @@ namespace M1Scan.Services
                 // Kun hvis INGEN adapter har en gateway (fx mobildata/tethering, hvor
                 // OS'et ikke ser en klassisk default gateway) falder vi tilbage til den
                 // første forbundne adapter — gateway-fravær tjekkes for sig i trin 2.
-                bestAdapter = connected.FirstOrDefault(a => !string.IsNullOrEmpty(a.Gateway))
+                //
+                // Skal være IPv4 (se HasIpv4Gateway): IPv6 link-local-gateways
+                // (fe80::...) kan ikke pinges pålideligt, og en VPN-tunnel kan sagtens
+                // rapportere en IPv6-gateway uden at være den fysiske forbindelse —
+                // uden dette filter ville den samme fejl (Tailscale fejlagtigt valgt
+                // som bestAdapter) bare vende tilbage via en IPv6-gateway i stedet for
+                // en helt tom Gateway-streng.
+                bestAdapter = connected.FirstOrDefault(HasIpv4Gateway)
                               ?? connected.FirstOrDefault();
 
                 if (bestAdapter != null)
@@ -119,9 +126,8 @@ namespace M1Scan.Services
             steps.Add(gatewayStep);
             yield return gatewayStep;
 
-            bool hasIpv4Gateway = !string.IsNullOrEmpty(bestAdapter.Gateway) && !bestAdapter.Gateway!.Contains(':');
             (double? avgMs, double lossPercent)? gatewayPing = null;
-            if (!hasIpv4Gateway)
+            if (!HasIpv4Gateway(bestAdapter))
             {
                 gatewayStep.Status = DiagnosisStepStatus.Skipped;
                 gatewayStep.Detail = "Ingen gateway (fx mobildata/tethering) — springes over";
@@ -363,6 +369,13 @@ namespace M1Scan.Services
                 CopyableReport = BuildReport(steps, conclusion, recommendation)
             };
         }
+
+        /// <summary>IPv4 link-local gateways (fe80::...) kan ikke pinges pålideligt,
+        /// og en VPN-tunnel kan rapportere en IPv6-gateway uden at være den fysiske
+        /// forbindelse — så "har en gateway" skal altid betyde "har en IPv4-gateway",
+        /// både ved adaptervalg og ved gateway-trinnets skip-afgørelse.</summary>
+        private static bool HasIpv4Gateway(NetworkAdapter a) =>
+            !string.IsNullOrEmpty(a.Gateway) && !a.Gateway!.Contains(':');
 
         /// <summary>Finder det første hop hvor tab er markant (≥5%) eller latency
         /// stiger markant (≥3x foregående gyldige hop) — en simpel, forklarlig
