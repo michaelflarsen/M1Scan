@@ -23,8 +23,48 @@
 
         <!-- OVERSKRIFT -->
         <StackPanel Grid.Row="0">
-            <TextBlock Text="Netværksoverblik" FontSize="20" FontWeight="Bold"
-                       Foreground="White" Margin="0,0,0,0"/>
+            <Grid>
+                <TextBlock Text="Netværksoverblik" FontSize="20" FontWeight="Bold"
+                           Foreground="White" Margin="0,0,0,0"/>
+
+                <!-- Lyd-til/fra: afspiller en systemlyd når forbindelsen går fra
+                     offline til online igen. Slået til som standard. -->
+                <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Background="Transparent" BorderThickness="0" Padding="4"
+                        Cursor="Hand" Command="{Binding ToggleSoundCommand}"
+                        ToolTip="Afspil lyd når forbindelsen kommer tilbage">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#1A2A3A"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <ContentPresenter/>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <materialDesign:PackIcon Width="18" Height="18">
+                        <materialDesign:PackIcon.Style>
+                            <Style TargetType="materialDesign:PackIcon">
+                                <Setter Property="Kind" Value="VolumeHigh"/>
+                                <Setter Property="Foreground" Value="#5A8AAA"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SoundOnReconnectEnabled}" Value="False">
+                                        <Setter Property="Kind" Value="VolumeOff"/>
+                                        <Setter Property="Foreground" Value="#3A5A6A"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </materialDesign:PackIcon.Style>
+                    </materialDesign:PackIcon>
+                </Button>
+            </Grid>
 
             <!-- OFFLINE-BANNER: vises kun når ingen probe-hosts svarer -->
             <Border Background="#F44336" CornerRadius="4" Padding="12,8" Margin="0,10,0,0"

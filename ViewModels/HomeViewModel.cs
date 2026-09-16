@@ -162,6 +162,7 @@ namespace M1Scan.ViewModels
         private readonly IDiagnosticsService _diagnosticsService;
         private readonly IHistoryService     _historyService;
         private readonly IDiagnosisWizardService _diagnosisWizardService;
+        private readonly INotificationSoundService _notificationSoundService;
         private CancellationTokenSource? _diagnosisCts;
         private readonly KnownDevicesStore   _knownDevices;
         private readonly SemaphoreSlim       _loadLock = new SemaphoreSlim(1, 1);
@@ -222,8 +223,17 @@ namespace M1Scan.ViewModels
             get => _isOnline;
             set
             {
+                bool wasOnlineBefore = _isOnline;
+                // LastRefreshed er stadig "—" før første fuldførte sweep — uden dette
+                // tjek ville appstart (false → true) fejlagtigt tælle som en
+                // offline→online-genoprettelse og spille lyd hver eneste gang.
+                bool hadPriorMeasurement = LastRefreshed != "—";
                 if (SetProperty(ref _isOnline, value))
+                {
                     OnPropertyChanged(nameof(IsFullyOffline));
+                    if (value && !wasOnlineBefore && hadPriorMeasurement)
+                        _notificationSoundService.PlayOnlineRestored();
+                }
             }
         }
 
@@ -477,6 +487,20 @@ namespace M1Scan.ViewModels
             set { if (SetProperty(ref _devicesVisible, value)) SaveUiSettings(); }
         }
 
+        private bool _soundOnReconnectEnabled = true;
+        public bool SoundOnReconnectEnabled
+        {
+            get => _soundOnReconnectEnabled;
+            set
+            {
+                if (SetProperty(ref _soundOnReconnectEnabled, value))
+                {
+                    _notificationSoundService.Enabled = value;
+                    SaveUiSettings();
+                }
+            }
+        }
+
         public LatencySeries InternetSeries { get; } = new() { Label = "Internet" };
 
         private string _internetLatency = "—";
@@ -529,17 +553,20 @@ namespace M1Scan.ViewModels
         public RelayCommand ToggleGraphsCommand      { get; }
         public RelayCommand ToggleDiagnosticsCommand { get; }
         public RelayCommand ToggleDevicesCommand     { get; }
+        public RelayCommand ToggleSoundCommand       { get; }
         public RelayCommand ResetScoreCommand        { get; }
         public AsyncRelayCommand RunDiagnosisCommand { get; }
         public RelayCommand CopyDiagnosisReportCommand { get; }
 
         public HomeViewModel(INetworkService networkService, IDiagnosticsService diagnosticsService,
-                              IHistoryService historyService, IDiagnosisWizardService diagnosisWizardService)
+                              IHistoryService historyService, IDiagnosisWizardService diagnosisWizardService,
+                              INotificationSoundService notificationSoundService)
         {
             _networkService     = networkService;
             _diagnosticsService = diagnosticsService;
             _historyService     = historyService;
             _diagnosisWizardService = diagnosisWizardService;
+            _notificationSoundService = notificationSoundService;
             _knownDevices       = new KnownDevicesStore();
 
             foreach (var (host, label) in InternetHosts)
@@ -550,6 +577,7 @@ namespace M1Scan.ViewModels
             ToggleGraphsCommand      = new RelayCommand(_ => GraphsVisible      = !GraphsVisible);
             ToggleDiagnosticsCommand = new RelayCommand(_ => DiagnosticsVisible = !DiagnosticsVisible);
             ToggleDevicesCommand     = new RelayCommand(_ => DevicesVisible     = !DevicesVisible);
+            ToggleSoundCommand       = new RelayCommand(_ => SoundOnReconnectEnabled = !SoundOnReconnectEnabled);
             ResetScoreCommand = new RelayCommand(_ =>
             {
                 GatewaySeries.Reset();
@@ -1130,6 +1158,8 @@ namespace M1Scan.ViewModels
                 if (s == null) return;
                 _graphsVisible      = s.graphsVisible;
                 _diagnosticsVisible = s.diagnosticsVisible;
+                _soundOnReconnectEnabled = s.soundOnReconnectEnabled;
+                _notificationSoundService.Enabled = _soundOnReconnectEnabled;
             }
             catch { /* ignore corrupt file */ }
         }
@@ -1139,7 +1169,12 @@ namespace M1Scan.ViewModels
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(UiSettingsPath)!);
-                var s = new UiSettings { graphsVisible = _graphsVisible, diagnosticsVisible = _diagnosticsVisible };
+                var s = new UiSettings
+                {
+                    graphsVisible           = _graphsVisible,
+                    diagnosticsVisible      = _diagnosticsVisible,
+                    soundOnReconnectEnabled = _soundOnReconnectEnabled
+                };
                 var json = JsonSerializer.Serialize(s, _jsonOpts);
                 File.WriteAllText(UiSettingsPath, json);
             }

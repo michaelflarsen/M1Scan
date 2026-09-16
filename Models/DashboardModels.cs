@@ -205,9 +205,10 @@ namespace M1Scan.Models
 
     public class UiSettings
     {
-        public int  version            { get; set; } = 1;
-        public bool graphsVisible      { get; set; } = false;
-        public bool diagnosticsVisible { get; set; } = false;
+        public int  version                 { get; set; } = 1;
+        public bool graphsVisible           { get; set; } = false;
+        public bool diagnosticsVisible      { get; set; } = false;
+        public bool soundOnReconnectEnabled { get; set; } = true;
     }
 
     public enum SpeedTestPhase { Download, Upload }

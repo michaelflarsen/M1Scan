@@ -91,6 +91,7 @@ namespace M1Scan.ViewModels
             IHistoryService historyService = _historyService;
             IDiagnosisWizardService diagnosisWizardService =
                 new DiagnosisWizardService(_networkService, diagnosticsService, tracerouteService);
+            INotificationSoundService notificationSoundService = new NotificationSoundService();
 
             // Brugerens egne enhedsnavne skal være indlæst før det første scan
             // begynder at slå MAC-adresser op, ellers vises de først efter næste scan.
@@ -101,7 +102,7 @@ namespace M1Scan.ViewModels
             _ = historyService.InitializeAsync();
             historyService.StartBackgroundSampling();
 
-            HomeVm        = new HomeViewModel(_networkService, diagnosticsService, historyService, diagnosisWizardService);
+            HomeVm        = new HomeViewModel(_networkService, diagnosticsService, historyService, diagnosisWizardService, notificationSoundService);
             NetworkScanVm = new NetworkScanViewModel(_networkService, exportService, deviceNameService, historyService);
             IpConfigVm    = new IpConfigViewModel(_ipConfigService, _networkService);
             WorkspaceVm   = new WorkspaceViewModel(_ipConfigService, exportService);
