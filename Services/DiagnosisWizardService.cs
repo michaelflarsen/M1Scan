@@ -328,6 +328,18 @@ namespace M1Scan.Services
                             ? $"Problemet er hos {where} (hop {badHop.HopNumber}) — taber {badHop.LatencySeries.LossPercent:F0}% pakker. Dit eget netværk er OK."
                             : $"Latensen stiger markant ved {where} (hop {badHop.HopNumber}, {badHop.LatencySeries.Avg:F0} ms). Dit eget netværk er OK.";
                         recommendation = "Kontakt din internetudbyder og oplys ovenstående hop-nummer og måling.";
+
+                        // Uden gateway (mobildata/tethering) er det interne hop hos operatøren,
+                        // og mobiloperatører rate-limiter ofte netop ICMP (traceroutens måletype)
+                        // hårdere end almindelig data-trafik. Et "tabt" hop her betyder derfor
+                        // ikke nødvendigvis et reelt problem — DNS/WAN svarede jo fint ovenfor.
+                        // Uden denne note ville brugere ringe forgæves til deres udbyder.
+                        if (gatewayStep?.Status == DiagnosisStepStatus.Skipped)
+                        {
+                            recommendation += " Bemærk: På mobildata rate-limiterer operatører ofte " +
+                                "denne måletype på interne hop — det betyder ikke nødvendigvis et " +
+                                "reelt problem, da DNS og internetforbindelsen i øvrigt virker.";
+                        }
                     }
                 }
                 else if (isCgnat)
