@@ -220,13 +220,30 @@ namespace M1Scan.ViewModels
         public bool IsOnline
         {
             get => _isOnline;
-            set => SetProperty(ref _isOnline, value);
+            set
+            {
+                if (SetProperty(ref _isOnline, value))
+                    OnPropertyChanged(nameof(IsFullyOffline));
+            }
         }
+
+        /// <summary>
+        /// Ingen af probe-hosts'ene (8.8.8.8/1.1.1.1/8.8.4.4) svarede på sidste sweep.
+        /// Bruges til at vise en tydelig offline-banner — modsat WAN-kortets
+        /// "Ikke tilgængelig", som kun betyder at ip-api.com-opslaget fejlede.
+        /// LastRefreshed er stadig "—" før det første sweep er færdigt, så banneret
+        /// vises ikke under den allerførste indlæsning.
+        /// </summary>
+        public bool IsFullyOffline => !IsOnline && LastRefreshed != "—";
 
         public string LastRefreshed
         {
             get => _lastRefreshed;
-            set => SetProperty(ref _lastRefreshed, value);
+            set
+            {
+                if (SetProperty(ref _lastRefreshed, value))
+                    OnPropertyChanged(nameof(IsFullyOffline));
+            }
         }
 
         public int TotalNearby

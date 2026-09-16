@@ -22,8 +22,21 @@
         </Grid.RowDefinitions>
 
         <!-- OVERSKRIFT -->
-        <TextBlock Grid.Row="0" Text="Netværksoverblik" FontSize="20" FontWeight="Bold"
-                   Foreground="White" Margin="0,0,0,0"/>
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Netværksoverblik" FontSize="20" FontWeight="Bold"
+                       Foreground="White" Margin="0,0,0,0"/>
+
+            <!-- OFFLINE-BANNER: vises kun når ingen probe-hosts svarer -->
+            <Border Background="#F44336" CornerRadius="4" Padding="12,8" Margin="0,10,0,0"
+                    Visibility="{Binding IsFullyOffline, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="AlertCircle" Width="20" Height="20"
+                                             Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="INGEN INTERNETFORBINDELSE — enheden er offline" FontSize="14"
+                               FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
 
         <!-- ═══════════════════════════════════════════════════ -->
         <!-- NIVEAU 1: STATUS + TOPOLOGI (HERO)                 -->
@@ -307,7 +320,18 @@
 
                 <!-- NODE 3: WAN -->
                 <Border Width="240" Height="168" Background="#080f14"
-                        BorderBrush="#1a3040" BorderThickness="0.5" CornerRadius="6" Padding="6">
+                        BorderThickness="0.5" CornerRadius="6" Padding="6">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="#1a3040"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsFullyOffline}" Value="True">
+                                    <Setter Property="BorderBrush" Value="#F44336"/>
+                                    <Setter Property="BorderThickness" Value="1.5"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Viewbox Width="22" Height="22" HorizontalAlignment="Center" Margin="0,0,0,2">
                             <Canvas Width="32" Height="32">
@@ -391,8 +415,19 @@
             </Grid.ColumnDefinitions>
 
             <!-- GATEWAY-KORT -->
-            <Border Grid.Column="0" Background="#080f14" BorderBrush="#1a3040"
+            <Border Grid.Column="0" Background="#080f14"
                     BorderThickness="0.5" CornerRadius="6" Padding="14,12">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="#1a3040"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFullyOffline}" Value="True">
+                                <Setter Property="BorderBrush" Value="#F44336"/>
+                                <Setter Property="BorderThickness" Value="1.5"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -407,8 +442,19 @@
                                    Foreground="#64B5F6" Margin="0,2,0,6"/>
                     </StackPanel>
                     <controls:SparklineControl Grid.Row="1" Values="{Binding GatewaySeries.Values}"
-                                               Stroke="#4CAF50" Margin="0,0,0,6"
-                                               Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                               Margin="0,0,0,6"
+                                               Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <controls:SparklineControl.Style>
+                            <Style TargetType="controls:SparklineControl">
+                                <Setter Property="Stroke" Value="#4CAF50"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFullyOffline}" Value="True">
+                                        <Setter Property="Stroke" Value="#F44336"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </controls:SparklineControl.Style>
+                    </controls:SparklineControl>
                     <TextBlock Grid.Row="2" FontFamily="Consolas" FontSize="10" Foreground="#3A5A6A"
                                Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                         <Run Text="Jitter: "/><Run Text="{Binding GatewaySeries.JitterDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
@@ -439,8 +485,19 @@
             </GridSplitter>
 
             <!-- INTERNET-KORT -->
-            <Border Grid.Column="2" Background="#080f14" BorderBrush="#1a3040"
+            <Border Grid.Column="2" Background="#080f14"
                     BorderThickness="0.5" CornerRadius="6" Padding="14,12">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="#1a3040"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFullyOffline}" Value="True">
+                                <Setter Property="BorderBrush" Value="#F44336"/>
+                                <Setter Property="BorderThickness" Value="1.5"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -455,8 +512,19 @@
                                    Foreground="#64B5F6" Margin="0,2,0,6"/>
                     </StackPanel>
                     <controls:SparklineControl Grid.Row="1" Values="{Binding WanSeries.Values}"
-                                               Stroke="#64B5F6" Margin="0,0,0,6"
-                                               Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                               Margin="0,0,0,6"
+                                               Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <controls:SparklineControl.Style>
+                            <Style TargetType="controls:SparklineControl">
+                                <Setter Property="Stroke" Value="#64B5F6"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFullyOffline}" Value="True">
+                                        <Setter Property="Stroke" Value="#F44336"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </controls:SparklineControl.Style>
+                    </controls:SparklineControl>
                     <TextBlock Grid.Row="2" FontFamily="Consolas" FontSize="10" Foreground="#3A5A6A"
                                Visibility="{Binding GraphsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                         <Run Text="Jitter: "/><Run Text="{Binding WanSeries.JitterDisplay, Mode=OneWay}" Foreground="#5A8AAA"/>
