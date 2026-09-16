@@ -73,13 +73,21 @@ namespace M1Scan.Services
             try
             {
                 var adapters = await _networkService.GetNetworkAdaptersAsync();
-                // Kræver IKKE en IPv4-gateway her: mobildata (USB-tethering/hotspot) er
-                // typisk forbundet uden nogen klassisk default gateway synlig for OS'et,
-                // og skal ikke fejlkonkluderes som "ikke forbundet". Gateway tjekkes for
-                // sig i trin 2, hvor dens fravær er en observation, ikke en fejl.
-                bestAdapter = adapters
-                    .Where(a => a.IsConnected && a.IpAddresses.Length > 0)
-                    .FirstOrDefault();
+                var connected = adapters.Where(a => a.IsConnected && a.IpAddresses.Length > 0).ToList();
+
+                // Foretræk en adapter med IPv4-gateway — det er den, der reelt bærer
+                // trafikken til internettet (fysisk NIC/WiFi/mobildata). Uden dette
+                // faldt vi tilbage til adapter-listens rækkefølge fra OS'et, som kan
+                // sætte en virtuel VPN-tunnel (Tailscale m.fl.) først: den er altid
+                // "forbundet" og har en IP, men er ikke den fysiske forbindelse, og
+                // "Netværksadapter: Tailscale Tunnel er forbundet" giver et forkert
+                // billede af hvad der faktisk forbinder maskinen til internettet.
+                //
+                // Kun hvis INGEN adapter har en gateway (fx mobildata/tethering, hvor
+                // OS'et ikke ser en klassisk default gateway) falder vi tilbage til den
+                // første forbundne adapter — gateway-fravær tjekkes for sig i trin 2.
+                bestAdapter = connected.FirstOrDefault(a => !string.IsNullOrEmpty(a.Gateway))
+                              ?? connected.FirstOrDefault();
 
                 if (bestAdapter != null)
                 {

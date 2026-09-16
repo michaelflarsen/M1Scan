@@ -37,6 +37,7 @@
             <utils:InverseBoolConverter x:Key="InverseBoolConverter"/>
             <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
             <utils:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+            <utils:BoolToGridLengthConverter x:Key="BoolToGridLengthConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

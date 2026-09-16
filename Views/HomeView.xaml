@@ -407,8 +407,11 @@
         <!-- ═══════════════════════════════════════════════════ -->
         <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1*" MinWidth="100"/>  <!-- Gateway -->
-                <ColumnDefinition Width="6"/>                  <!-- Splitter -->
+                <!-- Gateway-kolonnen kollapser helt til 0 bredde uden gateway (fx mobildata),
+                     i stedet for blot at skjule kortets indhold og efterlade et tomt hul. -->
+                <ColumnDefinition Width="{Binding HasGateway, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=1*}"
+                                  MinWidth="0"/>  <!-- Gateway -->
+                <ColumnDefinition Width="{Binding HasGateway, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=6}"/>  <!-- Splitter -->
                 <ColumnDefinition Width="1*" MinWidth="100"/>  <!-- Internet -->
                 <ColumnDefinition Width="6"/>                  <!-- Splitter -->
                 <ColumnDefinition Width="0" MinWidth="0"/>     <!-- Buffer for resize -->
@@ -486,7 +489,7 @@
                 </GridSplitter.Template>
             </GridSplitter>
 
-            <!-- INTERNET-KORT (spænder over Gateway-kolonnen, når den er skjult) -->
+            <!-- INTERNET-KORT (rykker helt til venstre når Gateway-kolonnen er kollapset) -->
             <Border Grid.Column="2" Background="#080f14"
                     BorderThickness="0.5" CornerRadius="6" Padding="14,12">
                 <Border.Style>
@@ -496,10 +499,6 @@
                             <DataTrigger Binding="{Binding IsFullyOffline}" Value="True">
                                 <Setter Property="BorderBrush" Value="#F44336"/>
                                 <Setter Property="BorderThickness" Value="1.5"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding HasGateway}" Value="False">
-                                <Setter Property="Grid.Column" Value="0"/>
-                                <Setter Property="Grid.ColumnSpan" Value="3"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
