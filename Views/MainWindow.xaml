@@ -4,7 +4,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:utils="clr-namespace:M1Scan.Utils"
         xmlns:views="clr-namespace:M1Scan.Views"
         mc:Ignorable="d"
         Title="M1Scan" Height="760" Width="1400" MinWidth="1100" MinHeight="600"
