@@ -37,6 +37,11 @@ namespace M1Scan.Services
         Task<IReadOnlyList<ScanSummary>> GetScansAsync(DateTimeOffset from, DateTimeOffset to);
         Task<IReadOnlyList<DeviceEvent>> GetDeviceEventsAsync(DateTimeOffset from, DateTimeOffset to);
 
+        // ── Åben-port-historik ───────────────────────────────────────────────
+        Task RecordPortEventAsync(DateTimeOffset ts, string mac, int port, bool isOpen);
+        Task<IReadOnlyList<PortEvent>> GetPortHistoryAsync(string mac, DateTimeOffset from, DateTimeOffset to);
+        Task ClearPortHistoryAsync(string mac);
+
         // ── Ping monitor ─────────────────────────────────────────────────────
         Task UpsertPingTargetAsync(string id, string hostOrIp, string? description);
         Task RemovePingTargetAsync(string id);
@@ -158,7 +163,16 @@ namespace M1Scan.Services
                                 timestamp TEXT NOT NULL,
                                 latency_ms REAL
                             );
-                            CREATE INDEX IF NOT EXISTS idx_trace_samples_target_ts ON trace_samples(target, timestamp);";
+                            CREATE INDEX IF NOT EXISTS idx_trace_samples_target_ts ON trace_samples(target, timestamp);
+
+                            CREATE TABLE IF NOT EXISTS port_events (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                timestamp TEXT NOT NULL,
+                                mac TEXT NOT NULL,
+                                port INTEGER NOT NULL,
+                                is_open INTEGER NOT NULL
+                            );
+                            CREATE INDEX IF NOT EXISTS idx_port_events_mac_ts ON port_events(mac, timestamp);";
                         await cmd.ExecuteNonQueryAsync();
                     }
 
@@ -169,7 +183,8 @@ namespace M1Scan.Services
                                            "DELETE FROM scans WHERE timestamp < @cutoff;" +
                                            "DELETE FROM device_events WHERE timestamp < @cutoff;" +
                                            "DELETE FROM ping_samples WHERE timestamp < @cutoff;" +
-                                           "DELETE FROM trace_samples WHERE timestamp < @cutoff;";
+                                           "DELETE FROM trace_samples WHERE timestamp < @cutoff;" +
+                                           "DELETE FROM port_events WHERE timestamp < @cutoff;";
                         cmd.Parameters.AddWithValue("@cutoff", cutoff.ToString("O"));
                         await cmd.ExecuteNonQueryAsync();
                     }
@@ -363,6 +378,84 @@ namespace M1Scan.Services
             }
             catch (Exception ex) { CrashLog.Write("HistoryService.GetDeviceEventsAsync", ex); }
             return results;
+        }
+
+        // ── Åben-port-historik ───────────────────────────────────────────────
+
+        public async Task RecordPortEventAsync(DateTimeOffset ts, string mac, int port, bool isOpen)
+        {
+            try
+            {
+                await _writeGate.WaitAsync();
+                try
+                {
+                    using var conn = new SqliteConnection(_connectionString);
+                    await conn.OpenAsync();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = @"
+                        INSERT INTO port_events (timestamp, mac, port, is_open)
+                        VALUES (@ts, @mac, @port, @isOpen);";
+                    cmd.Parameters.AddWithValue("@ts", ts.ToString("O"));
+                    cmd.Parameters.AddWithValue("@mac", mac);
+                    cmd.Parameters.AddWithValue("@port", port);
+                    cmd.Parameters.AddWithValue("@isOpen", isOpen ? 1 : 0);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                finally { _writeGate.Release(); }
+            }
+            catch (Exception ex) { CrashLog.Write("HistoryService.RecordPortEventAsync", ex); }
+        }
+
+        public async Task<IReadOnlyList<PortEvent>> GetPortHistoryAsync(string mac, DateTimeOffset from, DateTimeOffset to)
+        {
+            var results = new List<PortEvent>();
+            try
+            {
+                using var conn = new SqliteConnection(_connectionString);
+                await conn.OpenAsync();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    SELECT timestamp, port, is_open
+                    FROM port_events
+                    WHERE mac = @mac AND timestamp >= @from AND timestamp <= @to
+                    ORDER BY timestamp DESC;";
+                cmd.Parameters.AddWithValue("@mac", mac);
+                cmd.Parameters.AddWithValue("@from", from.ToString("O"));
+                cmd.Parameters.AddWithValue("@to", to.ToString("O"));
+
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    results.Add(new PortEvent
+                    {
+                        Timestamp = DateTimeOffset.Parse(reader.GetString(0)),
+                        Port      = reader.GetInt32(1),
+                        IsOpen    = reader.GetInt32(2) != 0,
+                        Mac       = mac,
+                    });
+                }
+            }
+            catch (Exception ex) { CrashLog.Write("HistoryService.GetPortHistoryAsync", ex); }
+            return results;
+        }
+
+        public async Task ClearPortHistoryAsync(string mac)
+        {
+            try
+            {
+                await _writeGate.WaitAsync();
+                try
+                {
+                    using var conn = new SqliteConnection(_connectionString);
+                    await conn.OpenAsync();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = "DELETE FROM port_events WHERE mac = @mac;";
+                    cmd.Parameters.AddWithValue("@mac", mac);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                finally { _writeGate.Release(); }
+            }
+            catch (Exception ex) { CrashLog.Write("HistoryService.ClearPortHistoryAsync", ex); }
         }
 
         // ── Ping monitor ─────────────────────────────────────────────────────

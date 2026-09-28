@@ -227,6 +227,7 @@ namespace M1Scan.ViewModels
         public AsyncRelayCommand PingHostCommand { get; }
         public AsyncRelayCommand ExportCommand { get; }
         public AsyncRelayCommand RenameHostCommand { get; }
+        public AsyncRelayCommand ShowPortHistoryCommand { get; }
 
         public NetworkScanViewModel(INetworkService networkService, IExportService exportService,
                                      IDeviceNameService deviceNameService, IHistoryService historyService)
@@ -289,6 +290,9 @@ namespace M1Scan.ViewModels
             RenameHostCommand = new AsyncRelayCommand(
                 param => RenameHostAsync(param as HostInfo),
                 onError: OnCommandError);
+            ShowPortHistoryCommand = new AsyncRelayCommand(
+                param => ShowPortHistoryAsync(param as HostInfo),
+                onError: OnCommandError);
 
             _ = RefreshAdaptersAsync();
 
@@ -325,6 +329,31 @@ namespace M1Scan.ViewModels
             StatusMessage = string.IsNullOrWhiteSpace(dialog.EnteredName)
                 ? $"Navn fjernet for {host.IpAddress} — bruger nu automatisk opslag."
                 : $"{host.IpAddress} hedder nu \"{dialog.EnteredName}\".";
+        }
+
+        /// <summary>
+        /// Viser hvornår denne hosts overvågede porte (80/443/8080/502) er set
+        /// skifte mellem åben og lukket. Historikken er gemt på MAC, så den
+        /// følger enheden selv når DHCP giver den en ny IP — se UpsertHost.
+        /// </summary>
+        private async Task ShowPortHistoryAsync(HostInfo? host)
+        {
+            if (host is null) return;
+
+            if (string.IsNullOrEmpty(host.MacAddress))
+            {
+                StatusMessage = $"{host.IpAddress} har ingen kendt MAC-adresse endnu — ingen port-historik at vise.";
+                return;
+            }
+
+            var events = await _historyService.GetPortHistoryAsync(
+                host.MacAddress, DateTimeOffset.MinValue, DateTimeOffset.MaxValue);
+
+            var dialog = new PortHistoryDialog(host.DisplayName, host.MacAddress, events, _historyService)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            dialog.ShowDialog();
         }
 
         private async Task ExportAsync()
@@ -407,20 +436,106 @@ namespace M1Scan.ViewModels
             if (!string.IsNullOrEmpty(name)) host.CustomName = name;
         }
 
+        /// <summary>
+        /// Sidst KENDTE port-tilstand pr. MAC — uafhængig af _hostIndex/DiscoveredHosts'
+        /// levetid, så ændringssporing overlever både ClearResults() (almindeligt
+        /// "Scan Network") og at hvert flettet scan bygger helt nye HostInfo-objekter
+        /// (se BuildSweepHost). Uden denne blev ALLE porte vist som "lige åbnet" ved
+        /// hvert friskt (ikke-flettet) scan, fordi _hostIndex blev tømt og enhver host
+        /// dermed så ud som ny — se [[project_hostinfo_mergefrom_gotcha]] i memory.
+        /// Nulstilles kun ved app-genstart (bevidst: en enheds FØRSTE observation i en
+        /// session sætter blot baseline uden at blinke, ligesom KnownDevicesStore's
+        /// seedAsKnown-mønster ved første kørsel).
+        /// </summary>
+        private readonly Dictionary<string, (bool p80, bool p443, bool p8080, bool p502)> _lastKnownPortsByMac =
+            new(StringComparer.OrdinalIgnoreCase);
+
         /// <summary>Tilføjer eller fletter en host i den bundne liste. Kun UI-tråden.</summary>
         /// <param name="authoritative">Se <see cref="HostInfo.MergeFrom"/> — true ved et
         /// eksplicit gen-ping af én host, hvor "nu offline" skal slå igennem.</param>
-        private void UpsertHost(HostInfo host, bool authoritative = false)
+        /// <param name="portsAuthoritative">Se <see cref="HostInfo.MergeFrom"/> — sættes
+        /// uafhængigt af <paramref name="authoritative"/>, fordi et komplet 4-ports-tjek
+        /// (EnrichHostsAsync) er en fuld måling selvom hostens tilgængelighed ikke er
+        /// autoritativt målt her.</param>
+        /// <param name="hasFreshPortMeasurement">
+        /// Sæt true KUN når dette kald bærer et reelt, komplet 4-ports-tjek af denne
+        /// host lige nu (UpdateHostInUI med portResults, eller en autoritativ
+        /// gen-ping) — ellers må RecordPortChanges ikke køre. EnrichHostsAsync kalder
+        /// UpsertHost to gange pr. host pr. scan: først når MAC'en er fundet (porte
+        /// endnu IKKE tjekket denne omgang, stadig false), og siden når portene rent
+        /// faktisk er tjekket. Kørte diff'et også ved det første, MAC-only kald, ville
+        /// det sammenligne den ægte forrige baseline mod "alt lukket" (fordi porte
+        /// ikke er målt endnu i DETTE kald), fejlagtigt nulstille
+        /// _lastKnownPortsByMac til "alt lukket", og dermed få det efterfølgende,
+        /// rigtige portsvar til at se ud som en ægte ændring HVER gang — det var
+        /// præcis grunden til at ringen tændte ved hvert eneste scan uanset om noget
+        /// reelt ændrede sig.
+        /// </param>
+        private void UpsertHost(HostInfo host, bool authoritative = false, bool? portsAuthoritative = null,
+                                 bool hasFreshPortMeasurement = false)
         {
             if (_hostIndex.TryGetValue(host.IpAddress, out var existing))
             {
-                existing.MergeFrom(host, authoritative);
+                existing.MergeFrom(host, authoritative, portsAuthoritative);
+                if (hasFreshPortMeasurement) RecordPortChanges(existing);
             }
             else
             {
                 _hostIndex[host.IpAddress] = host;
                 DiscoveredHosts.Add(host);
+                if (hasFreshPortMeasurement) RecordPortChanges(host);
             }
+        }
+
+        private static (bool p80, bool p443, bool p8080, bool p502) CapturePortState(HostInfo host) =>
+            (host.IsPort80Open, host.IsPort443Open, host.IsPort8080Open, host.IsPort502Open);
+
+        /// <summary>
+        /// Opdaterer host'ens "skiftede i dette scan"-flag (til glød-kant/badge i
+        /// Scan-grid'et — se HostInfo.SetPortChangeFlags) og skriver et
+        /// port-historik-event for hver port der reelt skiftede tilstand siden sidst
+        /// KENDTE tilstand for denne MAC (_lastKnownPortsByMac) — ikke siden hvad der
+        /// tilfældigvis stod i den bundne HostInfo-række før dette kald, som varierer
+        /// med om scannet var flettet eller friskt.
+        ///
+        /// Flagene sættes ALTID, også når intet ændrede sig, så et badge fra et
+        /// tidligere scan ikke hænger ved. Historik-skrivningen kræver derimod en
+        /// kendt MAC (nøglet på MAC, ikke IP, så den følger enheden ved ny DHCP-IP)
+        /// og springes over uden den — UI-badget virker stadig fint uden MAC.
+        ///
+        /// Fire-and-forget ligesom RecordScanAsync-kaldet: HistoryService fanger
+        /// selv sine fejl, og et scan må aldrig blive langsommere for skrivningen.
+        /// </summary>
+        private void RecordPortChanges(HostInfo host)
+        {
+            var after = CapturePortState(host);
+
+            if (string.IsNullOrEmpty(host.MacAddress))
+            {
+                host.SetPortChangeFlags(false, false, false, false);
+                return; // ingen stabil nøgle til hverken baseline eller historik
+            }
+
+            var mac = host.MacAddress;
+            // Ukendt MAC denne session: sæt blot baseline uden at markere en ændring —
+            // samme "seed, ikke alarmér" som KnownDevicesStore ved første observation.
+            var before = _lastKnownPortsByMac.TryGetValue(mac, out var prev) ? prev : after;
+            _lastKnownPortsByMac[mac] = after;
+
+            bool c80   = before.p80   != after.p80;
+            bool c443  = before.p443  != after.p443;
+            bool c8080 = before.p8080 != after.p8080;
+            bool c502  = before.p502  != after.p502;
+
+            host.SetPortChangeFlags(c80, c443, c8080, c502);
+
+            if (!(c80 || c443 || c8080 || c502)) return;
+
+            var ts = DateTimeOffset.UtcNow;
+            if (c80)   _ = _historyService.RecordPortEventAsync(ts, mac, 80,   after.p80);
+            if (c443)  _ = _historyService.RecordPortEventAsync(ts, mac, 443,  after.p443);
+            if (c8080) _ = _historyService.RecordPortEventAsync(ts, mac, 8080, after.p8080);
+            if (c502)  _ = _historyService.RecordPortEventAsync(ts, mac, 502,  after.p502);
         }
 
         // Flushes _uiQueue to DiscoveredHosts — must be called on UI thread.
@@ -621,8 +736,11 @@ namespace M1Scan.ViewModels
                 }
 
                 // Eksplicit gen-ping af netop denne host: resultatet er autoritativt,
-                // så en host der er gået offline skal også vises som offline.
-                UpsertHost(host, authoritative: true);
+                // så en host der er gået offline skal også vises som offline. Uanset
+                // om den er online eller ej, ER dette en komplet, bevidst måling af
+                // portenes tilstand lige nu (offline betyder "alt lukket"), så
+                // ændringssporingen skal med.
+                UpsertHost(host, authoritative: true, hasFreshPortMeasurement: true);
 
                 StatusMessage = host.IsReachable
                     ? $"{host.HostName} svarede på {host.ResponseTime}ms"
@@ -1079,6 +1197,7 @@ namespace M1Scan.ViewModels
                 // skrives på host'en før fletningen — så gælder de samme merge-regler
                 // for dem som for alt andet (se HostInfo.MergeFrom).
                 if (!string.IsNullOrEmpty(netbios)) host.NetBiosName = netbios;
+
                 if (portResults != null)
                 {
                     host.IsPort80Open   = portResults[0];
@@ -1087,7 +1206,11 @@ namespace M1Scan.ViewModels
                     host.IsPort502Open  = portResults[3];
                 }
 
-                UpsertHost(host);
+                // portResults dækker altid alle fire porte i ét samlet kald (se
+                // CheckPortBounded-kaldene i EnrichHostsAsync), så det er en komplet,
+                // autoritativ måling af portenes tilstand lige nu — også selvom
+                // hostens IsReachable ikke i sig selv er autoritativ her.
+                UpsertHost(host, portsAuthoritative: portResults != null, hasFreshPortMeasurement: portResults != null);
             });
         }
     }

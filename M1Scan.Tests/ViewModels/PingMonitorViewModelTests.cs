@@ -36,6 +36,11 @@ namespace M1Scan.Tests.ViewModels
             public Task<IReadOnlyList<DeviceEvent>> GetDeviceEventsAsync(DateTimeOffset from, DateTimeOffset to) =>
                 Task.FromResult<IReadOnlyList<DeviceEvent>>(Array.Empty<DeviceEvent>());
 
+            public Task RecordPortEventAsync(DateTimeOffset ts, string mac, int port, bool isOpen) => Task.CompletedTask;
+            public Task<IReadOnlyList<PortEvent>> GetPortHistoryAsync(string mac, DateTimeOffset from, DateTimeOffset to) =>
+                Task.FromResult<IReadOnlyList<PortEvent>>(Array.Empty<PortEvent>());
+            public Task ClearPortHistoryAsync(string mac) => Task.CompletedTask;
+
             public Task UpsertPingTargetAsync(string id, string hostOrIp, string? description) => Task.CompletedTask;
             public Task RemovePingTargetAsync(string id) => Task.CompletedTask;
             public Task RecordPingSampleAsync(string targetId, DateTimeOffset ts, double? latencyMs) => Task.CompletedTask;

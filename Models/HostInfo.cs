@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace M1Scan.Models
@@ -184,6 +185,51 @@ namespace M1Scan.Models
 
         public string LastSeenFormatted => _lastSeen == default ? "-" : _lastSeen.ToString("HH:mm:ss");
 
+        private bool _port80Changed, _port443Changed, _port8080Changed, _port502Changed;
+        private string _portChangeSummary = string.Empty;
+
+        /// <summary>Port skiftede tilstand i det senest afsluttede scan af denne host — driver
+        /// glødet kant på selve port-chippen i Scan-grid'et.</summary>
+        public bool Port80Changed   { get => _port80Changed;   private set => SetProperty(ref _port80Changed, value); }
+        public bool Port443Changed  { get => _port443Changed;  private set => SetProperty(ref _port443Changed, value); }
+        public bool Port8080Changed { get => _port8080Changed; private set => SetProperty(ref _port8080Changed, value); }
+        public bool Port502Changed  { get => _port502Changed;  private set => SetProperty(ref _port502Changed, value); }
+
+        /// <summary>Mindst én overvåget port skiftede i det senest afsluttede scan — driver
+        /// ændrings-badget i Scan-grid'et.</summary>
+        public bool HasPortChange => _port80Changed || _port443Changed || _port8080Changed || _port502Changed;
+
+        public string PortChangeSummary { get => _portChangeSummary; private set => SetProperty(ref _portChangeSummary, value); }
+
+        /// <summary>
+        /// Sættes af NetworkScanViewModel.RecordPortChanges hver gang denne host
+        /// tjekkes i et scan — også når intet ændrede sig, så et badge fra et
+        /// tidligere scan ikke bliver hængende ved en genscan uden ændringer.
+        /// </summary>
+        public void SetPortChangeFlags(bool port80, bool port443, bool port8080, bool port502)
+        {
+            Port80Changed   = port80;
+            Port443Changed  = port443;
+            Port8080Changed = port8080;
+            Port502Changed  = port502;
+
+            if (port80 || port443 || port8080 || port502)
+            {
+                var parts = new List<string>();
+                if (port80)   parts.Add($"Port 80 {(_isPort80Open   ? "åbnede" : "lukkede")}");
+                if (port443)  parts.Add($"Port 443 {(_isPort443Open  ? "åbnede" : "lukkede")}");
+                if (port8080) parts.Add($"Port 8080 {(_isPort8080Open ? "åbnede" : "lukkede")}");
+                if (port502)  parts.Add($"Port 502 {(_isPort502Open  ? "åbnede" : "lukkede")}");
+                PortChangeSummary = string.Join(", ", parts);
+            }
+            else
+            {
+                PortChangeSummary = string.Empty;
+            }
+
+            OnPropertyChanged(nameof(HasPortChange));
+        }
+
         /// <summary>
         /// Fletter et nyere observationsresultat ind i denne (bundne) instans.
         ///
@@ -203,8 +249,20 @@ namespace M1Scan.Models
         /// berigelsessvar ud af rækkefølge, og et sent svar må ikke markere en host
         /// offline blot fordi berigelsen ikke selv målte tilgængelighed.
         /// </param>
-        public void MergeFrom(HostInfo other, bool authoritative = false)
+        /// <param name="portsAuthoritative">
+        /// Styrer SÆRSKILT om porte erstattes (frisk måling vinder) eller kun kan
+        /// tændes (kumulativ OR) — uafhængigt af <paramref name="authoritative"/>.
+        /// Udelades den, følger porte samme regel som <paramref name="authoritative"/>
+        /// (bagudkompatibelt). NetworkScanViewModel's enrichment-fase tjekker altid
+        /// alle fire porte samlet i ÉT komplet kald pr. host, så det resultat er
+        /// autoritativt for porte selvom hostens IsReachable ikke er det — ellers
+        /// kunne en port der reelt lukkedes (fx en bruger der lukker en tjeneste)
+        /// aldrig vises som lukket igen ved et flettet scan/auto-opdatering, kun ved
+        /// et eksplicit gen-ping af netop den host.
+        /// </param>
+        public void MergeFrom(HostInfo other, bool authoritative = false, bool? portsAuthoritative = null)
         {
+            var portsAuth = portsAuthoritative ?? authoritative;
             if (ReferenceEquals(this, other)) return;
 
             // Et hostname der blot gentager IP'en er en placeholder, ikke et navn.
@@ -228,7 +286,7 @@ namespace M1Scan.Models
             // Åbne porte er kumulative inden for et scan: to faser tjekker samme host,
             // og den sidste må ikke nulstille hvad den første fandt. En autoritativ
             // måling har tjekket alle fire porte og må gerne lukke dem igen.
-            if (authoritative)
+            if (portsAuth)
             {
                 IsPort80Open   = other.IsPort80Open;
                 IsPort443Open  = other.IsPort443Open;

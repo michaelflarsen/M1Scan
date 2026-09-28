@@ -41,6 +41,15 @@ namespace M1Scan.Models
         public const string DeviceGone = "device_gone";
     }
 
+    /// <summary>Én port-tilstandsændring ("åbnede"/"lukkede") for en host, til port-historik.</summary>
+    public class PortEvent
+    {
+        public DateTimeOffset Timestamp { get; init; }
+        public string         Mac       { get; init; } = string.Empty;
+        public int            Port      { get; init; }
+        public bool           IsOpen    { get; init; }
+    }
+
     /// <summary>Én latency-sample for ét hop under en løbende traceroute-probe.</summary>
     public class TraceSample
     {

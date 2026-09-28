@@ -1,0 +1,59 @@
+<Window x:Class="M1Scan.Views.PortHistoryDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Port-historik"
+        Width="440" Height="480"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="#1E1E1E">
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="TitleText" Text="Port-historik" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+
+        <TextBlock x:Name="SubtitleText" Grid.Row="1" Foreground="#90A4AE" FontSize="12"
+                   TextWrapping="Wrap" Margin="0,6,0,14"
+                   Text="Hvornår portene 80/443/8080/502 er set skifte mellem åben og lukket for denne enhed."/>
+
+        <ListView x:Name="EventsList" Grid.Row="2"
+                  Background="Transparent" BorderThickness="0"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Padding" Value="0,6"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Tidspunkt" Width="150" DisplayMemberBinding="{Binding TimestampText}"/>
+                    <GridViewColumn Header="Port" Width="70" DisplayMemberBinding="{Binding PortText}"/>
+                    <GridViewColumn Header="Status" Width="150" DisplayMemberBinding="{Binding StatusText}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <TextBlock x:Name="EmptyText" Grid.Row="2" Foreground="#607080" FontSize="12"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Text="Ingen registrerede port-ændringer endnu."
+                   Visibility="Collapsed"/>
+
+        <DockPanel Grid.Row="3" Margin="0,18,0,0">
+            <Button x:Name="ClearButton" Content="Ryd historik" Click="Clear_Click"
+                    DockPanel.Dock="Left"
+                    Background="Transparent" Foreground="#EF5350" BorderThickness="1"
+                    BorderBrush="#5A2A2A" Padding="16,8"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Luk" Click="Close_Click" IsCancel="True" IsDefault="True"
+                        Background="#37474F" Foreground="White" BorderThickness="0" Padding="24,8"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

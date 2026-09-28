@@ -127,6 +127,27 @@ namespace M1Scan.Tests.Models
             Assert.True(host.IsPort443Open);
         }
 
+        [Fact]
+        public void PortsAuthoritative_ReplacesPortsEvenWhenReachabilityIsNotAuthoritative()
+        {
+            // Scan-enrichment tjekker altid alle fire porte samlet i ét komplet kald,
+            // uafhængigt af om hostens tilgængelighed selv er autoritativ målt her.
+            // En port der er lukket siden sidste scan skal derfor stadig kunne vises
+            // som lukket, uden at det åbner for at IsReachable også kan sænkes.
+            var host = new HostInfo
+            {
+                IpAddress = "192.168.1.10", IsReachable = true,
+                IsPort80Open = true, IsPort443Open = true
+            };
+            host.MergeFrom(
+                new HostInfo { IpAddress = "192.168.1.10", IsReachable = false, IsPort443Open = true },
+                authoritative: false, portsAuthoritative: true);
+
+            Assert.False(host.IsPort80Open);
+            Assert.True(host.IsPort443Open);
+            Assert.True(host.IsReachable); // uændret — kun porte var autoritative her
+        }
+
         // ── Selvfletning ────────────────────────────────────────────────────
 
         [Fact]

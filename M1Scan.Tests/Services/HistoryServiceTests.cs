@@ -230,6 +230,85 @@ namespace M1Scan.Tests.Services
             Assert.Equal(100, uptime);
         }
 
+        // ── Åben-port-historik ───────────────────────────────────────────────
+
+        [Fact]
+        public async Task RecordPortEventAsync_RoundTripsThroughGetPortHistoryAsync()
+        {
+            await _svc.InitializeAsync();
+            var ts = DateTimeOffset.UtcNow;
+
+            await _svc.RecordPortEventAsync(ts, "AA-BB-CC-DD-EE-FF", 80, isOpen: true);
+
+            var ev = Assert.Single(await _svc.GetPortHistoryAsync("AA-BB-CC-DD-EE-FF", ts.AddMinutes(-1), ts.AddMinutes(1)));
+            Assert.Equal(80, ev.Port);
+            Assert.True(ev.IsOpen);
+        }
+
+        [Fact]
+        public async Task GetPortHistoryAsync_KeepsDifferentMacsSeparate()
+        {
+            await _svc.InitializeAsync();
+            var ts = DateTimeOffset.UtcNow;
+
+            await _svc.RecordPortEventAsync(ts, "AA-BB-CC-DD-EE-FF", 443, true);
+            await _svc.RecordPortEventAsync(ts, "11-22-33-44-55-66", 443, true);
+
+            var events = await _svc.GetPortHistoryAsync("AA-BB-CC-DD-EE-FF", ts.AddMinutes(-1), ts.AddMinutes(1));
+            Assert.Single(events);
+        }
+
+        [Fact]
+        public async Task GetPortHistoryAsync_OrdersNewestFirst()
+        {
+            await _svc.InitializeAsync();
+            var ts = DateTimeOffset.UtcNow;
+            var mac = "AA-BB-CC-DD-EE-FF";
+
+            await _svc.RecordPortEventAsync(ts, mac, 80, true);
+            await _svc.RecordPortEventAsync(ts.AddSeconds(5), mac, 80, false);
+
+            var events = await _svc.GetPortHistoryAsync(mac, ts.AddMinutes(-1), ts.AddMinutes(1));
+            Assert.Equal(2, events.Count);
+            Assert.False(events[0].IsOpen); // seneste event (lukkede) skal stå øverst
+            Assert.True(events[1].IsOpen);
+        }
+
+        [Fact]
+        public async Task ClearPortHistoryAsync_RemovesOnlyThatMacsEvents()
+        {
+            await _svc.InitializeAsync();
+            var ts = DateTimeOffset.UtcNow;
+
+            await _svc.RecordPortEventAsync(ts, "AA-BB-CC-DD-EE-FF", 80, true);
+            await _svc.RecordPortEventAsync(ts, "11-22-33-44-55-66", 80, true);
+
+            await _svc.ClearPortHistoryAsync("AA-BB-CC-DD-EE-FF");
+
+            var cleared = await _svc.GetPortHistoryAsync("AA-BB-CC-DD-EE-FF", ts.AddMinutes(-1), ts.AddMinutes(1));
+            var untouched = await _svc.GetPortHistoryAsync("11-22-33-44-55-66", ts.AddMinutes(-1), ts.AddMinutes(1));
+            Assert.Empty(cleared);
+            Assert.Single(untouched);
+        }
+
+        [Fact]
+        public async Task InitializeAsync_RemovesPortEventsOlderThanRetentionWindow()
+        {
+            await _svc.InitializeAsync();
+            var mac = "AA-BB-CC-DD-EE-FF";
+            var old   = DateTimeOffset.UtcNow.AddDays(-31);
+            var fresh = DateTimeOffset.UtcNow.AddDays(-1);
+
+            await _svc.RecordPortEventAsync(old, mac, 80, true);
+            await _svc.RecordPortEventAsync(fresh, mac, 80, true);
+
+            await _svc.InitializeAsync(); // trigger retention-oprydning
+
+            var remaining = await _svc.GetPortHistoryAsync(mac, DateTimeOffset.UtcNow.AddDays(-60), DateTimeOffset.UtcNow);
+            var single = Assert.Single(remaining);
+            Assert.True(single.Timestamp > old);
+        }
+
         // ── Traceroute path-monitor ──────────────────────────────────────────
 
         [Fact]

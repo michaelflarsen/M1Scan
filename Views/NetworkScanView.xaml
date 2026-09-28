@@ -239,6 +239,9 @@
                                 <MenuItem Header="Navngiv enhed…"
                                           Command="{Binding Source={StaticResource VmProxy}, Path=Data.RenameHostCommand}"
                                           CommandParameter="{Binding}"/>
+                                <MenuItem Header="Port-historik…"
+                                          Command="{Binding Source={StaticResource VmProxy}, Path=Data.ShowPortHistoryCommand}"
+                                          CommandParameter="{Binding}"/>
                                 <Separator/>
                                 <MenuItem Header="Ping denne host"
                                           Command="{Binding Source={StaticResource VmProxy}, Path=Data.PingHostCommand}"
@@ -324,6 +327,21 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
+                <!-- Ændring i portopsætning — kun synlig når mindst én overvåget port
+                     skiftede i det senest afsluttede scan (se HostInfo.SetPortChangeFlags).
+                     Forbliver synlig indtil næste scan genberegner flagene. -->
+                <DataGridTemplateColumn Header="!" Width="30" CanUserSort="False" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <materialDesign:PackIcon Kind="AlertCircle" Width="16" Height="16"
+                                                     Foreground="#FFB300" HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     ToolTip="{Binding PortChangeSummary}"
+                                                     Visibility="{Binding HasPortChange, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
                 <!-- MAC address -->
                 <DataGridTextColumn Header="MAC address" Binding="{Binding MacAddress}" Width="170">
                     <DataGridTextColumn.ElementStyle>
@@ -363,7 +381,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Width="40" HorizontalAlignment="Center"
-                                    BorderThickness="0" Padding="3,2"
+                                    Padding="3,2"
                                     FontFamily="Consolas" FontSize="11"
                                     FocusVisualStyle="{x:Null}"
                                     Command="{Binding Source={StaticResource VmProxy}, Path=Data.OpenInBrowserCommand}"
@@ -375,10 +393,14 @@
                                         <Setter Property="Cursor"     Value="Arrow"/>
                                         <Setter Property="IsEnabled"  Value="False"/>
                                         <Setter Property="ToolTip"    Value="Port ikke åben"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="BorderBrush"     Value="Transparent"/>
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="Button">
                                                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
                                                             CornerRadius="4" Padding="{TemplateBinding Padding}">
                                                         <TextBlock x:Name="txt" Text=":80"
                                                                    FontFamily="{TemplateBinding FontFamily}"
@@ -408,6 +430,12 @@
                                                 <Setter Property="Foreground" Value="#00BCD4"/>
                                                 <Setter Property="ToolTip"    Value="Åbn i browser (http)"/>
                                             </DataTrigger>
+                                            <!-- Skiftede i sidste scan — glødende ring, uanset om porten nu er
+                                                 åben eller lukket, så en netop-lukket port også fremhæves. -->
+                                            <DataTrigger Binding="{Binding Port80Changed}" Value="True">
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                                <Setter Property="BorderBrush"     Value="#FFB300"/>
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
@@ -421,7 +449,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Width="40" HorizontalAlignment="Center"
-                                    BorderThickness="0" Padding="3,2"
+                                    Padding="3,2"
                                     FontFamily="Consolas" FontSize="11"
                                     FocusVisualStyle="{x:Null}"
                                     Command="{Binding Source={StaticResource VmProxy}, Path=Data.OpenInBrowserCommand}"
@@ -433,10 +461,14 @@
                                         <Setter Property="Cursor"     Value="Arrow"/>
                                         <Setter Property="IsEnabled"  Value="False"/>
                                         <Setter Property="ToolTip"    Value="Port ikke åben"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="BorderBrush"     Value="Transparent"/>
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="Button">
                                                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
                                                             CornerRadius="4" Padding="{TemplateBinding Padding}">
                                                         <TextBlock x:Name="txt" Text=":443"
                                                                    FontFamily="{TemplateBinding FontFamily}"
@@ -466,6 +498,10 @@
                                                 <Setter Property="Foreground" Value="#CE93D8"/>
                                                 <Setter Property="ToolTip"    Value="Åbn i browser (https)"/>
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding Port443Changed}" Value="True">
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                                <Setter Property="BorderBrush"     Value="#FFB300"/>
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
@@ -479,7 +515,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Width="46" HorizontalAlignment="Center"
-                                    BorderThickness="0" Padding="3,2"
+                                    Padding="3,2"
                                     FontFamily="Consolas" FontSize="11"
                                     FocusVisualStyle="{x:Null}"
                                     Command="{Binding Source={StaticResource VmProxy}, Path=Data.OpenInBrowserCommand}"
@@ -491,10 +527,14 @@
                                         <Setter Property="Cursor"     Value="Arrow"/>
                                         <Setter Property="IsEnabled"  Value="False"/>
                                         <Setter Property="ToolTip"    Value="Port ikke åben"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="BorderBrush"     Value="Transparent"/>
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="Button">
                                                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
                                                             CornerRadius="4" Padding="{TemplateBinding Padding}">
                                                         <TextBlock x:Name="txt" Text=":8080"
                                                                    FontFamily="{TemplateBinding FontFamily}"
@@ -524,6 +564,10 @@
                                                 <Setter Property="Foreground" Value="#F06292"/>
                                                 <Setter Property="ToolTip"    Value="Åbn i browser (port 8080)"/>
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding Port8080Changed}" Value="True">
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                                <Setter Property="BorderBrush"     Value="#FFB300"/>
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
@@ -536,13 +580,29 @@
                 <DataGridTemplateColumn Header="Other" Width="65" CanUserSort="False" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Border Background="#261A38" CornerRadius="10" Padding="7,2"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    Visibility="{Binding IsPort502Open, Converter={StaticResource BoolToVisibilityConverter}}">
-                                <TextBlock Text="{Binding OtherPorts}"
+                            <Border x:Name="OtherBd" Background="#261A38" CornerRadius="10" Padding="7,2"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="502"
                                            FontSize="11" FontWeight="SemiBold"
                                            Foreground="#CE93D8"
                                            VerticalAlignment="Center"/>
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPort502Open}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <!-- Netop lukket: forbliver synlig med glødende ring, så
+                                                 lukningen ses, selvom porten ikke længere er åben. -->
+                                            <DataTrigger Binding="{Binding Port502Changed}" Value="True">
+                                                <Setter Property="Visibility"      Value="Visible"/>
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                                <Setter Property="BorderBrush"     Value="#FFB300"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                             </Border>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
